@@ -1,0 +1,16 @@
+[project]
+name = "unicon-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "sqlalchemy>=2.0.32",
+    "fastapi>=0.112.2",
+    "dotenv",
+    "python-dotenv",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
