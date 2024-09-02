@@ -45,13 +45,13 @@ def get_password_hash(password: str):
 
 def authenticate_user(username: str, password: str):
     with Session(engine) as session:
-        staff = session.exec(select(Staff).where(
-            Staff.username == username)).first()
-        if not staff:
+        user = session.scalars(select(User).where(
+            User.username == username)).first()
+        if not user:
             return False
-        if not verify_password(password, staff.encrypted_password):
+        if not verify_password(password, user.password):
             return False
-        return staff
+        return user
 
 ###############
 #  jwt utils  #
@@ -85,11 +85,10 @@ async def get_current_user(token: Annotated[str | None, Depends(oauth2_scheme)],
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         id = payload.get("sub")
         with Session(engine) as session:
-            staff = session.get(Staff, id)
-        if not staff:
+            user = session.get(User, id)
+        if not user:
             raise InvalidTokenError()
-
-        return staff
+        return user
 
     except InvalidTokenError:
         raise credentials_exception
