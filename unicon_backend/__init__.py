@@ -8,6 +8,7 @@ from .dependencies.auth import get_current_user
 from .helpers.constants import FRONTEND_URL
 from .models import User, initialise_tables
 from .routers.auth import router as auth_router
+from .utils.seed import seed
 
 logging.getLogger("passlib").setLevel(logging.ERROR)
 
@@ -16,6 +17,7 @@ app = FastAPI()
 origins = [FRONTEND_URL]
 
 initialise_tables()
+seed()
 
 
 app.add_middleware(

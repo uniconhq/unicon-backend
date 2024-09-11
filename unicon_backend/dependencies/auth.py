@@ -56,7 +56,7 @@ def authenticate_user(username: str, password: str):
 
 
 ###############
-#  jwt utils  #
+#  JWT utils  #
 ###############
 
 
@@ -72,7 +72,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 
 
 ###################
-# auth dependency #
+# Auth dependency #
 ###################
 
 
