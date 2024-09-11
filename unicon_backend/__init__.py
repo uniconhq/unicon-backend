@@ -1,22 +1,19 @@
-
-
+import logging
 from typing import Annotated
-from fastapi.middleware.cors import CORSMiddleware
+
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from .dependencies.auth import get_current_user
-from .routers.auth import router as auth_router
 from .helpers.constants import FRONTEND_URL
-from .models import initialise_tables, User
-import logging
+from .models import User, initialise_tables
+from .routers.auth import router as auth_router
 
-logging.getLogger('passlib').setLevel(logging.ERROR)
+logging.getLogger("passlib").setLevel(logging.ERROR)
 
 app = FastAPI()
 
-origins = [
-    FRONTEND_URL
-]
+origins = [FRONTEND_URL]
 
 initialise_tables()
 
@@ -26,7 +23,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 app.include_router(auth_router)

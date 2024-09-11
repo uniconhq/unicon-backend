@@ -1,7 +1,8 @@
-from ..dependencies.auth import get_password_hash
-from ..models import engine, User
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
+
+from ..dependencies.auth import get_password_hash
+from ..models import User, engine
 
 
 def clear_db(session: Session):

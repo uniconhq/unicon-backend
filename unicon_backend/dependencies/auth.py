@@ -1,14 +1,16 @@
-from typing import Annotated, Optional
-from fastapi.security import OAuth2PasswordBearer
-from passlib.context import CryptContext
 from datetime import datetime, timedelta, timezone
-from fastapi import Cookie, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
-from sqlalchemy import select
-from ..models import User, engine
+from typing import Annotated, Optional
+
 import jwt
+from fastapi import Cookie, Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
+from passlib.context import CryptContext
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
 from ..helpers.constants import SECRET_KEY
+from ..models import User, engine
 
 
 class OAuth2IgnoreError(OAuth2PasswordBearer):
@@ -22,7 +24,7 @@ class OAuth2IgnoreError(OAuth2PasswordBearer):
 
 
 # This url = login post url
-oauth2_scheme = OAuth2IgnoreError(tokenUrl='/auth/token')
+oauth2_scheme = OAuth2IgnoreError(tokenUrl="/auth/token")
 
 
 ALGORITHM = "HS256"
@@ -45,13 +47,13 @@ def get_password_hash(password: str):
 
 def authenticate_user(username: str, password: str):
     with Session(engine) as session:
-        user = session.scalars(select(User).where(
-            User.username == username)).first()
+        user = session.scalars(select(User).where(User.username == username)).first()
         if not user:
             return False
         if not verify_password(password, user.password):
             return False
         return user
+
 
 ###############
 #  jwt utils  #
@@ -68,17 +70,21 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+
 ###################
 # auth dependency #
 ###################
 
 
-async def get_current_user(token: Annotated[str | None, Depends(oauth2_scheme)], session: Annotated[str | None, Cookie()] = None):
-
+async def get_current_user(
+    token: Annotated[str | None, Depends(oauth2_scheme)],
+    session: Annotated[str | None, Cookie()] = None,
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"})
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
     try:
         token = token or session
