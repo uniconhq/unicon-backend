@@ -23,16 +23,17 @@ class File(BaseModel):
 
 
 class StepType(str, Enum):
-    PY_RUN_FUNCTION = "PY_RUN_FUNCTION"
+    PY_RUN_FUNCTION = "PY_RUN_FUNCTION_STEP"
 
 
-class Step(BaseModel):
+class Step(CustomBaseModel, abc.ABC, Generic[InputType, OutputType], polymorphic=True):
+    id: int
     type: StepType
 
 
-class PyRunFunctionStep(Step):
+class PyRunFunctionStep(Step[Any, Any]):
     function_name: str
-    arguments: list[str]
+    arguments: list[str | int]
     keyword_arguments: dict[str, str]
 
 
