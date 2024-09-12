@@ -48,4 +48,4 @@ def login(
 
 @router.get("/session")
 def get_user(staff: Annotated[User, Depends(get_current_user)]) -> UserPublic:
-    return staff
+    return UserPublic.model_validate(staff)

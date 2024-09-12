@@ -4,12 +4,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-if (DATABASE_URL := os.getenv("DATABASE_URL")) is None:
-    raise ValueError("DATABASE_URL environment variable not defined")
+
+def _get_env_var(name: str, default: str | None = None, required: bool = True):
+    value = os.getenv(name, default)
+    if (value is None) and required:
+        raise ValueError(f"{name} environment variable not defined")
+    return value
+
+
+DATABASE_URL: str = _get_env_var("DATABASE_URL")
 
 ##################
 #  auth configs  #
 ##################
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-FRONTEND_URL = os.getenv("FRONTEND_URL")
+SECRET_KEY: str = _get_env_var("SECRET_KEY", "", required=False)
+FRONTEND_URL = _get_env_var("FRONTEND_URL", required=False)

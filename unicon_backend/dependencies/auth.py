@@ -80,21 +80,21 @@ async def get_current_user(
     token: Annotated[str | None, Depends(oauth2_scheme)],
     session: Annotated[str | None, Cookie()] = None,
 ):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    if (token := token or session) is None:
+        raise Exception("No token")
 
     try:
-        token = token or session
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         id = payload.get("sub")
-        with Session(engine) as session:
-            user = session.get(User, id)
-        if not user:
+        with Session(engine) as db_session:
+            user = db_session.get(User, id)
+        if user is None:
             raise InvalidTokenError()
         return user
 
     except InvalidTokenError:
-        raise credentials_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
