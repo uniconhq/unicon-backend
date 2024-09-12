@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, SerializeAsAny
 
 from unicon_backend.evaluator.tasks.base import Task
 
@@ -6,4 +6,4 @@ from unicon_backend.evaluator.tasks.base import Task
 class Project(BaseModel):
     name: str
     description: str
-    tasks: list[Task]
+    tasks: list[SerializeAsAny[Task]]
