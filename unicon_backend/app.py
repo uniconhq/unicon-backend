@@ -4,11 +4,11 @@ from typing import Annotated
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .dependencies.auth import get_current_user
-from .helpers.constants import FRONTEND_URL
-from .models import User, initialise_tables
-from .routers.auth import router as auth_router
-from .utils.seed import seed
+from unicon_backend.dependencies.auth import get_current_user
+from unicon_backend.helpers.constants import FRONTEND_URL
+from unicon_backend.models import User, initialise_tables
+from unicon_backend.routers.auth import router as auth_router
+from unicon_backend.utils.seed import seed
 
 logging.getLogger("passlib").setLevel(logging.ERROR)
 

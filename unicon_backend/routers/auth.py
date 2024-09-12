@@ -5,13 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, ConfigDict
 
-from ..dependencies.auth import (
+from unicon_backend.dependencies.auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     authenticate_user,
     create_access_token,
     get_current_user,
 )
-from ..models import User
+from unicon_backend.models import User
 
 router = APIRouter(prefix="/auth")
 

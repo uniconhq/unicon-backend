@@ -9,8 +9,8 @@ from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..helpers.constants import SECRET_KEY
-from ..models import User, engine
+from unicon_backend.helpers.constants import SECRET_KEY
+from unicon_backend.models import User, engine
 
 
 class OAuth2IgnoreError(OAuth2PasswordBearer):

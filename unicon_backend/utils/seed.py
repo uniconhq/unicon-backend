@@ -1,8 +1,8 @@
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from ..dependencies.auth import get_password_hash
-from ..models import User, engine
+from unicon_backend.dependencies.auth import get_password_hash
+from unicon_backend.models import User, engine
 
 
 def clear_db(session: Session):
