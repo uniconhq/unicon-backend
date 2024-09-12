@@ -13,6 +13,8 @@ from unicon_backend.templates import template
 if TYPE_CHECKING:
     from unicon_backend.evaluator.answer import Answer
 
+OUTPUT_FOLDER = "output"
+
 
 class ProgrammingLanguage(str, Enum):
     PYTHON = "PYTHON"
@@ -55,7 +57,7 @@ class Testcase(BaseModel):
     steps: list[Step]
 
     def run(self, prefix: str, answer: "Answer"):
-        folder_path = os.path.join("output", prefix, str(self.id))
+        folder_path = os.path.join(OUTPUT_FOLDER, prefix, str(self.id))
         os.mkdir(folder_path)
         artifacts = answer.artifacts
         run_funcs = [step for step in self.steps if isinstance(
@@ -76,8 +78,8 @@ class ProgrammingTask(Task[Any, Any]):
 
     def run(self, answer: "Answer") -> bool:
         prefix = str(uuid4())
-        if "output" not in os.listdir():
-            os.mkdir("output")
-        os.mkdir(os.path.join("output", prefix))
+        if OUTPUT_FOLDER not in os.listdir():
+            os.mkdir(OUTPUT_FOLDER)
+        os.mkdir(os.path.join(OUTPUT_FOLDER, prefix))
         for testcase in self.testcases:
             testcase.run(prefix, answer)
