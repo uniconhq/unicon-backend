@@ -4,7 +4,7 @@
     "tasks": [
         {
             "id": 0,
-            "type": "MULTIPLE_RESPONSE",
+            "type": "MULTIPLE_RESPONSE_TASK",
             "question": "Who is in the teaching team?",
             "choices": [
                 "Prof X",
@@ -16,7 +16,7 @@
         },
         {
             "id": 1,
-            "type": "MULTIPLE_CHOICE",
+            "type": "MULTIPLE_CHOICE_TASK",
             "question": "What is the best search algorithm for Missionaries & Cannibals?",
             "choices": [
                 "BFS",
@@ -26,13 +26,13 @@
         },
         {
             "id": 2,
-            "type": "SHORT_ANSWER",
+            "type": "SHORT_ANSWER_TASK",
             "question": "Propose a state representation for the Missionaries & Cannibals problem if we want to formulate it as a search problem and define the corresponding actions.",
             "input": "hello world!"
         },
         {
             "id": 3,
-            "type": "PROGRAMMING",
+            "type": "PROGRAMMING_TASK",
             "question": "Implement Tree Search",
             "environment": {
                 "language": "PYTHON",
