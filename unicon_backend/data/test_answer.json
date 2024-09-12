@@ -1,0 +1,8 @@
+{
+  "artifacts": [
+    {
+      "file_name": "tree_search.py",
+      "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplemented()"
+    }
+  ]
+}
