@@ -3,10 +3,12 @@ from enum import Enum
 import os
 from typing import Any, TYPE_CHECKING, Generic
 from uuid import uuid4
+import requests
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from unicon_backend.evaluator.tasks.base import InputType, OutputType, Task
+from unicon_backend.helpers.constants import RUNNER_URL
 from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.templates import template
 
@@ -52,20 +54,33 @@ class PyRunFunctionStep(Step[Any, Any]):
         return f"{self.function_name}({', '.join(map(str, pass_to_function))})"
 
 
+class Request(BaseModel):
+    files: list[File]
+    environment: ProgrammingEnvironment
+    entrypoint: str
+
+    @model_validator(mode="after")
+    def check_entrypoint_in_files(self):
+        if (self.entrypoint not in [file.file_name for file in self.files]):
+            raise ValueError("entrypoint not in files")
+        return self
+
+
 class Testcase(BaseModel):
     id: int
     steps: list[Step]
 
-    def run(self, prefix: str, answer: "Answer"):
-        folder_path = os.path.join(OUTPUT_FOLDER, prefix, str(self.id))
-        os.mkdir(folder_path)
+    def run(self, answer: "Answer", environment: ProgrammingEnvironment):
         artifacts = answer.artifacts
         run_funcs = [step for step in self.steps if isinstance(
             step, PyRunFunctionStep)]
         file = template.render(
             prepend="", artifacts=artifacts, run_funcs=run_funcs)
-        with open(os.path.join(folder_path, "run.py"), "w") as f:
-            f.write(file)
+        request = Request(
+            files=[File(file_name="run.py", content=file)], environment=environment, entrypoint="run.py")
+        resp = requests.post(
+            f"{RUNNER_URL}/submissions", data=request.model_dump_json())
+        print(resp.json())
 
 
 class ProgrammingTask(Task[Any, Any]):
@@ -77,9 +92,5 @@ class ProgrammingTask(Task[Any, Any]):
     input: list[File]
 
     def run(self, answer: "Answer") -> bool:
-        prefix = str(uuid4())
-        if OUTPUT_FOLDER not in os.listdir():
-            os.mkdir(OUTPUT_FOLDER)
-        os.mkdir(os.path.join(OUTPUT_FOLDER, prefix))
         for testcase in self.testcases:
-            testcase.run(prefix, answer)
+            testcase.run(answer, self.environment)
