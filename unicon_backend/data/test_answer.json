@@ -1,8 +1,23 @@
-{
-  "artifacts": [
-    {
-      "file_name": "tree_search.py",
-      "content": "import queue\n\ndef mnc_tree_search(m, c):\n\treturn 5"
-    }
-  ]
-}
+[
+  {
+    "id": 0,
+    "expected": [0, 1]
+  },
+  {
+    "id": 1,
+    "expected": 0
+  },
+  {
+    "id": 2,
+    "expected": "hello world!"
+  },
+  {
+    "id": 3,
+    "expected": [
+      {
+        "file_name": "tree_search.py",
+        "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
+      }
+    ]
+  }
+]

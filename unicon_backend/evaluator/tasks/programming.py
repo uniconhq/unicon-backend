@@ -1,19 +1,14 @@
 import abc
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Generic
+from typing import Any, Generic, TypeVar
 
 import requests
 from pydantic import BaseModel, model_validator
 
-from unicon_backend.evaluator.tasks.base import InputType, OutputType, Task
+from unicon_backend.evaluator.tasks.base import Task
 from unicon_backend.helpers.constants import RUNNER_URL
 from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.templates import template
-
-if TYPE_CHECKING:
-    from unicon_backend.evaluator.answer import Answer
-
-OUTPUT_FOLDER = "output"
 
 
 class ProgrammingLanguage(str, Enum):
@@ -36,7 +31,13 @@ class StepType(str, Enum):
     PY_RUN_FUNCTION = "PY_RUN_FUNCTION_STEP"
 
 
-class Step(CustomBaseModel, abc.ABC, Generic[InputType, OutputType], polymorphic=True):
+SteptInputType = TypeVar("SteptInputType")
+SteptOutputType = TypeVar("SteptOutputType")
+
+
+class Step(
+    CustomBaseModel, abc.ABC, Generic[SteptInputType, SteptOutputType], polymorphic=True
+):
     id: int
     type: StepType
 
@@ -69,22 +70,31 @@ class Testcase(BaseModel):
     id: int
     steps: list[Step]
 
-    def run(self, answer: "Answer", environment: ProgrammingEnvironment):
-        artifacts = answer.artifacts
+    def run(self, input_files: list[File], environment: ProgrammingEnvironment):
         run_funcs = [step for step in self.steps if isinstance(step, PyRunFunctionStep)]
-        file = template.render(prepend="", artifacts=artifacts, run_funcs=run_funcs)
+        file = template.render(prepend="", artifacts=input_files, run_funcs=run_funcs)
+
+        print(f"Testcase File (run.py):\n {file}")
+
         request = Request(
             files=[File(file_name="run.py", content=file)],
             environment=environment,
             entrypoint="run.py",
         )
-        resp = requests.post(
-            f"{RUNNER_URL}/submissions", data=request.model_dump_json()
-        )
-        print(resp.json())
+
+        if RUNNER_URL:
+            resp = requests.post(
+                f"{RUNNER_URL}/submissions", data=request.model_dump_json()
+            )
+            print(resp.json())
+        else:
+            # TEMP
+            print("WARN: No programming task runner set!")
 
 
-class ProgrammingTask(Task[Any, Any]):
+# TODO: Implement different types of answer types
+# For example, `stdout` / `OutputFile` (for file comparison) / `File` (for running code and comparing output)
+class ProgrammingTask(Task[list[File], bool, list[File]]):
     question: str
     environment: ProgrammingEnvironment
     templates: list[File]
@@ -92,9 +102,15 @@ class ProgrammingTask(Task[Any, Any]):
 
     input: list[File]
 
-    def run(self, answer: "Answer") -> bool:
+    def run(self, _expected: list[File]) -> bool:
         for testcase in self.testcases:
-            testcase.run(answer, self.environment)
+            testcase.run(self.input, self.environment)
 
         # TODO: check output
         return True
+
+    def validate_answer(self, answer: Any) -> list[File]:
+        if not isinstance(answer, list):
+            raise ValueError("Answer must be a list of files")
+
+        return [File.model_validate(file) for file in answer]

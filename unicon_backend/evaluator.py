@@ -2,8 +2,7 @@ import argparse
 import os
 import sys
 
-from unicon_backend.evaluator.answer import Answer
-from unicon_backend.evaluator.project import Project
+from unicon_backend.evaluator.project import Project, ProjectAnswers
 
 if __name__ == "__main__":
 
@@ -23,7 +22,7 @@ if __name__ == "__main__":
     with open(args.submission) as def_fp:
         project: Project = Project.model_validate_json(def_fp.read())
 
-    with open(args.answer) as def_fp:
-        answer: Answer = Answer.model_validate_json(def_fp.read())
+    with open(args.answer) as answer_fp:
+        answer: ProjectAnswers = ProjectAnswers.model_validate_json(answer_fp.read())
 
     project.run(answer)
