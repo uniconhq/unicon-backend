@@ -2,7 +2,24 @@ import abc
 from enum import Enum
 from typing import Generic, TypeVar, Any
 
+from pydantic import BaseModel
+
 from unicon_backend.lib.common import CustomBaseModel
+
+TaskInputType = TypeVar("TaskInputType")
+TaskResultType = TypeVar("TaskResultType")
+TaskAnswerType = TypeVar("TaskAnswerType")
+
+
+class TaskEvaluationStatus(str, Enum):
+    SUCCESS = "SUCCESS"
+    PENDING = "PENDING"
+    SKIPPED = "SKIPPED"
+
+
+class TaskEvaluationResult(BaseModel, Generic[TaskResultType]):
+    status: TaskEvaluationStatus
+    result: TaskResultType | None
 
 
 class TaskType(str, Enum):
@@ -12,15 +29,10 @@ class TaskType(str, Enum):
     PROGRAMMING = "PROGRAMMING_TASK"
 
 
-TaskInputType = TypeVar("InputType")
-TaskOutputType = TypeVar("OutputType")
-TaskAnswerType = TypeVar("AnswerType")
-
-
 class Task(
     CustomBaseModel,
     abc.ABC,
-    Generic[TaskInputType, TaskOutputType, TaskAnswerType],
+    Generic[TaskInputType, TaskResultType, TaskAnswerType],
     polymorphic=True,
 ):
     id: int
@@ -30,7 +42,7 @@ class Task(
     input: TaskInputType
 
     @abc.abstractmethod
-    def run(self, expected: TaskAnswerType) -> TaskOutputType:
+    def run(self, expected: TaskAnswerType) -> TaskEvaluationResult[TaskResultType]:
         pass
 
     @abc.abstractmethod

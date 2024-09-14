@@ -19,6 +19,7 @@
     {
       "id": 2,
       "type": "SHORT_ANSWER_TASK",
+      "autograde": false,
       "question": "Propose a state representation for the Missionaries & Cannibals problem if we want to formulate it as a search problem and define the corresponding actions.",
       "input": "hello world!"
     },
