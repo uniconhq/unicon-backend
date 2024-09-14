@@ -19,4 +19,5 @@ DATABASE_URL: str = _get_env_var("DATABASE_URL")
 ##################
 
 SECRET_KEY: str = _get_env_var("SECRET_KEY", "", required=False)
-FRONTEND_URL = _get_env_var("FRONTEND_URL", required=False)
+FRONTEND_URL: str = _get_env_var("FRONTEND_URL", required=False)
+RUNNER_URL: str = _get_env_var("RUNNER_URL", required=False)

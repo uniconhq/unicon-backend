@@ -1,75 +1,65 @@
 {
-    "name": "Problem Set 1",
-    "description": "This assignment contains two problems: Missionaries & Cannibals and Pitcher Filling.",
-    "tasks": [
-        {
-            "id": 0,
-            "type": "MULTIPLE_RESPONSE_TASK",
-            "question": "Who is in the teaching team?",
-            "choices": [
-                "Prof X",
-                "Prof Y",
-                "Prof Z",
-                "Student A"
-            ],
-            "input": [0,2]
+  "name": "Problem Set 1",
+  "description": "This assignment contains two problems: Missionaries & Cannibals and Pitcher Filling.",
+  "tasks": [
+    {
+      "id": 0,
+      "type": "MULTIPLE_RESPONSE_TASK",
+      "question": "Who is in the teaching team?",
+      "choices": ["Prof X", "Prof Y", "Prof Z", "Student A"],
+      "input": [0, 2]
+    },
+    {
+      "id": 1,
+      "type": "MULTIPLE_CHOICE_TASK",
+      "question": "What is the best search algorithm for Missionaries & Cannibals?",
+      "choices": ["BFS", "DFS"],
+      "input": 0
+    },
+    {
+      "id": 2,
+      "type": "SHORT_ANSWER_TASK",
+      "question": "Propose a state representation for the Missionaries & Cannibals problem if we want to formulate it as a search problem and define the corresponding actions.",
+      "input": "hello world!"
+    },
+    {
+      "id": 3,
+      "type": "PROGRAMMING_TASK",
+      "question": "Implement Tree Search",
+      "environment": {
+        "language": "PYTHON",
+        "options": {
+          "version": "3.12"
         },
+        "time_limit": 10,
+        "memory_limit": 500
+      },
+      "templates": [
         {
-            "id": 1,
-            "type": "MULTIPLE_CHOICE_TASK",
-            "question": "What is the best search algorithm for Missionaries & Cannibals?",
-            "choices": [
-                "BFS",
-                "DFS"
-            ],
-            "input": 0
-        },
-        {
-            "id": 2,
-            "type": "SHORT_ANSWER_TASK",
-            "question": "Propose a state representation for the Missionaries & Cannibals problem if we want to formulate it as a search problem and define the corresponding actions.",
-            "input": "hello world!"
-        },
-        {
-            "id": 3,
-            "type": "PROGRAMMING_TASK",
-            "question": "Implement Tree Search",
-            "environment": {
-                "language": "PYTHON",
-                "options": {
-                    "version": "3.12"
-                },
-                "time_limit": 10,
-                "memory_limit": 500
-            },
-            "templates": [
-                {
-                    "file_name": "tree_search.py",
-                    "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
-                }
-            ],
-            "testcases": [
-                {
-                    "id": 0,
-                    "steps": [
-                        {
-                            "id": 1,
-                            "type": "PY_RUN_FUNCTION",
-                            "function": "mnc_tree_search",
-                            "args": [
-                                2,
-                                1
-                            ]
-                        }
-                    ]
-                }
-            ],
-            "input": [
-                {
-                    "file_name": "tree_search.py",
-                    "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
-                }
-            ]
+          "file_name": "tree_search.py",
+          "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
         }
-    ]
+      ],
+      "testcases": [
+        {
+          "id": 0,
+          "steps": [
+            {
+              "id": 1,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "function_name": "mnc_tree_search",
+              "arguments": [2, 1],
+              "keyword_arguments": {}
+            }
+          ]
+        }
+      ],
+      "input": [
+        {
+          "file_name": "tree_search.py",
+          "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
+        }
+      ]
+    }
+  ]
 }
