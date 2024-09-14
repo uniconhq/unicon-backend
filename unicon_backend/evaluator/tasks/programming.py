@@ -5,7 +5,11 @@ from typing import Any, Generic, TypeVar
 import requests
 from pydantic import BaseModel, model_validator
 
-from unicon_backend.evaluator.tasks.base import Task
+from unicon_backend.evaluator.tasks.base import (
+    Task,
+    TaskEvaluationResult,
+    TaskEvaluationStatus,
+)
 from unicon_backend.helpers.constants import RUNNER_URL
 from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.templates import template
@@ -102,12 +106,12 @@ class ProgrammingTask(Task[list[File], bool, list[File]]):
 
     input: list[File]
 
-    def run(self, _expected: list[File]) -> bool:
+    def run(self, _expected: list[File]) -> TaskEvaluationResult[bool]:
         for testcase in self.testcases:
             testcase.run(self.input, self.environment)
 
-        # TODO: check output
-        return True
+        # TODO: check output and handle pending testcases
+        return TaskEvaluationResult(status=TaskEvaluationStatus.SUCCESS, result=True)
 
     def validate_answer(self, answer: Any) -> list[File]:
         if not isinstance(answer, list):
