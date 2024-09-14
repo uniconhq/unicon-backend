@@ -9,7 +9,7 @@ on:
 
 jobs:
   ci:
-    name: format lint, and type-check
+    name: format, lint and type-check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
