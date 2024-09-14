@@ -2,8 +2,8 @@ import argparse
 import os
 import sys
 
-from unicon_backend.evaluator.project import Project
 from unicon_backend.evaluator.answer import Answer
+from unicon_backend.evaluator.project import Project
 
 if __name__ == "__main__":
 
@@ -13,8 +13,7 @@ if __name__ == "__main__":
             exit(exit_code)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("submission", type=str,
-                        help="Path to the submission file")
+    parser.add_argument("submission", type=str, help="Path to the submission file")
     parser.add_argument("answer", type=str, help="Path to the answer file")
 
     args = parser.parse_args()

@@ -1,8 +1,8 @@
 from pydantic import BaseModel, SerializeAsAny
 
+from unicon_backend.evaluator.answer import Answer
 from unicon_backend.evaluator.tasks.base import Task
 from unicon_backend.evaluator.tasks.programming import ProgrammingTask
-from unicon_backend.evaluator.answer import Answer
 
 
 class Project(BaseModel):

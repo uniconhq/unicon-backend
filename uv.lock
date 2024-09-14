@@ -603,6 +603,18 @@ wheels = [
 ]
 
 [[package]]
+name = "types-requests"
+version = "2.32.0.20240914"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9b/9e/aea33405c230cc3984c9f1065012d3a2003cef910730c367a0e91e7a4901/types-requests-2.32.0.20240914.tar.gz", hash = "sha256:2850e178db3919d9bf809e434eef65ba49d0e7e33ac92d588f4a5e295fffd405", size = 18030 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8f/55/ea44dad71b9d92f86198f7448f5ba46ac919355f4f69bb1c0fa1af02b1b4/types_requests-2.32.0.20240914-py3-none-any.whl", hash = "sha256:59c2f673eb55f32a99b2894faf6020e1a9f4a402ad0f192bfee0b64469054310", size = 15838 },
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.12.2"
 source = { registry = "https://pypi.org/simple" }
@@ -629,6 +641,7 @@ dependencies = [
 dev = [
     { name = "mypy" },
     { name = "types-passlib" },
+    { name = "types-requests" },
 ]
 
 [package.metadata]
@@ -646,6 +659,16 @@ requires-dist = [
 dev = [
     { name = "mypy", specifier = ">=1.11.2" },
     { name = "types-passlib", specifier = ">=1.7.7.20240819" },
+    { name = "types-requests", specifier = ">=2.32.0.20240914" },
+]
+
+[[package]]
+name = "urllib3"
+version = "2.2.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ed/63/22ba4ebfe7430b76388e7cd448d5478814d3032121827c12a2cc287e2260/urllib3-2.2.3.tar.gz", hash = "sha256:e7d814a81dad81e6caf2ec9fdedb284ecc9c73076b62654547cc64ccdcae26e9", size = 300677 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/d9/5f4c13cecde62396b0d3fe530a50ccea91e7dfc1ccf0e09c228841bb5ba8/urllib3-2.2.3-py3-none-any.whl", hash = "sha256:ca899ca043dcb1bafa3e262d73aa25c465bfb49e0bd9dd5d59f1d0acba2f8fac", size = 126338 },
 ]
 
 [[package]]
