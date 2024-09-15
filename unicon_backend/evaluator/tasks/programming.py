@@ -1,5 +1,7 @@
 import abc
 from enum import Enum
+from http import HTTPStatus
+import time
 from typing import Any, Generic, TypeVar
 
 import requests
@@ -90,6 +92,12 @@ class Testcase(BaseModel):
             resp = requests.post(
                 f"{RUNNER_URL}/submissions", data=request.model_dump_json()
             )
+            submission_id = resp.json()["submission_id"]
+            while True:
+                resp = requests.get(f"{RUNNER_URL}/submissions/{submission_id}")
+                if resp.status_code == HTTPStatus.ACCEPTED:
+                    break
+                time.sleep(1)
             print(resp.json())
         else:
             # TEMP
