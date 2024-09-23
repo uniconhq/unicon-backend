@@ -1,10 +1,7 @@
 import abc
 from enum import Enum
-from http import HTTPStatus
-import time
 from typing import Any, Generic, TypeVar
 
-import requests
 from pydantic import BaseModel, model_validator
 
 from unicon_backend.evaluator.tasks.base import (
@@ -15,6 +12,8 @@ from unicon_backend.evaluator.tasks.base import (
 from unicon_backend.helpers.constants import RUNNER_URL
 from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.templates import template
+
+import pika
 
 
 class ProgrammingLanguage(str, Enum):
@@ -91,7 +90,11 @@ class Testcase(BaseModel):
 
         print(f"Testcase File (run.py):\n {file}")
 
-        user_result = self._run_code(file, environment)
+        self._run_code(file, environment)
+
+    def check(self, user_result, environment: ProgrammingEnvironment):
+        """This part currently not used: (_run_code) doesnt return the result immediately anymore"""
+        run_funcs = [step for step in self.steps if isinstance(step, PyRunFunctionStep)]
 
         check_steps = [step for step in self.steps if isinstance(step, CheckOutputStep)]
         for check_step in check_steps:
@@ -121,20 +124,21 @@ class Testcase(BaseModel):
             print("WARN: No programming task runner set!")
             return
 
-        # 1. Run the user's code.
-        resp = requests.post(
-            f"{RUNNER_URL}/submissions", data=request.model_dump_json()
+        # Send a request to the runner via MQ
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host="localhost")
         )
-        submission_id = resp.json()["submission_id"]
-        while True:
-            resp = requests.get(f"{RUNNER_URL}/submissions/{submission_id}")
-            if resp.status_code == HTTPStatus.OK:
-                break
-            time.sleep(1)
+        send_channel = connection.channel()
+        send_channel.queue_declare(queue="task_runner", durable=True)
 
-        # checking
-        user_result = resp.json()
-        return user_result
+        message = request.model_dump_json()
+        send_channel.basic_publish(
+            exchange="",
+            routing_key="task_runner",
+            body=message,
+            properties=pika.BasicProperties(delivery_mode=pika.DeliveryMode.Persistent),
+        )
+        connection.close()
 
 
 # TODO: Implement different types of answer types
