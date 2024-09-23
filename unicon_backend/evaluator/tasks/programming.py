@@ -132,12 +132,7 @@ class Testcase(BaseModel):
         send_channel.queue_declare(queue="task_runner", durable=True)
 
         message = request.model_dump_json()
-        send_channel.basic_publish(
-            exchange="",
-            routing_key="task_runner",
-            body=message,
-            properties=pika.BasicProperties(delivery_mode=pika.DeliveryMode.Persistent),
-        )
+        send_channel.basic_publish(exchange="", routing_key="task_runner", body=message)
         connection.close()
 
 
