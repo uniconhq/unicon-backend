@@ -1,5 +1,7 @@
 import abc
 from enum import Enum
+from http import HTTPStatus
+import time
 from typing import Any, Generic, TypeVar
 
 import requests
@@ -33,6 +35,7 @@ class File(BaseModel):
 
 class StepType(str, Enum):
     PY_RUN_FUNCTION = "PY_RUN_FUNCTION_STEP"
+    CHECK_OUTPUT = "CHECK_OUTPUT_STEP"
 
 
 SteptInputType = TypeVar("SteptInputType")
@@ -58,6 +61,14 @@ class PyRunFunctionStep(Step[Any, Any]):
         return f"{self.function_name}({', '.join(map(str, pass_to_function))})"
 
 
+class OutputFile(BaseModel):
+    value: str
+
+
+class CheckOutputStep(Step[Any, Any]):
+    value: File | OutputFile
+
+
 class Request(BaseModel):
     files: list[File]
     environment: ProgrammingEnvironment
@@ -80,20 +91,50 @@ class Testcase(BaseModel):
 
         print(f"Testcase File (run.py):\n {file}")
 
+        user_result = self._run_code(file, environment)
+
+        check_steps = [step for step in self.steps if isinstance(step, CheckOutputStep)]
+        for check_step in check_steps:
+            if isinstance(check_step.value, OutputFile):
+                if check_step.value.value != user_result["stdout"]:
+                    user_result["status"] = "WA"
+                    break
+            if isinstance(check_step.value, File):
+                sample_file = template.render(
+                    prepend="", artifacts=[check_step.value], run_funcs=run_funcs
+                )
+                correct_output = self._run_code(sample_file, environment)
+                if correct_output["stdout"] != user_result["stdout"]:
+                    user_result["status"] = "WA"
+                    break
+
+        return user_result
+
+    def _run_code(self, file: str, environment: ProgrammingEnvironment):
         request = Request(
             files=[File(file_name="run.py", content=file)],
             environment=environment,
             entrypoint="run.py",
         )
 
-        if RUNNER_URL:
-            resp = requests.post(
-                f"{RUNNER_URL}/submissions", data=request.model_dump_json()
-            )
-            print(resp.json())
-        else:
-            # TEMP
+        if not RUNNER_URL:
             print("WARN: No programming task runner set!")
+            return
+
+        # 1. Run the user's code.
+        resp = requests.post(
+            f"{RUNNER_URL}/submissions", data=request.model_dump_json()
+        )
+        submission_id = resp.json()["submission_id"]
+        while True:
+            resp = requests.get(f"{RUNNER_URL}/submissions/{submission_id}")
+            if resp.status_code == HTTPStatus.OK:
+                break
+            time.sleep(1)
+
+        # checking
+        user_result = resp.json()
+        return user_result
 
 
 # TODO: Implement different types of answer types
@@ -108,7 +149,7 @@ class ProgrammingTask(Task[list[File], bool, list[File]]):
 
     def run(self, _expected: list[File]) -> TaskEvaluationResult[bool]:
         for testcase in self.testcases:
-            testcase.run(self.input, self.environment)
+            testcase.run(_expected, self.environment)
 
         # TODO: check output and handle pending testcases
         return TaskEvaluationResult(status=TaskEvaluationStatus.SUCCESS, result=True)
