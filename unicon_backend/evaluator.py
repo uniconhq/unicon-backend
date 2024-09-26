@@ -39,6 +39,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "answer", type=arg_file_type(parser), help="Path to the answer file"
     )
+    parser.add_argument(
+        "--task-id", type=int, help="Run only the task with the specified ID"
+    )
 
     args = parser.parse_args()
 
@@ -50,4 +53,4 @@ if __name__ == "__main__":
         ProjectExpectedAnswers.model_validate_json(args.answer.read())
     )
 
-    project.run(user_inputs, expected_answers)
+    project.run(user_inputs, expected_answers, task_id=args.task_id)

@@ -41,7 +41,10 @@ class Project(BaseModel):
     tasks: list[SerializeAsAny[Task]]
 
     def run(
-        self, user_inputs: ProjectUserInputs, expected_answers: ProjectExpectedAnswers
+        self,
+        user_inputs: ProjectUserInputs,
+        expected_answers: ProjectExpectedAnswers,
+        task_id: int | None = None,
     ):
         user_input_index: dict[int, UserInput] = {
             task_input.id: task_input for task_input in user_inputs
@@ -50,7 +53,13 @@ class Project(BaseModel):
             task_answer.id: task_answer for task_answer in expected_answers
         }
 
-        for task in self.tasks:
+        tasks_to_run = (
+            self.tasks
+            if task_id is None
+            else [task for task in self.tasks if task.id == task_id]
+        )
+
+        for task in tasks_to_run:
             if (task_user_input := user_input_index.get(task.id)) is None:
                 print(f"WARN: Task {task.id} has no user input")
                 continue
