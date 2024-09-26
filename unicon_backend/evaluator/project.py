@@ -1,16 +1,32 @@
-from pydantic import BaseModel, RootModel, SerializeAsAny
 from typing import Any
+
+from pydantic import BaseModel, RootModel, SerializeAsAny
 
 from unicon_backend.evaluator.tasks.base import Task
 
 
-class Answer(BaseModel):
+class ExpectedAnswer(BaseModel):
     id: int
-    expected: Any
+    expected_answer: Any
 
 
-class ProjectAnswers(RootModel):
-    root: list[Answer]
+class UserInput(BaseModel):
+    id: int
+    user_input: Any
+
+
+class ProjectExpectedAnswers(RootModel):
+    root: list[ExpectedAnswer]
+
+    def __iter__(self):
+        return iter(self.root)
+
+    def __getitem__(self, item):
+        return self.root[item]
+
+
+class ProjectUserInputs(RootModel):
+    root: list[UserInput]
 
     def __iter__(self):
         return iter(self.root)
@@ -24,15 +40,29 @@ class Project(BaseModel):
     description: str
     tasks: list[SerializeAsAny[Task]]
 
-    def run(self, answers: ProjectAnswers):
-        answer_index: dict[int, Answer] = {
-            task_answer.id: task_answer for task_answer in answers
+    def run(
+        self, user_inputs: ProjectUserInputs, expected_answers: ProjectExpectedAnswers
+    ):
+        user_input_index: dict[int, UserInput] = {
+            task_input.id: task_input for task_input in user_inputs
+        }
+        expected_answer_index: dict[int, ExpectedAnswer] = {
+            task_answer.id: task_answer for task_answer in expected_answers
         }
 
         for task in self.tasks:
-            if (task_answer := answer_index.get(task.id)) is None:
+            if (task_user_input := user_input_index.get(task.id)) is None:
+                print(f"WARN: Task {task.id} has no user input")
+                continue
+
+            if (task_expected_answer := expected_answer_index.get(task.id)) is None:
                 print(f"WARN: Task {task.id} has no answer")
                 continue
 
-            _task_out = task.run(task.validate_answer(task_answer.expected))
+            print(f"Running task {task.id}")
+
+            _task_out = task.run(
+                task.validate_user_input(task_user_input.user_input),
+                task.validate_expected_answer(task_expected_answer.expected_answer),
+            )
             print(f"Task {task.id} output: {_task_out}")

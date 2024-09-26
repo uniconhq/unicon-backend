@@ -1,20 +1,16 @@
 import abc
+import time
 from enum import Enum
 from http import HTTPStatus
-import time
+from itertools import groupby
 from typing import Any, Generic, TypeVar
 
 import requests
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, RootModel, model_validator
 
-from unicon_backend.evaluator.tasks.base import (
-    Task,
-    TaskEvaluationResult,
-    TaskEvaluationStatus,
-)
+from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus
 from unicon_backend.helpers.constants import RUNNER_URL
 from unicon_backend.lib.common import CustomBaseModel
-from unicon_backend.templates import template
 
 
 class ProgrammingLanguage(str, Enum):
@@ -33,43 +29,7 @@ class File(BaseModel):
     content: str
 
 
-class StepType(str, Enum):
-    PY_RUN_FUNCTION = "PY_RUN_FUNCTION_STEP"
-    CHECK_OUTPUT = "CHECK_OUTPUT_STEP"
-
-
-SteptInputType = TypeVar("SteptInputType")
-SteptOutputType = TypeVar("SteptOutputType")
-
-
-class Step(
-    CustomBaseModel, abc.ABC, Generic[SteptInputType, SteptOutputType], polymorphic=True
-):
-    id: int
-    type: StepType
-
-
-class PyRunFunctionStep(Step[Any, Any]):
-    function_name: str
-    arguments: list[str | int]
-    keyword_arguments: dict[str, str]
-
-    def get_code(self):
-        pass_to_function = self.arguments + [
-            f"{key}={value}" for key, value in self.keyword_arguments.items()
-        ]
-        return f"{self.function_name}({', '.join(map(str, pass_to_function))})"
-
-
-class OutputFile(BaseModel):
-    value: str
-
-
-class CheckOutputStep(Step[Any, Any]):
-    value: File | OutputFile
-
-
-class Request(BaseModel):
+class RunnerRequest(BaseModel):
     files: list[File]
     environment: ProgrammingEnvironment
     entrypoint: str
@@ -81,81 +41,187 @@ class Request(BaseModel):
         return self
 
 
+class RunnerResponse(BaseModel):
+    # Reference: https://github.com/uniconhq/unicon-runner/blob/main/unicon_runner/executor/run.py#L69-L73
+    status: int
+    stdout: str
+    stderr: str
+
+
+def run_program(
+    files: list[File],
+    environment: ProgrammingEnvironment,
+    entrypoint: str,
+    wait: bool = False,
+) -> RunnerResponse | None:
+    if not RUNNER_URL:
+        print("WARN: No programming task runner set!")
+        return None
+
+    runner_resp = requests.post(
+        f"{RUNNER_URL}/run",
+        data=RunnerRequest(
+            files=files,
+            environment=environment,
+            entrypoint=entrypoint,
+        ).model_dump_json(),
+    )
+
+    submission_id = runner_resp.json()["submission_id"]
+    if not wait:
+        return submission_id
+
+    while True:
+        resp = requests.get(f"{RUNNER_URL}/submissions/{submission_id}")
+        if resp.status_code == HTTPStatus.OK:
+            break
+        time.sleep(1)
+
+    return RunnerResponse.model_validate(resp.json())
+
+
+class StepType(str, Enum):
+    PY_RUN_FUNCTION = "PY_RUN_FUNCTION_STEP"
+    STDOUT_COMPARE = "STDOUT_COMPARE_STEP"
+
+
+StepInputType = TypeVar("StepInputType")
+StepExpectedAnswer = TypeVar("StepExpectedAnswer")
+StepOutputType = TypeVar("StepOutputType")
+
+
+class Step(
+    CustomBaseModel,
+    abc.ABC,
+    Generic[StepInputType, StepExpectedAnswer, StepOutputType],
+    polymorphic=True,
+):
+    id: int
+    type: StepType
+
+    @abc.abstractmethod
+    def run(
+        self,
+        user_input: StepInputType,
+        expected_answer: StepExpectedAnswer,
+        environment: ProgrammingEnvironment,
+    ) -> StepOutputType:
+        pass
+
+
+class PyRunFunctionStep(Step[list[File], None, Any]):
+    file_name: str
+    function_name: str
+    arguments: list[int | str]
+    keyword_arguments: dict[str, str]
+
+    def run(
+        self, user_input: list[File], _: None, environment: ProgrammingEnvironment
+    ) -> Any:
+        def stringify_arg(arg: int | str) -> str:
+            return str(arg) if isinstance(arg, int) else f'"{arg}"'
+
+        if not any(f.file_name == self.file_name for f in user_input):
+            raise ValueError(f"File {self.file_name} not found in input files")
+
+        func_args_kwargs = [stringify_arg(arg) for arg in self.arguments] + [
+            f"{k}={stringify_arg(v)}" for k, v in self.keyword_arguments.items()
+        ]
+        func_invocation = f"{self.function_name}({', '.join(func_args_kwargs)})"
+        assembled_code = f"from {self.file_name} import {self.function_name}\n\nprint({func_invocation})"
+
+        # TODO: Standardize runner response
+        # For now, just return the stdout
+        return run_program(
+            user_input + [File(file_name="__run.py", content=assembled_code)],
+            environment,
+            "__run.py",
+        )
+
+
+class StdoutCompareStep(Step[RunnerResponse | None, str, bool]):
+    def run(
+        self,
+        input: RunnerResponse | None,
+        expected_answer: str,
+        _: ProgrammingEnvironment,
+    ) -> bool:
+        if input is None:
+            print("WARN: no input to compare")
+            return False
+        return input.stdout == expected_answer
+
+
+class ProgrammingTaskExpectedAnswer(BaseModel):
+    testcase_id: int
+    step_id: int
+    expected_answer: Any
+
+
 class Testcase(BaseModel):
     id: int
     steps: list[Step]
 
-    def run(self, input_files: list[File], environment: ProgrammingEnvironment):
-        run_funcs = [step for step in self.steps if isinstance(step, PyRunFunctionStep)]
-        file = template.render(prepend="", artifacts=input_files, run_funcs=run_funcs)
+    def run(
+        self,
+        user_input: list[File],
+        expected_answer: list[ProgrammingTaskExpectedAnswer],
+        environment: ProgrammingEnvironment,
+    ):
+        expected_answer_by_step = {
+            step_expected_answer.step_id: step_expected_answer.expected_answer
+            for step_expected_answer in expected_answer
+        }
 
-        print(f"Testcase File (run.py):\n {file}")
+        # TEMP: Assume that steps are a linear sequence and run them in order
+        step_idx: int = 0
+        prev_step_output: Any = user_input
+        while step_idx < len(self.steps):
+            step = self.steps[step_idx]
 
-        user_result = self._run_code(file, environment)
+            step_expected_answer = expected_answer_by_step.get(step.id)
+            step_output = step.run(prev_step_output, step_expected_answer, environment)
 
-        check_steps = [step for step in self.steps if isinstance(step, CheckOutputStep)]
-        for check_step in check_steps:
-            if isinstance(check_step.value, OutputFile):
-                if check_step.value.value != user_result["stdout"]:
-                    user_result["status"] = "WA"
-                    break
-            if isinstance(check_step.value, File):
-                sample_file = template.render(
-                    prepend="", artifacts=[check_step.value], run_funcs=run_funcs
-                )
-                correct_output = self._run_code(sample_file, environment)
-                if correct_output["stdout"] != user_result["stdout"]:
-                    user_result["status"] = "WA"
-                    break
+            prev_step_output = step_output
+            step_idx += 1
 
-        return user_result
-
-    def _run_code(self, file: str, environment: ProgrammingEnvironment):
-        request = Request(
-            files=[File(file_name="run.py", content=file)],
-            environment=environment,
-            entrypoint="run.py",
-        )
-
-        if not RUNNER_URL:
-            print("WARN: No programming task runner set!")
-            return
-
-        # 1. Run the user's code.
-        resp = requests.post(
-            f"{RUNNER_URL}/submissions", data=request.model_dump_json()
-        )
-        submission_id = resp.json()["submission_id"]
-        while True:
-            resp = requests.get(f"{RUNNER_URL}/submissions/{submission_id}")
-            if resp.status_code == HTTPStatus.OK:
-                break
-            time.sleep(1)
-
-        # checking
-        user_result = resp.json()
-        return user_result
+        return prev_step_output
 
 
-# TODO: Implement different types of answer types
-# For example, `stdout` / `OutputFile` (for file comparison) / `File` (for running code and comparing output)
-class ProgrammingTask(Task[list[File], bool, list[File]]):
+class ProgrammingTask(Task[list[File], bool, list[ProgrammingTaskExpectedAnswer]]):
     question: str
     environment: ProgrammingEnvironment
     templates: list[File]
     testcases: list[Testcase]
 
-    input: list[File]
+    def run(
+        self,
+        user_input: list[File],
+        expected_answer: list[ProgrammingTaskExpectedAnswer],
+    ) -> TaskEvalResult[bool]:
+        expected_answer_by_testcase = {
+            testcase_id: list(group)
+            for testcase_id, group in groupby(expected_answer, lambda x: x.testcase_id)
+        }
 
-    def run(self, _expected: list[File]) -> TaskEvaluationResult[bool]:
         for testcase in self.testcases:
-            testcase.run(_expected, self.environment)
+            testcase_expected_answer = expected_answer_by_testcase.get(testcase.id)
+            if not testcase_expected_answer:
+                print(f"WARN: Testcase {testcase.id} has no expected answer")
+                continue
+            testcase.run(user_input, testcase_expected_answer, self.environment)
 
         # TODO: check output and handle pending testcases
-        return TaskEvaluationResult(status=TaskEvaluationStatus.SUCCESS, result=True)
+        return TaskEvalResult(status=TaskEvalStatus.SUCCESS, result=False)
 
-    def validate_answer(self, answer: Any) -> list[File]:
-        if not isinstance(answer, list):
-            raise ValueError("Answer must be a list of files")
+    def validate_user_input(self, user_input: Any) -> list[File]:
+        return RootModel[list[File]].model_validate(user_input).root
 
-        return [File.model_validate(file) for file in answer]
+    def validate_expected_answer(
+        self, expected_answer: Any
+    ) -> list[ProgrammingTaskExpectedAnswer]:
+        return (
+            RootModel[list[ProgrammingTaskExpectedAnswer]]
+            .model_validate(expected_answer)
+            .root
+        )
