@@ -3,7 +3,7 @@ import time
 from enum import Enum
 from http import HTTPStatus
 from itertools import groupby
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, Literal
 
 import requests
 from pydantic import BaseModel, RootModel, model_validator
@@ -43,6 +43,7 @@ class RunnerRequest(BaseModel):
 
 class RunnerResponse(BaseModel):
     # Reference: https://github.com/uniconhq/unicon-runner/blob/main/unicon_runner/executor/run.py#L69-L73
+    submission_id: str
     status: int
     stdout: str
     stderr: str
@@ -53,10 +54,10 @@ def run_program(
     environment: ProgrammingEnvironment,
     entrypoint: str,
     wait: bool = False,
-) -> RunnerResponse | None:
+) -> RunnerResponse:
     if not RUNNER_URL:
-        print("WARN: No programming task runner set!")
-        return None
+        print("WARN: No programming task runner set! Using dummy response.")
+        return RunnerResponse(submission_id="", status=0, stdout="", stderr="")
 
     runner_resp = requests.post(
         f"{RUNNER_URL}/run",
@@ -69,7 +70,9 @@ def run_program(
 
     submission_id = runner_resp.json()["submission_id"]
     if not wait:
-        return submission_id
+        return RunnerResponse(
+            submission_id=submission_id, status=0, stdout="", stderr=""
+        )
 
     while True:
         resp = requests.get(f"{RUNNER_URL}/submissions/{submission_id}")
@@ -82,12 +85,15 @@ def run_program(
 
 class StepType(str, Enum):
     PY_RUN_FUNCTION = "PY_RUN_FUNCTION_STEP"
-    STDOUT_COMPARE = "STDOUT_COMPARE_STEP"
+    EXTRACT_PROGRAM_OUTPUT = "EXTRACT_PROGRAM_OUTPUT_STEP"
+    STRING_MATCH = "STRING_MATCH_STEP"
 
 
 StepInputType = TypeVar("StepInputType")
 StepExpectedAnswer = TypeVar("StepExpectedAnswer")
 StepOutputType = TypeVar("StepOutputType")
+
+type Unused = None
 
 
 class Step(
@@ -109,16 +115,17 @@ class Step(
         pass
 
 
-class PyRunFunctionStep(Step[list[File], None, Any]):
+class PyRunFunctionStep(Step[list[File], Unused, RunnerResponse]):
     file_name: str
     function_name: str
     arguments: list[int | str]
     keyword_arguments: dict[str, str]
 
     def run(
-        self, user_input: list[File], _: None, environment: ProgrammingEnvironment
-    ) -> Any:
+        self, user_input: list[File], _: Unused, environment: ProgrammingEnvironment
+    ) -> RunnerResponse:
         def stringify_arg(arg: int | str) -> str:
+            # Integers are passed as-is, strings are wrapped in double quotes
             return str(arg) if isinstance(arg, int) else f'"{arg}"'
 
         if not any(f.file_name == self.file_name for f in user_input):
@@ -128,10 +135,9 @@ class PyRunFunctionStep(Step[list[File], None, Any]):
             f"{k}={stringify_arg(v)}" for k, v in self.keyword_arguments.items()
         ]
         func_invocation = f"{self.function_name}({', '.join(func_args_kwargs)})"
+        # TODO: Remove dependence on `print` and `stdout`
         assembled_code = f"from {self.file_name} import {self.function_name}\n\nprint({func_invocation})"
 
-        # TODO: Standardize runner response
-        # For now, just return the stdout
         return run_program(
             user_input + [File(file_name="__run.py", content=assembled_code)],
             environment,
@@ -139,17 +145,16 @@ class PyRunFunctionStep(Step[list[File], None, Any]):
         )
 
 
-class StdoutCompareStep(Step[RunnerResponse | None, str, bool]):
-    def run(
-        self,
-        input: RunnerResponse | None,
-        expected_answer: str,
-        _: ProgrammingEnvironment,
-    ) -> bool:
-        if input is None:
-            print("WARN: no input to compare")
-            return False
-        return input.stdout == expected_answer
+class ExtractProgramOutputStep(Step[RunnerResponse, Unused, str]):
+    key: Literal["stdout", "stderr", "status"]
+
+    def run(self, user_input: RunnerResponse, *__unused_args) -> str:
+        return getattr(user_input, self.key)
+
+
+class StringMatchStep(Step[str, str, bool]):
+    def run(self, input: str, expected_answer: str, *__unused_args) -> bool:
+        return input == expected_answer
 
 
 class ProgrammingTaskExpectedAnswer(BaseModel):
@@ -181,6 +186,7 @@ class Testcase(BaseModel):
 
             step_expected_answer = expected_answer_by_step.get(step.id)
             step_output = step.run(prev_step_output, step_expected_answer, environment)
+            print(f"Step {step.id} [{step.type}] output: {step_output}")
 
             prev_step_output = step_output
             step_idx += 1
