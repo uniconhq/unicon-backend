@@ -6,13 +6,21 @@
       "id": 0,
       "type": "MULTIPLE_RESPONSE_TASK",
       "question": "Who is in the teaching team?",
-      "choices": ["Prof X", "Prof Y", "Prof Z", "Student A"]
+      "choices": [
+        "Prof X",
+        "Prof Y",
+        "Prof Z",
+        "Student A"
+      ]
     },
     {
       "id": 1,
       "type": "MULTIPLE_CHOICE_TASK",
       "question": "What is the best search algorithm for Missionaries & Cannibals?",
-      "choices": ["BFS", "DFS"]
+      "choices": [
+        "BFS",
+        "DFS"
+      ]
     },
     {
       "id": 2,
@@ -47,12 +55,318 @@
               "type": "PY_RUN_FUNCTION_STEP",
               "file_name": "tree_search.py",
               "function_name": "mnc_tree_search",
-              "arguments": ["2", 1],
+              "arguments": [
+                2,
+                1
+              ],
               "keyword_arguments": {}
             },
             {
               "id": 2,
-              "type": "STDOUT_COMPARE_STEP"
+              "type": "EXTRACT_PROGRAM_OUTPUT_STEP",
+              "key": "stdout"
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP"
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "steps": [
+            {
+              "id": 1,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "file_name": "tree_search.py",
+              "function_name": "mnc_tree_search",
+              "arguments": [
+                3,
+                3
+              ],
+              "keyword_arguments": {}
+            },
+            {
+              "id": 2,
+              "type": "EXTRACT_PROGRAM_OUTPUT_STEP",
+              "key": "stdout"
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "steps": [
+            {
+              "id": 1,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "file_name": "tree_search.py",
+              "function_name": "mnc_tree_search",
+              "arguments": [
+                2,
+                2
+              ],
+              "keyword_arguments": {}
+            },
+            {
+              "id": 2,
+              "type": "EXTRACT_PROGRAM_OUTPUT_STEP",
+              "key": "stdout"
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "PROGRAMMING_TASK",
+      "question": "Implement Graph Search",
+      "environment": {
+        "language": "PYTHON",
+        "options": {
+          "version": "3.12"
+        },
+        "time_limit": 10,
+        "memory_limit": 500
+      },
+      "templates": [
+        {
+          "file_name": "graph_search.py",
+          "content": "import queue\n\ndef mnc_graph_search(m, c):\n\traise NotImplememented()"
+        }
+      ],
+      "testcases": [
+        {
+          "id": 0,
+          "steps": [
+            {
+              "id": 1,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "file_name": "graph_search.py",
+              "function_name": "mnc_graph_search",
+              "arguments": [
+                2,
+                1
+              ],
+              "keyword_arguments": {}
+            },
+            {
+              "id": 2,
+              "type": "EXTRACT_PROGRAM_OUTPUT_STEP",
+              "key": "stdout"
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP"
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "steps": [
+            {
+              "id": 1,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "file_name": "graph_search.py",
+              "function_name": "mnc_graph_search",
+              "arguments": [
+                2,
+                2
+              ],
+              "keyword_arguments": {}
+            },
+            {
+              "id": 2,
+              "type": "EXTRACT_PROGRAM_OUTPUT_STEP",
+              "key": "stdout"
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "steps": [
+            {
+              "id": 1,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "file_name": "graph_search.py",
+              "function_name": "mnc_graph_search",
+              "arguments": [
+                3,
+                3
+              ],
+              "keyword_arguments": {}
+            },
+            {
+              "id": 2,
+              "type": "EXTRACT_PROGRAM_OUTPUT_STEP",
+              "key": "stdout"
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "steps": [
+            {
+              "id": 1,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "file_name": "graph_search.py",
+              "function_name": "mnc_graph_search",
+              "arguments": [
+                4,
+                4
+              ],
+              "keyword_arguments": {}
+            },
+            {
+              "id": 2,
+              "type": "EXTRACT_PROGRAM_OUTPUT_STEP",
+              "key": "stdout"
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "steps": [
+            {
+              "id": 1,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "file_name": "graph_search.py",
+              "function_name": "mnc_graph_search",
+              "arguments": [
+                30,
+                20
+              ],
+              "keyword_arguments": {}
+            },
+            {
+              "id": 2,
+              "type": "EXTRACT_PROGRAM_OUTPUT_STEP",
+              "key": "stdout"
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "PROGRAMMING_TASK",
+      "question": "Implement Pitcher Search",
+      "environment": {
+        "language": "PYTHON",
+        "options": {
+          "version": "3.12"
+        },
+        "time_limit": 10,
+        "memory_limit": 500
+      },
+      "templates": [
+        {
+          "file_name": "pitcher_search.py",
+          "content": "import queue\n\ndef pitcher_search(p1,p2,p3,a):\n\traise NotImplememented()"
+        }
+      ],
+      "testcases": [
+        {
+          "id": 0,
+          "steps": [
+            {
+              "id": 1,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "file_name": "pitcher_search.py",
+              "function_name": "pitcher_search",
+              "arguments": [
+                2,
+                3,
+                4,
+                1
+              ],
+              "keyword_arguments": {}
+            },
+            {
+              "id": 2,
+              "type": "EXTRACT_PROGRAM_OUTPUT_STEP",
+              "key": "stdout"
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP"
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "steps": [
+            {
+              "id": 1,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "file_name": "pitcher_search.py",
+              "function_name": "pitcher_search",
+              "arguments": [
+                1,
+                4,
+                9,
+                7
+              ],
+              "keyword_arguments": {}
+            },
+            {
+              "id": 2,
+              "type": "EXTRACT_PROGRAM_OUTPUT_STEP",
+              "key": "stdout"
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "steps": [
+            {
+              "id": 1,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "file_name": "pitcher_search.py",
+              "function_name": "pitcher_search",
+              "arguments": [
+                2,
+                3,
+                7,
+                8
+              ],
+              "keyword_arguments": {}
+            },
+            {
+              "id": 2,
+              "type": "EXTRACT_PROGRAM_OUTPUT_STEP",
+              "key": "stdout"
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP"
             }
           ]
         }
