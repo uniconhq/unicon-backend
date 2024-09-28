@@ -30,17 +30,13 @@ class Token(BaseModel):
 
 
 @router.post("/token")
-def login(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response
-):
+def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response):
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password.")
     user_public = UserPublic.model_validate(user)
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.id}, expires_delta=access_token_expires
-    )
+    access_token = create_access_token(data={"sub": user.id}, expires_delta=access_token_expires)
 
     response.set_cookie(key="session", value=access_token)
     return Token(access_token=access_token, token_type="bearer", user=user_public)

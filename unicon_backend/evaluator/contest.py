@@ -1,8 +1,9 @@
 from typing import Any
 
-from pydantic import BaseModel, RootModel, SerializeAsAny
+from pydantic import BaseModel, SerializeAsAny
 
 from unicon_backend.evaluator.tasks.base import Task
+from unicon_backend.lib.common import RootModelList
 
 
 class ExpectedAnswer(BaseModel):
@@ -10,40 +11,26 @@ class ExpectedAnswer(BaseModel):
     expected_answer: Any
 
 
+ExpectedAnswers = RootModelList[ExpectedAnswer]
+
+
 class UserInput(BaseModel):
     id: int
     user_input: Any
 
 
-class ProjectExpectedAnswers(RootModel):
-    root: list[ExpectedAnswer]
-
-    def __iter__(self):
-        return iter(self.root)
-
-    def __getitem__(self, item):
-        return self.root[item]
+UserInputs = RootModelList[UserInput]
 
 
-class ProjectUserInputs(RootModel):
-    root: list[UserInput]
-
-    def __iter__(self):
-        return iter(self.root)
-
-    def __getitem__(self, item):
-        return self.root[item]
-
-
-class Project(BaseModel):
+class Definition(BaseModel):
     name: str
     description: str
     tasks: list[SerializeAsAny[Task]]
 
     def run(
         self,
-        user_inputs: ProjectUserInputs,
-        expected_answers: ProjectExpectedAnswers,
+        user_inputs: UserInputs,
+        expected_answers: ExpectedAnswers,
         task_id: int | None = None,
     ):
         user_input_index: dict[int, UserInput] = {
@@ -54,9 +41,7 @@ class Project(BaseModel):
         }
 
         tasks_to_run = (
-            self.tasks
-            if task_id is None
-            else [task for task in self.tasks if task.id == task_id]
+            self.tasks if task_id is None else [task for task in self.tasks if task.id == task_id]
         )
 
         for task in tasks_to_run:

@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
-from typing import Annotated, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
 import jwt
 from fastapi import Cookie, Depends, HTTPException, Request, status
@@ -16,7 +16,7 @@ from unicon_backend.models import User, engine
 class OAuth2IgnoreError(OAuth2PasswordBearer):
     """Ignore HTTP error because we want to accept cookie auth too"""
 
-    async def __call__(self, request: Request) -> Optional[str]:
+    async def __call__(self, request: Request) -> str | None:
         try:
             return await super().__call__(request)
         except HTTPException:
@@ -63,9 +63,9 @@ def authenticate_user(username: str, password: str):
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+        expire = datetime.now(UTC) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -92,9 +92,9 @@ async def get_current_user(
             raise InvalidTokenError()
         return user
 
-    except InvalidTokenError:
+    except InvalidTokenError as invalid_token_err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from invalid_token_err
