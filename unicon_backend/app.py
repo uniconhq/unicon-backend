@@ -3,9 +3,12 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from unicon_backend.dependencies.auth import get_current_user
+from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
 from unicon_backend.helpers.constants import FRONTEND_URL
+from unicon_backend.logging import setup_rich_logger
 from unicon_backend.models import User, initialise_tables
 from unicon_backend.routers.auth import router as auth_router
 from unicon_backend.utils.seed import seed
@@ -13,6 +16,7 @@ from unicon_backend.utils.seed import seed
 logging.getLogger("passlib").setLevel(logging.ERROR)
 
 app = FastAPI()
+setup_rich_logger()
 
 origins = [FRONTEND_URL]
 
@@ -41,3 +45,16 @@ def no_auth():
 @app.get("/auth")
 def auth(user: Annotated[User, Depends(get_current_user)]):
     return f"success, hi {user.username}"
+
+
+class Submission(BaseModel):
+    definition: Definition
+    expected_answers: ExpectedAnswers
+    user_inputs: UserInputs
+
+
+@app.post("/submit")
+def submit(submission: Submission, _user: Annotated[User, Depends(get_current_user)]):
+    submission.definition.run(submission.user_inputs, submission.expected_answers)
+    # TODO: return the results
+    return "success"

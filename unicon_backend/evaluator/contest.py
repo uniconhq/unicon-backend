@@ -1,9 +1,12 @@
+from logging import getLogger
 from typing import Any
 
 from pydantic import BaseModel, SerializeAsAny
 
 from unicon_backend.evaluator.tasks.base import Task
 from unicon_backend.lib.common import RootModelList
+
+logger = getLogger(__name__)
 
 
 class ExpectedAnswer(BaseModel):
@@ -46,17 +49,18 @@ class Definition(BaseModel):
 
         for task in tasks_to_run:
             if (task_user_input := user_input_index.get(task.id)) is None:
-                print(f"WARN: Task {task.id} has no user input")
+                logger.warning(f"Task {task.id} has no user input")
                 continue
 
             if (task_expected_answer := expected_answer_index.get(task.id)) is None:
-                print(f"WARN: Task {task.id} has no answer")
+                logger.warning(f"Task {task.id} has no answer")
                 continue
 
-            print(f"Running task {task.id}")
+            logger.info(f"Running task {task.id}")
 
-            _task_out = task.run(
+            task_output = task.run(
                 task.validate_user_input(task_user_input.user_input),
                 task.validate_expected_answer(task_expected_answer.expected_answer),
             )
-            print(f"Task {task.id} output: {_task_out}")
+
+            logger.info(task_output)

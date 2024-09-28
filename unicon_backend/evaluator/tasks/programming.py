@@ -3,6 +3,7 @@ import time
 from enum import Enum
 from http import HTTPStatus
 from itertools import groupby
+from logging import getLogger
 from typing import Any, Generic, Literal, TypeVar
 
 import requests
@@ -11,6 +12,8 @@ from pydantic import BaseModel, RootModel, model_validator
 from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus
 from unicon_backend.helpers.constants import RUNNER_URL
 from unicon_backend.lib.common import CustomBaseModel
+
+logger = getLogger(__name__)
 
 
 class ProgrammingLanguage(str, Enum):
@@ -56,7 +59,7 @@ def run_program(
     wait: bool = False,
 ) -> RunnerResponse:
     if not RUNNER_URL:
-        print("WARN: No programming task runner set! Using dummy response.")
+        logger.warning("No programming task runner set! Using dummy response.")
         return RunnerResponse(submission_id="", status=0, stdout="", stderr="")
 
     runner_resp = requests.post(
@@ -186,7 +189,7 @@ class Testcase(BaseModel):
 
             step_expected_answer = expected_answer_by_step.get(step.id)
             step_output = step.run(prev_step_output, step_expected_answer, environment)
-            print(f"Step {step.id} [{step.type}] output: {step_output}")
+            logger.info(f"Step {step.id} [{step.type}] output: {step_output}")
 
             prev_step_output = step_output
             step_idx += 1
@@ -213,7 +216,7 @@ class ProgrammingTask(Task[list[File], bool, list[ProgrammingTaskExpectedAnswer]
         for testcase in self.testcases:
             testcase_expected_answer = expected_answer_by_testcase.get(testcase.id)
             if not testcase_expected_answer:
-                print(f"WARN: Testcase {testcase.id} has no expected answer")
+                logger.warning(f"Testcase {testcase.id} has no expected answer")
                 continue
             testcase.run(user_input, testcase_expected_answer, self.environment)
 

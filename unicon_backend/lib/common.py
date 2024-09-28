@@ -37,7 +37,7 @@ class CustomBaseModel(BaseModel, extra="forbid"):
 T = TypeVar("T")
 
 
-class RootModelList(RootModel[T]):
+class RootModelList(RootModel[list[T]]):
     root: list[T]
 
     def __iter__(self):
