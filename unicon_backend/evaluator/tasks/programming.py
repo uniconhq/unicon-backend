@@ -2,10 +2,11 @@ import abc
 import time
 from enum import Enum
 from http import HTTPStatus
-from itertools import groupby
 from logging import getLogger
 from typing import Any, Generic, Literal, TypeVar
+from uuid import uuid4
 
+import pika
 import requests
 from pydantic import BaseModel, RootModel, model_validator
 
@@ -73,7 +74,9 @@ def run_program(
 
     submission_id = runner_resp.json()["submission_id"]
     if not wait:
-        return RunnerResponse(submission_id=submission_id, status=0, stdout="", stderr="")
+        return RunnerResponse(
+            submission_id=submission_id, status=0, stdout="", stderr=""
+        )
 
     while True:
         resp = requests.get(f"{RUNNER_URL}/submissions/{submission_id}")
@@ -137,9 +140,7 @@ class PyRunFunctionStep(Step[list[File], Unused, RunnerResponse]):
         ]
         func_invocation = f"{self.function_name}({', '.join(func_args_kwargs)})"
         # TODO: Remove dependence on `print` and `stdout`
-        assembled_code = (
-            f"from {self.file_name} import {self.function_name}\n\nprint({func_invocation})"
-        )
+        assembled_code = f"from {self.file_name} import {self.function_name}\n\nprint({func_invocation})"
 
         return run_program(
             user_input + [File(file_name="__run.py", content=assembled_code)],
@@ -197,6 +198,15 @@ class Testcase(BaseModel):
         return prev_step_output
 
 
+class ProgrammingTaskRequest(BaseModel):
+    submission_id: str
+    environment: ProgrammingEnvironment
+    templates: list[File]
+    testcases: list[Testcase]
+    user_input: list[File]
+    expected_answer: list[ProgrammingTaskExpectedAnswer]
+
+
 class ProgrammingTask(Task[list[File], bool, list[ProgrammingTaskExpectedAnswer]]):
     question: str
     environment: ProgrammingEnvironment
@@ -208,23 +218,40 @@ class ProgrammingTask(Task[list[File], bool, list[ProgrammingTaskExpectedAnswer]
         user_input: list[File],
         expected_answer: list[ProgrammingTaskExpectedAnswer],
     ) -> TaskEvalResult[bool]:
-        expected_answer_by_testcase = {
-            testcase_id: list(group)
-            for testcase_id, group in groupby(expected_answer, lambda x: x.testcase_id)
-        }
-
-        for testcase in self.testcases:
-            testcase_expected_answer = expected_answer_by_testcase.get(testcase.id)
-            if not testcase_expected_answer:
-                logger.warning(f"Testcase {testcase.id} has no expected answer")
-                continue
-            testcase.run(user_input, testcase_expected_answer, self.environment)
+        submission_id = str(uuid4())
+        request = ProgrammingTaskRequest(
+            submission_id=submission_id,
+            environment=self.environment,
+            templates=self.templates,
+            testcases=self.testcases,
+            user_input=user_input,
+            expected_answer=expected_answer,
+        )
+        self.send_to_runner(request)
 
         # TODO: check output and handle pending testcases
-        return TaskEvalResult(status=TaskEvalStatus.SUCCESS, result=False)
+        return TaskEvalResult(status=TaskEvalStatus.PENDING, result=False)
 
     def validate_user_input(self, user_input: Any) -> list[File]:
         return RootModel[list[File]].model_validate(user_input).root
 
-    def validate_expected_answer(self, expected_answer: Any) -> list[ProgrammingTaskExpectedAnswer]:
-        return RootModel[list[ProgrammingTaskExpectedAnswer]].model_validate(expected_answer).root
+    def validate_expected_answer(
+        self, expected_answer: Any
+    ) -> list[ProgrammingTaskExpectedAnswer]:
+        return (
+            RootModel[list[ProgrammingTaskExpectedAnswer]]
+            .model_validate(expected_answer)
+            .root
+        )
+
+    def send_to_runner(self, request: ProgrammingTaskRequest) -> str:
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host="localhost")
+        )
+        send_channel = connection.channel()
+        send_channel.queue_declare(queue="task_runner", durable=True)
+
+        message = request.model_dump_json()
+        print(message)
+        send_channel.basic_publish(exchange="", routing_key="task_runner", body=message)
+        connection.close()
