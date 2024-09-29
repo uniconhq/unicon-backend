@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from unicon_backend.dependencies.auth import get_current_user
-from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
+from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, TaskResult, UserInputs
 from unicon_backend.helpers.constants import FRONTEND_URL
 from unicon_backend.logger import setup_rich_logger
 from unicon_backend.models import User, initialise_tables
@@ -54,7 +54,7 @@ class Submission(BaseModel):
 
 
 @app.post("/submit")
-def submit(submission: Submission, _user: Annotated[User, Depends(get_current_user)]):
-    submission.definition.run(submission.user_inputs, submission.expected_answers)
-    # TODO: return the results
-    return "success"
+def submit(
+    submission: Submission, _user: Annotated[User, Depends(get_current_user)]
+) -> list[TaskResult]:
+    return submission.definition.run(submission.user_inputs, submission.expected_answers)

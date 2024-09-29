@@ -6,6 +6,7 @@ from unicon_backend.models import User, engine
 
 
 def clear_db(session: Session):
+    # TODO: fix this!
     session.execute(delete(User))
 
 
