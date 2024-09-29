@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
 from unicon_backend.helpers.constants import FRONTEND_URL
-from unicon_backend.logging import setup_rich_logger
+from unicon_backend.logger import setup_rich_logger
 from unicon_backend.models import User, initialise_tables
 from unicon_backend.routers.auth import router as auth_router
 from unicon_backend.utils.seed import seed

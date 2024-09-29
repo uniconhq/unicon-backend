@@ -5,6 +5,7 @@ from collections.abc import Callable
 from io import TextIOWrapper
 
 from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
+from unicon_backend.logger import setup_rich_logger
 
 
 def exit_if(predicate: bool, err_msg: str, exit_code: int = 1) -> None:
@@ -23,6 +24,8 @@ def arg_file_type(parser: argparse.ArgumentParser) -> Callable[[str], TextIOWrap
 
 
 if __name__ == "__main__":
+    setup_rich_logger()
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "definition",
