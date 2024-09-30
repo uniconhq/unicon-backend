@@ -14,23 +14,23 @@ class TaskType(str, Enum):
     PROGRAMMING = "PROGRAMMING_TASK"
 
 
-class Definition(Base):
+class DefinitionORM(Base):
     __tablename__ = "definition"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
     description: Mapped[str]
 
-    tasks: Mapped[list["Task"]] = relationship(back_populates="definition")
+    tasks: Mapped[list["TaskORM"]] = relationship(back_populates="definition")
 
 
-class Task(Base):
+class TaskORM(Base):
     __tablename__ = "task"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     type: Mapped[TaskType]
     autograde: Mapped[bool]
     other_fields: Mapped[dict] = mapped_column(JSONB)
-    definition_id: Mapped[int] = mapped_column(ForeignKey("definition.id"))
+    definition_id: Mapped[int] = mapped_column(ForeignKey("definition.id"), primary_key=True)
 
-    definition: Mapped[Definition] = relationship(back_populates="tasks")
+    definition: Mapped[DefinitionORM] = relationship(back_populates="tasks")

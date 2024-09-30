@@ -1,8 +1,8 @@
 """Add definition and task table
 
-Revision ID: ef5cededb085
+Revision ID: 34d40a4b8879
 Revises: a3e28e9d0b43
-Create Date: 2024-10-01 02:34:50.524607
+Create Date: 2024-10-01 02:44:53.899053
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "ef5cededb085"
+revision: str = "34d40a4b8879"
 down_revision: Union[str, None] = "a3e28e9d0b43"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -49,7 +49,7 @@ def upgrade() -> None:
             ["definition_id"],
             ["definition.id"],
         ),
-        sa.PrimaryKeyConstraint("id"),
+        sa.PrimaryKeyConstraint("id", "definition_id"),
     )
     # ### end Alembic commands ###
 
