@@ -81,8 +81,8 @@
               "file_name": "tree_search.py",
               "function_name": "mnc_tree_search",
               "arguments": [
-                3,
-                3
+                2,
+                2
               ],
               "keyword_arguments": {}
             },
@@ -106,8 +106,8 @@
               "file_name": "tree_search.py",
               "function_name": "mnc_tree_search",
               "arguments": [
-                2,
-                2
+                3,
+                3
               ],
               "keyword_arguments": {}
             },
