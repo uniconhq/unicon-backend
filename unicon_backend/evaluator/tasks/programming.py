@@ -74,9 +74,7 @@ def run_program(
 
     submission_id = runner_resp.json()["submission_id"]
     if not wait:
-        return RunnerResponse(
-            submission_id=submission_id, status=0, stdout="", stderr=""
-        )
+        return RunnerResponse(submission_id=submission_id, status=0, stdout="", stderr="")
 
     while True:
         resp = requests.get(f"{RUNNER_URL}/submissions/{submission_id}")
@@ -140,7 +138,9 @@ class PyRunFunctionStep(Step[list[File], Unused, RunnerResponse]):
         ]
         func_invocation = f"{self.function_name}({', '.join(func_args_kwargs)})"
         # TODO: Remove dependence on `print` and `stdout`
-        assembled_code = f"from {self.file_name} import {self.function_name}\n\nprint({func_invocation})"
+        assembled_code = (
+            f"from {self.file_name} import {self.function_name}\n\nprint({func_invocation})"
+        )
 
         return run_program(
             user_input + [File(file_name="__run.py", content=assembled_code)],
@@ -235,23 +235,14 @@ class ProgrammingTask(Task[list[File], bool, list[ProgrammingTaskExpectedAnswer]
     def validate_user_input(self, user_input: Any) -> list[File]:
         return RootModel[list[File]].model_validate(user_input).root
 
-    def validate_expected_answer(
-        self, expected_answer: Any
-    ) -> list[ProgrammingTaskExpectedAnswer]:
-        return (
-            RootModel[list[ProgrammingTaskExpectedAnswer]]
-            .model_validate(expected_answer)
-            .root
-        )
+    def validate_expected_answer(self, expected_answer: Any) -> list[ProgrammingTaskExpectedAnswer]:
+        return RootModel[list[ProgrammingTaskExpectedAnswer]].model_validate(expected_answer).root
 
     def send_to_runner(self, request: ProgrammingTaskRequest) -> str:
-        connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host="localhost")
-        )
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
         send_channel = connection.channel()
         send_channel.queue_declare(queue="task_runner", durable=True)
 
-        message = request.model_dump_json()
-        print(message)
+        message = request.model_dump_json(serialize_as_any=True)
         send_channel.basic_publish(exchange="", routing_key="task_runner", body=message)
         connection.close()
