@@ -5,6 +5,7 @@ from typing import Any, Generic, TypeVar
 from pydantic import BaseModel
 
 from unicon_backend.lib.common import CustomBaseModel
+from unicon_backend.models.contest import TaskType
 
 TaskUserInput = TypeVar("TaskUserInput")
 TaskExpectedAnswer = TypeVar("TaskExpectedAnswer")
@@ -22,13 +23,6 @@ class TaskEvalResult(BaseModel, Generic[TaskResult]):
     status: TaskEvalStatus
     result: TaskResult | None
     error: str | None = None
-
-
-class TaskType(str, Enum):
-    MULTIPLE_CHOICE = "MULTIPLE_CHOICE_TASK"
-    MULTIPLE_RESPONSE = "MULTIPLE_RESPONSE_TASK"
-    SHORT_ANSWER = "SHORT_ANSWER_TASK"
-    PROGRAMMING = "PROGRAMMING_TASK"
 
 
 class Task(

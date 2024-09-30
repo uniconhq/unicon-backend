@@ -15,7 +15,7 @@ class TaskType(str, Enum):
 
 
 class Definition(Base):
-    __tablename__ = "defintion"
+    __tablename__ = "definition"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
@@ -30,7 +30,7 @@ class Task(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     type: Mapped[TaskType]
     autograde: Mapped[bool]
-    metadata: Mapped[JSONB]
+    other_fields: Mapped[dict] = mapped_column(JSONB)
     definition_id: Mapped[int] = mapped_column(ForeignKey("definition.id"))
 
     definition: Mapped[Definition] = relationship(back_populates="tasks")
