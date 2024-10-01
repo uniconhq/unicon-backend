@@ -14,7 +14,7 @@ def _get_env_var(name: str, default: str | None = None, required: bool = True):
 
 
 DATABASE_URL: str = _get_env_var("DATABASE_URL")
-RUNNER_URL: str | None = _get_env_var("RUNNER_URL", required=False)
+RABBITMQ_URL: str = _get_env_var("RABBITMQ_URL")
 
 ##################
 #  auth configs  #

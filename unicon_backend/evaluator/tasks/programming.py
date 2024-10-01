@@ -8,6 +8,7 @@ from uuid import uuid4
 import pika  # type: ignore
 from pydantic import BaseModel, RootModel
 
+from unicon_backend.constants import RABBITMQ_URL
 from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus
 from unicon_backend.lib.common import CustomBaseModel
 
@@ -96,6 +97,7 @@ class ProgrammingTaskRequest(BaseModel):
     testcases: list[Testcase]
     user_input: list[File]
     expected_answer: list[ProgrammingTaskExpectedAnswer]
+    executor_type: Literal["podman", "unsafe"] = "podman"
 
 
 class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]):
@@ -103,6 +105,7 @@ class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]
     environment: ProgrammingEnvironment
     templates: list[File]
     testcases: list[Testcase]
+    executor_type: Literal["podman", "unsafe"] = "podman"
 
     def run(
         self,
@@ -131,11 +134,7 @@ class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]
         return RootModel[list[ProgrammingTaskExpectedAnswer]].model_validate(expected_answer).root
 
     def send_to_runner(self, request: ProgrammingTaskRequest) -> str:
-        connection = pika.BlockingConnection(
-            pika.ConnectionParameters(
-                "104.234.167.214", credentials=pika.PlainCredentials("admin", "hophop")
-            )
-        )
+        connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
         send_channel = connection.channel()
         send_channel.queue_declare(queue="task_runner", durable=True)
 

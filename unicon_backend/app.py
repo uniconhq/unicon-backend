@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from unicon_backend.constants import FRONTEND_URL, sql_engine
+from unicon_backend.constants import FRONTEND_URL, RABBITMQ_URL, sql_engine
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.session import get_session
 from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
@@ -33,8 +33,7 @@ TASK_RUNNER_OUTPUT_QUEUE_NAME = "task_runner_results"
 
 
 async def listen_to_mq():
-    print("CALLED")
-    connection = await aio_pika.connect_robust("amqp://localhost/")
+    connection = await aio_pika.connect_robust(RABBITMQ_URL)
 
     async with connection:
         retrieve_channel = await connection.channel()
@@ -52,15 +51,16 @@ async def listen_to_mq():
             async with message.process():
                 body = json.loads(message.body)
                 with Session(sql_engine) as session:
-                    submission = session.scalar(
+                    # Update the task result
+                    task_result = session.scalar(
                         select(TaskResultORM).where(
                             TaskResultORM.task_submission_id == body["submission_id"]
                         )
                     )
-                    if not submission:
+                    if not task_result:
                         return
-                    submission.other_fields = body["result"]
-                    session.add(submission)
+                    task_result.other_fields = body["result"]
+                    session.add(task_result)
                     session.commit()
 
         await queue.consume(callback)
@@ -135,7 +135,7 @@ def submit(
     submission: Submission,
     _user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> list[TaskResultORM]:
+):
     definition_orm = session.scalar(
         select(DefinitionORM)
         .where(DefinitionORM.id == id)
@@ -177,9 +177,9 @@ def submit(
         for task in result
     ]
     submission_orm.task_results = task_results
-    session.add(submission)
+    session.add(submission_orm)
     session.commit()
-    session.refresh(submission)
+    session.refresh(submission_orm)
     return submission_orm.task_results
 
 
