@@ -34,3 +34,31 @@ class TaskORM(Base):
     definition_id: Mapped[int] = mapped_column(ForeignKey("definition.id"), primary_key=True)
 
     definition: Mapped[DefinitionORM] = relationship(back_populates="tasks")
+
+
+class SubmissionStatus(str, Enum):
+    Pending = "PENDING"
+    Ok = "OK"
+
+
+class SubmissionORM(Base):
+    __tablename__ = "submission"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    definition_id = mapped_column(ForeignKey("definition.id"))
+    status: Mapped[SubmissionStatus]
+
+    # TODO: split this to one more table
+    other_fields: Mapped[dict] = mapped_column(JSONB)
+
+    task_results: Mapped[list["TaskResultORM"]] = relationship(back_populates="submission")
+
+
+class TaskResultORM(Base):
+    __tablename__ = "task_result"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    submission_id: Mapped[str | None] = mapped_column(unique=True, nullable=True)
+    other_fields: Mapped[dict] = mapped_column(JSONB)
+
+    submission: Mapped[SubmissionORM] = relationship(back_populates="task_results")

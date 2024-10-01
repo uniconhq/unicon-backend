@@ -1,7 +1,7 @@
-from http import HTTPStatus
 import logging
-from pprint import pprint
+from http import HTTPStatus
 from typing import Annotated
+import pika
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,10 +12,17 @@ from sqlalchemy.orm import Session, selectinload
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.session import get_session
 from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, TaskResult, UserInputs
+from unicon_backend.evaluator.tasks.base import TaskEvalStatus
 from unicon_backend.helpers.constants import FRONTEND_URL
 from unicon_backend.logger import setup_rich_logger
 from unicon_backend.models import User
-from unicon_backend.models.contest import DefinitionORM, TaskORM
+from unicon_backend.models.contest import (
+    DefinitionORM,
+    SubmissionORM,
+    SubmissionStatus,
+    TaskORM,
+    TaskResultORM,
+)
 from unicon_backend.routers.auth import router as auth_router
 
 logging.getLogger("passlib").setLevel(logging.ERROR)
@@ -50,9 +57,29 @@ def auth(user: Annotated[User, Depends(get_current_user)]):
 
 
 class Submission(BaseModel):
-    # definition: Definition
+    # TODO: tie expected_answers to task model
     expected_answers: ExpectedAnswers
     user_inputs: UserInputs
+
+
+TASK_RUNNER_OUTPUT_QUEUE_NAME = "task_runner_results"
+
+
+def listen_to_mq():
+    connection = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
+    retrieve_channel = connection.channel()
+    retrieve_channel.exchange_declare(
+        exchange=TASK_RUNNER_OUTPUT_QUEUE_NAME, exchange_type="fanout"
+    )
+    result = retrieve_channel.queue_declare(queue="", exclusive=True)
+    queue_name = result.method.queue
+    retrieve_channel.queue_bind(exchange=TASK_RUNNER_OUTPUT_QUEUE_NAME, queue=queue_name)
+
+    def callback(ch, method, properties, body):
+        print(f" [x] {body}")
+
+    retrieve_channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
+    retrieve_channel.start_consuming()
 
 
 @app.post("/definitions")
@@ -83,7 +110,6 @@ def submit(
     _user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
 ) -> list[TaskResult]:
-    # Retrieve defintion from db
     definition_orm = session.scalar(
         select(DefinitionORM)
         .where(DefinitionORM.id == id)
@@ -109,4 +135,25 @@ def submit(
 
     definition = convert_orm_to_schemas(definition_orm)
 
-    return definition.run(submission.user_inputs, submission.expected_answers)
+    result = definition.run(submission.user_inputs, submission.expected_answers)
+    pending = any(task.result.status == TaskEvalStatus.PENDING for task in result)
+    status = SubmissionStatus.Pending if pending else SubmissionStatus.Ok
+
+    submission = SubmissionORM(definition_id=definition, status=status)
+    task_results = [
+        TaskResultORM(
+            other_fields=task,
+            submission_id=task.result if task.result.status == TaskEvalStatus.PENDING else None,
+        )
+        for task in result
+    ]
+    submission.task_results = task_results
+    session.add(submission)
+    session.commit()
+    session.refresh(submission)
+    return submission
+
+
+@app.get("/submission/{id}")
+def get_submission():
+    pass
