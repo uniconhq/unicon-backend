@@ -135,6 +135,7 @@ def submit(
     submission: Submission,
     _user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
+    task_id: int | None = None,
 ):
     definition_orm = session.scalar(
         select(DefinitionORM)
@@ -162,7 +163,7 @@ def submit(
 
     definition = convert_orm_to_schemas(definition_orm)
 
-    result = definition.run(submission.user_inputs, submission.expected_answers)
+    result = definition.run(submission.user_inputs, submission.expected_answers, task_id)
     pending = any(task.result.status == TaskEvalStatus.PENDING for task in result)
     status = SubmissionStatus.Pending if pending else SubmissionStatus.Ok
 
