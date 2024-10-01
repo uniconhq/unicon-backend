@@ -1,5 +1,6 @@
-from .base import Base
 from sqlalchemy.orm import Mapped, mapped_column
+
+from unicon_backend.models.base import Base
 
 
 class User(Base):

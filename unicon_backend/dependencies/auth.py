@@ -1,20 +1,22 @@
-from typing import Annotated, Optional
-from fastapi.security import OAuth2PasswordBearer
-from passlib.context import CryptContext
-from datetime import datetime, timedelta, timezone
-from fastapi import Cookie, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
-from sqlalchemy import select
-from ..models import User, engine
+from datetime import UTC, datetime, timedelta
+from typing import Annotated
+
 import jwt
+from fastapi import Cookie, Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
-from ..helpers.constants import SECRET_KEY
+from passlib.context import CryptContext
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from unicon_backend.constants import SECRET_KEY, sql_engine
+from unicon_backend.models import User
 
 
 class OAuth2IgnoreError(OAuth2PasswordBearer):
     """Ignore HTTP error because we want to accept cookie auth too"""
 
-    async def __call__(self, request: Request) -> Optional[str]:
+    async def __call__(self, request: Request) -> str | None:
         try:
             return await super().__call__(request)
         except HTTPException:
@@ -22,7 +24,7 @@ class OAuth2IgnoreError(OAuth2PasswordBearer):
 
 
 # This url = login post url
-oauth2_scheme = OAuth2IgnoreError(tokenUrl='/auth/token')
+oauth2_scheme = OAuth2IgnoreError(tokenUrl="/auth/token")
 
 
 ALGORITHM = "HS256"
@@ -44,51 +46,55 @@ def get_password_hash(password: str):
 
 
 def authenticate_user(username: str, password: str):
-    with Session(engine) as session:
-        user = session.scalars(select(User).where(
-            User.username == username)).first()
+    with Session(sql_engine) as session:
+        user = session.scalars(select(User).where(User.username == username)).first()
         if not user:
             return False
         if not verify_password(password, user.password):
             return False
         return user
 
+
 ###############
-#  jwt utils  #
+#  JWT utils  #
 ###############
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+        expire = datetime.now(UTC) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+
 ###################
-# auth dependency #
+# Auth dependency #
 ###################
 
 
-async def get_current_user(token: Annotated[str | None, Depends(oauth2_scheme)], session: Annotated[str | None, Cookie()] = None):
-
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"})
+async def get_current_user(
+    token: Annotated[str | None, Depends(oauth2_scheme)],
+    session: Annotated[str | None, Cookie()] = None,
+):
+    if (token := token or session) is None:
+        raise Exception("No token")
 
     try:
-        token = token or session
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         id = payload.get("sub")
-        with Session(engine) as session:
-            user = session.get(User, id)
-        if not user:
+        with Session(sql_engine) as db_session:
+            user = db_session.get(User, id)
+        if user is None:
             raise InvalidTokenError()
         return user
 
-    except InvalidTokenError:
-        raise credentials_exception
+    except InvalidTokenError as invalid_token_err:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from invalid_token_err
