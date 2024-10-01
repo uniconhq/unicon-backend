@@ -7,9 +7,4 @@ from unicon_backend.models.user import User
 
 __all__ = ["User", "Base"]
 
-# TODO: change to postgres
 engine = create_engine(DATABASE_URL, echo=True)
-
-
-def initialise_tables():
-    Base.metadata.create_all(engine)
