@@ -1,8 +1,10 @@
+import asyncio
+import json
 import logging
 from http import HTTPStatus
 from typing import Annotated
-import pika
 
+import aio_pika
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -11,11 +13,11 @@ from sqlalchemy.orm import Session, selectinload
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.session import get_session
-from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, TaskResult, UserInputs
+from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
 from unicon_backend.evaluator.tasks.base import TaskEvalStatus
 from unicon_backend.helpers.constants import FRONTEND_URL
 from unicon_backend.logger import setup_rich_logger
-from unicon_backend.models import User
+from unicon_backend.models import User, engine
 from unicon_backend.models.contest import (
     DefinitionORM,
     SubmissionORM,
@@ -27,7 +29,51 @@ from unicon_backend.routers.auth import router as auth_router
 
 logging.getLogger("passlib").setLevel(logging.ERROR)
 
-app = FastAPI()
+TASK_RUNNER_OUTPUT_QUEUE_NAME = "task_runner_results"
+
+
+async def listen_to_mq():
+    print("CALLED")
+    connection = await aio_pika.connect_robust("amqp://localhost/")
+
+    async with connection:
+        retrieve_channel = await connection.channel()
+        exchange = await retrieve_channel.declare_exchange(
+            TASK_RUNNER_OUTPUT_QUEUE_NAME, type="fanout"
+        )
+
+        queue = await retrieve_channel.declare_queue(exclusive=True)
+        # queue_name = result.method.queue
+
+        await queue.bind(exchange)
+        # await retrieve_channel.queue_bind(exchange=TASK_RUNNER_OUTPUT_QUEUE_NAME, queue=queue_name)
+
+        async def callback(message: aio_pika.IncomingMessage):
+            async with message.process():
+                body = json.loads(message.body)
+                with Session(engine) as session:
+                    submission = session.scalar(
+                        select(TaskResultORM).where(
+                            TaskResultORM.task_submission_id == body["submission_id"]
+                        )
+                    )
+                    if not submission:
+                        return
+                    submission.other_fields = body["result"]
+                    session.add(submission)
+                    session.commit()
+
+        await queue.consume(callback)
+
+        await asyncio.Future()
+
+
+def lifespan(app: FastAPI):
+    asyncio.create_task(listen_to_mq())
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 setup_rich_logger()
 
 origins = [FRONTEND_URL]
@@ -60,26 +106,6 @@ class Submission(BaseModel):
     # TODO: tie expected_answers to task model
     expected_answers: ExpectedAnswers
     user_inputs: UserInputs
-
-
-TASK_RUNNER_OUTPUT_QUEUE_NAME = "task_runner_results"
-
-
-def listen_to_mq():
-    connection = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
-    retrieve_channel = connection.channel()
-    retrieve_channel.exchange_declare(
-        exchange=TASK_RUNNER_OUTPUT_QUEUE_NAME, exchange_type="fanout"
-    )
-    result = retrieve_channel.queue_declare(queue="", exclusive=True)
-    queue_name = result.method.queue
-    retrieve_channel.queue_bind(exchange=TASK_RUNNER_OUTPUT_QUEUE_NAME, queue=queue_name)
-
-    def callback(ch, method, properties, body):
-        print(f" [x] {body}")
-
-    retrieve_channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
-    retrieve_channel.start_consuming()
 
 
 @app.post("/definitions")
