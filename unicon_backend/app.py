@@ -11,11 +11,11 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from unicon_backend.constants import FRONTEND_URL
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.session import get_session
 from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
 from unicon_backend.evaluator.tasks.base import TaskEvalStatus
-from unicon_backend.helpers.constants import FRONTEND_URL
 from unicon_backend.logger import setup_rich_logger
 from unicon_backend.models import User, engine
 from unicon_backend.models.contest import (

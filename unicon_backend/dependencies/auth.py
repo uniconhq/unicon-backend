@@ -9,7 +9,7 @@ from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from unicon_backend.helpers.constants import SECRET_KEY
+from unicon_backend.constants import SECRET_KEY
 from unicon_backend.models import User, engine
 
 
