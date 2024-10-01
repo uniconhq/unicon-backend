@@ -9,8 +9,8 @@ from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from unicon_backend.constants import SECRET_KEY
-from unicon_backend.models import User, engine
+from unicon_backend.constants import SECRET_KEY, sql_engine
+from unicon_backend.models import User
 
 
 class OAuth2IgnoreError(OAuth2PasswordBearer):
@@ -46,7 +46,7 @@ def get_password_hash(password: str):
 
 
 def authenticate_user(username: str, password: str):
-    with Session(engine) as session:
+    with Session(sql_engine) as session:
         user = session.scalars(select(User).where(User.username == username)).first()
         if not user:
             return False
@@ -86,7 +86,7 @@ async def get_current_user(
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         id = payload.get("sub")
-        with Session(engine) as db_session:
+        with Session(sql_engine) as db_session:
             user = db_session.get(User, id)
         if user is None:
             raise InvalidTokenError()

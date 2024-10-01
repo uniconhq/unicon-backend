@@ -11,19 +11,19 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from unicon_backend.constants import FRONTEND_URL
+from unicon_backend.constants import FRONTEND_URL, sql_engine
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.session import get_session
 from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
 from unicon_backend.evaluator.tasks.base import TaskEvalStatus
 from unicon_backend.logger import setup_rich_logger
-from unicon_backend.models import User, engine
-from unicon_backend.models.contest import (
+from unicon_backend.models import (
     DefinitionORM,
     SubmissionORM,
     SubmissionStatus,
     TaskORM,
     TaskResultORM,
+    User,
 )
 from unicon_backend.routers.auth import router as auth_router
 
@@ -51,7 +51,7 @@ async def listen_to_mq():
         async def callback(message: aio_pika.IncomingMessage):
             async with message.process():
                 body = json.loads(message.body)
-                with Session(engine) as session:
+                with Session(sql_engine) as session:
                     submission = session.scalar(
                         select(TaskResultORM).where(
                             TaskResultORM.task_submission_id == body["submission_id"]
