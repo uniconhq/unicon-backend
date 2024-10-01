@@ -1,10 +1,10 @@
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from alembic import context
 from unicon_backend import models  # noqa: F401
-from unicon_backend.helpers.constants import DATABASE_URL
+from unicon_backend.constants import DATABASE_URL
 from unicon_backend.models.base import Base
 
 # this is the Alembic Config object, which provides
