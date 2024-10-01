@@ -1,6 +1,6 @@
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, RootModel, PlainSerializer
 
 from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus
 

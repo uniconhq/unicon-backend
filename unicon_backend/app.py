@@ -109,7 +109,8 @@ def submit(
     submission: Submission,
     _user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-) -> list[TaskResult]:
+):
+    # ) -> list[TaskResult]:
     definition_orm = session.scalar(
         select(DefinitionORM)
         .where(DefinitionORM.id == id)
@@ -142,8 +143,10 @@ def submit(
     submission = SubmissionORM(definition_id=id, status=status, other_fields={})
     task_results = [
         TaskResultORM(
-            other_fields=task.model_dump(serialize_as_any=True),
-            submission_id=task.result if task.result.status == TaskEvalStatus.PENDING else None,
+            other_fields=task.model_dump(mode="json"),
+            task_submission_id=task.result.result
+            if task.result.status == TaskEvalStatus.PENDING
+            else None,
         )
         for task in result
     ]
@@ -151,7 +154,7 @@ def submit(
     session.add(submission)
     session.commit()
     session.refresh(submission)
-    return submission
+    return submission.task_results
 
 
 @app.get("/submission/{id}")
