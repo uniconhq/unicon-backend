@@ -1,6 +1,7 @@
 import os
 
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
 
 load_dotenv()
 
@@ -13,7 +14,7 @@ def _get_env_var(name: str, default: str | None = None, required: bool = True):
 
 
 DATABASE_URL: str = _get_env_var("DATABASE_URL")
-RUNNER_URL: str | None = _get_env_var("RUNNER_URL", required=False)
+RABBITMQ_URL: str = _get_env_var("RABBITMQ_URL")
 
 ##################
 #  auth configs  #
@@ -21,3 +22,5 @@ RUNNER_URL: str | None = _get_env_var("RUNNER_URL", required=False)
 
 SECRET_KEY: str = _get_env_var("SECRET_KEY", "", required=False)
 FRONTEND_URL: str = _get_env_var("FRONTEND_URL", required=False)
+
+sql_engine = create_engine(DATABASE_URL)

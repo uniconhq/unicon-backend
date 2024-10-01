@@ -19,7 +19,7 @@
     "user_input": [
       {
         "file_name": "tree_search.py",
-        "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
+        "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplementedError()"
       }
     ]
   },
@@ -28,7 +28,7 @@
     "user_input": [
       {
         "file_name": "graph_search.py",
-        "content": "import queue\n\ndef mnc_graph_search(m, c):\n\traise NotImplememented()"
+        "content": "import queue\n\ndef mnc_graph_search(m, c):\n\traise NotImplementedError()"
       }
     ]
   },
@@ -37,7 +37,7 @@
     "user_input": [
       {
         "file_name": "pitcher_search.py",
-        "content": "import queue\n\ndef pitcher_search(p1, p2, p3, a):\n\traise NotImplememented()"
+        "content": "import queue\n\ndef pitcher_search(p1, p2, p3, a):\n\traise NotImplementedError()"
       }
     ]
   }

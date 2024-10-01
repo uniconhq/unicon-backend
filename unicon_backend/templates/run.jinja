@@ -1,7 +1,0 @@
-{{prepend}}
-{% for artifact in artifacts %}
-{{ artifact.content }}
-{% endfor %}
-{% for run_func in run_funcs %}
-print({{run_func.get_code()}})
-{% endfor %}

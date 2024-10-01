@@ -1,7 +1,7 @@
 from logging import getLogger
 from typing import Any
 
-from pydantic import BaseModel, SerializeAsAny
+from pydantic import BaseModel, ConfigDict, SerializeAsAny
 
 from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult
 from unicon_backend.lib.common import RootModelList
@@ -31,6 +31,8 @@ class TaskResult(BaseModel):
 
 
 class Definition(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     name: str
     description: str
     tasks: list[SerializeAsAny[Task]]
