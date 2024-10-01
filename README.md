@@ -23,5 +23,5 @@ Start the development server:
 
 ```bash
 # Set the RabbitMQ URL (`RABBITMQ_URL`) in the .env file / environment variable
-uv run fastapi dev unicon_backend:app
+uv run fastapi dev unicon_backend/app.py
 ```
