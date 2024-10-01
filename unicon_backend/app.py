@@ -135,8 +135,7 @@ def submit(
     submission: Submission,
     _user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
-):
-    # ) -> list[TaskResult]:
+) -> list[TaskResultORM]:
     definition_orm = session.scalar(
         select(DefinitionORM)
         .where(DefinitionORM.id == id)
@@ -147,18 +146,19 @@ def submit(
         raise HTTPException(HTTPStatus.NOT_FOUND)
 
     def convert_orm_to_schemas(definiton_orm: DefinitionORM):
-        value = {"name": definiton_orm.name, "description": definiton_orm.description, "tasks": []}
-        for task_orm in definiton_orm.tasks:
-            value["tasks"].append(
-                {
-                    "id": task_orm.id,
-                    "type": task_orm.type,
-                    "autograde": task_orm.autograde,
-                    **task_orm.other_fields,
-                }
-            )
-        definition = Definition.model_validate(value)
-        return definition
+        tasks: list[dict] = [
+            {
+                "id": task_orm.id,
+                "type": task_orm.type,
+                "autograde": task_orm.autograde,
+                **task_orm.other_fields,
+            }
+            for task_orm in definiton_orm.tasks
+        ]
+
+        return Definition.model_validate(
+            {"name": definiton_orm.name, "description": definiton_orm.description, "tasks": tasks}
+        )
 
     definition = convert_orm_to_schemas(definition_orm)
 
@@ -166,7 +166,7 @@ def submit(
     pending = any(task.result.status == TaskEvalStatus.PENDING for task in result)
     status = SubmissionStatus.Pending if pending else SubmissionStatus.Ok
 
-    submission = SubmissionORM(definition_id=id, status=status, other_fields={})
+    submission_orm = SubmissionORM(definition_id=id, status=status, other_fields={})
     task_results = [
         TaskResultORM(
             other_fields=task.model_dump(mode="json"),
@@ -176,11 +176,11 @@ def submit(
         )
         for task in result
     ]
-    submission.task_results = task_results
+    submission_orm.task_results = task_results
     session.add(submission)
     session.commit()
     session.refresh(submission)
-    return submission.task_results
+    return submission_orm.task_results
 
 
 @app.get("/submission/{id}")

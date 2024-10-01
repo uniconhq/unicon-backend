@@ -1,7 +1,7 @@
 repos:
-  - repo: local
-    hooks:
-      - id: ruff
-        name: ruff
-        language: system
-        entry: bash -c 'cd backend && uvx ruff check --fix; uvx ruff format'
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.6.8
+  hooks:
+    - id: ruff
+      args: [ --fix ]
+    - id: ruff-format

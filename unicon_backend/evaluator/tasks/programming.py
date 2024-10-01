@@ -98,7 +98,7 @@ class ProgrammingTaskRequest(BaseModel):
     expected_answer: list[ProgrammingTaskExpectedAnswer]
 
 
-class ProgrammingTask(Task[list[File], bool, list[ProgrammingTaskExpectedAnswer]]):
+class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]):
     question: str
     environment: ProgrammingEnvironment
     templates: list[File]
@@ -108,7 +108,7 @@ class ProgrammingTask(Task[list[File], bool, list[ProgrammingTaskExpectedAnswer]
         self,
         user_input: list[File],
         expected_answer: list[ProgrammingTaskExpectedAnswer],
-    ) -> TaskEvalResult[bool]:
+    ) -> TaskEvalResult[str]:
         submission_id = str(uuid4())
         request = ProgrammingTaskRequest(
             submission_id=submission_id,
@@ -131,7 +131,11 @@ class ProgrammingTask(Task[list[File], bool, list[ProgrammingTaskExpectedAnswer]
         return RootModel[list[ProgrammingTaskExpectedAnswer]].model_validate(expected_answer).root
 
     def send_to_runner(self, request: ProgrammingTaskRequest) -> str:
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(
+                "104.234.167.214", credentials=pika.PlainCredentials("admin", "hophop")
+            )
+        )
         send_channel = connection.channel()
         send_channel.queue_declare(queue="task_runner", durable=True)
 
