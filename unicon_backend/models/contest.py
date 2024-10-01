@@ -58,7 +58,9 @@ class TaskResultORM(Base):
     __tablename__ = "task_result"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    submission_id: Mapped[str | None] = mapped_column(unique=True, nullable=True)
+    submission_id: Mapped[int] = mapped_column(ForeignKey("submission.id"))
+
+    task_submission_id: Mapped[str | None] = mapped_column(unique=True, nullable=True)
     other_fields: Mapped[dict] = mapped_column(JSONB)
 
     submission: Mapped[SubmissionORM] = relationship(back_populates="task_results")

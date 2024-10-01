@@ -139,10 +139,10 @@ def submit(
     pending = any(task.result.status == TaskEvalStatus.PENDING for task in result)
     status = SubmissionStatus.Pending if pending else SubmissionStatus.Ok
 
-    submission = SubmissionORM(definition_id=definition, status=status)
+    submission = SubmissionORM(definition_id=id, status=status, other_fields={})
     task_results = [
         TaskResultORM(
-            other_fields=task,
+            other_fields=task.model_dump(serialize_as_any=True),
             submission_id=task.result if task.result.status == TaskEvalStatus.PENDING else None,
         )
         for task in result
@@ -155,5 +155,15 @@ def submit(
 
 
 @app.get("/submission/{id}")
-def get_submission():
-    pass
+def get_submission(
+    id: int,
+    _user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+):
+    submission = session.scalar(
+        select(SubmissionORM)
+        .where(SubmissionORM.id == id)
+        .options(selectinload(SubmissionORM.task_results))
+    )
+
+    return submission

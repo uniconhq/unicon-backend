@@ -20,3 +20,7 @@ def seed():
     with Session(engine) as session:
         clear_db(session)
         seed_users(session)
+
+
+if __name__ == "__main__":
+    seed()
