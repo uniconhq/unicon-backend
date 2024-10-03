@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import orm
 
-from unicon_backend.dependencies.auth import get_password_hash
+from unicon_backend.dependencies import AUTH_PWD_CONTEXT
 from unicon_backend.models.user import User
 
 # revision identifiers, used by Alembic.
@@ -33,7 +33,7 @@ def upgrade() -> None:
     )
 
     session = orm.Session(bind=op.get_bind())
-    session.add(User(username="admin", password=get_password_hash("admin")))
+    session.add(User(username="admin", password=AUTH_PWD_CONTEXT.hash("admin")))
     session.commit()
     # ### end Alembic commands ###
 

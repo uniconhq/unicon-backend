@@ -12,8 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from unicon_backend.constants import FRONTEND_URL, RABBITMQ_URL, sql_engine
-from unicon_backend.dependencies.auth import get_current_user
-from unicon_backend.dependencies.session import get_session
+from unicon_backend.dependencies import get_current_user, get_db_session
 from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus
 from unicon_backend.logger import setup_rich_logger
@@ -90,18 +89,6 @@ app.add_middleware(
 
 app.include_router(auth_router)
 
-# TODO: these routes are to demonstrate authentication. Remove once we actually have other content.
-
-
-@app.get("/noauth")
-def no_auth():
-    return "success"
-
-
-@app.get("/auth")
-def auth(user: Annotated[User, Depends(get_current_user)]):
-    return f"success, hi {user.username}"
-
 
 class Submission(BaseModel):
     # TODO: tie expected_answers to task model
@@ -113,7 +100,7 @@ class Submission(BaseModel):
 def submit_definition(
     definition: Definition,
     _user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    db_session: Annotated[Session, Depends(get_db_session)],
 ):
     definition_orm = DefinitionORM(name=definition.name, description=definition.description)
 
@@ -124,9 +111,9 @@ def submit_definition(
         task_orm = convert_task_to_orm(**task.model_dump(serialize_as_any=True))
         definition_orm.tasks.append(task_orm)
 
-    session.add(definition_orm)
-    session.commit()
-    session.refresh(definition_orm)
+    db_session.add(definition_orm)
+    db_session.commit()
+    db_session.refresh(definition_orm)
     return definition_orm
 
 
@@ -135,10 +122,10 @@ def submit(
     id: int,
     submission: Submission,
     _user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    db_session: Annotated[Session, Depends(get_db_session)],
     task_id: int | None = None,
 ):
-    definition_orm: DefinitionORM | None = session.scalar(
+    definition_orm = db_session.scalar(
         select(DefinitionORM)
         .where(DefinitionORM.id == id)
         .options(selectinload(DefinitionORM.tasks))
@@ -189,9 +176,9 @@ def submit(
         other_fields={},
     )
 
-    session.add(submission_orm)
-    session.commit()
-    session.refresh(submission_orm)
+    db_session.add(submission_orm)
+    db_session.commit()
+    db_session.refresh(submission_orm)
 
     return submission_orm.task_results
 
@@ -200,10 +187,10 @@ def submit(
 def get_submission(
     id: int,
     _user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_session)],
+    db_session: Annotated[Session, Depends(get_db_session)],
     task_id: int | None = None,
 ):
     query = select(TaskResultORM).join(SubmissionORM).where(SubmissionORM.id == id)
     if task_id is not None:
         query = query.where(TaskResultORM.task_id == task_id)
-    return session.execute(query).scalars().all()
+    return db_session.execute(query).scalars().all()
