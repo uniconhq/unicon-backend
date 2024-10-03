@@ -8,15 +8,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from unicon_backend.constants import FRONTEND_URL, RABBITMQ_URL, sql_engine
+from unicon_backend.constants import FRONTEND_URL, RABBITMQ_URL, RESULT_QUEUE_NAME, sql_engine
 from unicon_backend.evaluator.tasks.base import TaskEvalStatus
 from unicon_backend.logger import setup_rich_logger
 from unicon_backend.models import TaskResultORM
 from unicon_backend.routers import auth, contest
 
 logging.getLogger("passlib").setLevel(logging.ERROR)
-
-TASK_RUNNER_OUTPUT_QUEUE_NAME = "task_runner_results"
+setup_rich_logger()
 
 
 async def listen_to_mq():
@@ -24,15 +23,11 @@ async def listen_to_mq():
 
     async with connection:
         retrieve_channel = await connection.channel()
-        exchange = await retrieve_channel.declare_exchange(
-            TASK_RUNNER_OUTPUT_QUEUE_NAME, type="fanout"
-        )
+        exchange = await retrieve_channel.declare_exchange(RESULT_QUEUE_NAME, type="fanout")
 
         queue = await retrieve_channel.declare_queue(exclusive=True)
-        # queue_name = result.method.queue
 
         await queue.bind(exchange)
-        # await retrieve_channel.queue_bind(exchange=TASK_RUNNER_OUTPUT_QUEUE_NAME, queue=queue_name)
 
         async def callback(message: aio_pika.IncomingMessage):
             async with message.process():
@@ -62,7 +57,6 @@ def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-setup_rich_logger()
 
 app.add_middleware(
     CORSMiddleware,
