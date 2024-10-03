@@ -32,7 +32,7 @@ async def get_current_user(
     session: Annotated[str | None, Cookie()] = None,
 ) -> User:
     if (token := token or session) is None:
-        raise Exception("No token")
+        raise HTTPException(401, "No authentication token provided")
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[AUTH_ALGORITHM])
