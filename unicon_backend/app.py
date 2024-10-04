@@ -23,13 +23,9 @@ async def listen_to_mq():
 
     async with connection:
         retrieve_channel = await connection.channel()
-        exchange = await retrieve_channel.declare_exchange(RESULT_QUEUE_NAME, type="fanout")
+        result_queue = await retrieve_channel.declare_queue(RESULT_QUEUE_NAME, durable=True)
 
-        queue = await retrieve_channel.declare_queue(exclusive=True)
-
-        await queue.bind(exchange)
-
-        async def callback(message: aio_pika.IncomingMessage):
+        async def on_task_complete(message: aio_pika.IncomingMessage):
             async with message.process():
                 body = json.loads(message.body)
                 with Session(sql_engine) as session:
@@ -46,8 +42,7 @@ async def listen_to_mq():
                         session.add(task_result)
                         session.commit()
 
-        await queue.consume(callback)
-
+        await result_queue.consume(on_task_complete)
         await asyncio.Future()
 
 
