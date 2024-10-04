@@ -19,7 +19,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 task_type_enum = sa.Enum(
-    "MULTIPLE_CHOICE", "MULTIPLE_RESPONSE", "SHORT_ANSWER", "PROGRAMMING", name="tasktype"
+    "MULTIPLE_CHOICE", "MULTIPLE_RESPONSE", "SHORT_ANSWER", "PROGRAMMING", name="task_type"
 )
 
 
@@ -39,10 +39,7 @@ def upgrade() -> None:
         sa.Column("autograde", sa.Boolean(), nullable=False),
         sa.Column("other_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("definition_id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["definition_id"],
-            ["definition.id"],
-        ),
+        sa.ForeignKeyConstraint(["definition_id"], ["definition.id"]),
         sa.PrimaryKeyConstraint("id", "definition_id"),
     )
     # ### end Alembic commands ###

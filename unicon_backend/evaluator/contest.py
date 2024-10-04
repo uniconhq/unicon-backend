@@ -25,11 +25,6 @@ class UserInput(BaseModel):
 UserInputs = RootModelList[UserInput]
 
 
-class TaskResult(BaseModel):
-    task_id: int
-    result: TaskEvalResult
-
-
 class Definition(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -42,7 +37,7 @@ class Definition(BaseModel):
         user_inputs: UserInputs,
         expected_answers: ExpectedAnswers,
         task_id: int | None = None,
-    ) -> list[TaskResult]:
+    ) -> list[TaskEvalResult]:
         user_input_index: dict[int, UserInput] = {
             task_input.id: task_input for task_input in user_inputs
         }
@@ -54,7 +49,7 @@ class Definition(BaseModel):
             self.tasks if task_id is None else [task for task in self.tasks if task.id == task_id]
         )
 
-        result: list[TaskResult] = []
+        result: list[TaskEvalResult] = []
 
         for task in tasks_to_run:
             if (task_user_input := user_input_index.get(task.id)) is None:
@@ -67,11 +62,11 @@ class Definition(BaseModel):
 
             logger.info(f"Running task {task.id}")
 
-            task_output = task.run(
-                task.validate_user_input(task_user_input.user_input),
-                task.validate_expected_answer(task_expected_answer.expected_answer),
+            result.append(
+                task.run(
+                    task.validate_user_input(task_user_input.user_input),
+                    task.validate_expected_answer(task_expected_answer.expected_answer),
+                )
             )
-
-            result.append(TaskResult(task_id=task.id, result=task_output))
 
         return result

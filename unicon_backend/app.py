@@ -15,7 +15,7 @@ from unicon_backend.constants import FRONTEND_URL, RABBITMQ_URL, sql_engine
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.session import get_session
 from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
-from unicon_backend.evaluator.tasks.base import TaskEvalStatus
+from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus
 from unicon_backend.logger import setup_rich_logger
 from unicon_backend.models import (
     DefinitionORM,
@@ -51,17 +51,18 @@ async def listen_to_mq():
             async with message.process():
                 body = json.loads(message.body)
                 with Session(sql_engine) as session:
-                    # Update the task result
-                    task_result = session.scalar(
-                        select(TaskResultORM).where(
-                            TaskResultORM.task_submission_id == body["submission_id"]
+                    if (
+                        task_result := session.scalar(
+                            select(TaskResultORM).where(
+                                TaskResultORM.job_id == body["submission_id"]
+                            )
                         )
-                    )
-                    if not task_result:
-                        return
-                    task_result.other_fields = body["result"]
-                    session.add(task_result)
-                    session.commit()
+                    ) is not None:
+                        task_result.status = TaskEvalStatus.SUCCESS
+                        task_result.result = body["result"]
+
+                        session.add(task_result)
+                        session.commit()
 
         await queue.consume(callback)
 
@@ -135,64 +136,74 @@ def submit(
     submission: Submission,
     _user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
+    task_id: int | None = None,
 ):
-    definition_orm = session.scalar(
+    definition_orm: DefinitionORM | None = session.scalar(
         select(DefinitionORM)
         .where(DefinitionORM.id == id)
         .options(selectinload(DefinitionORM.tasks))
     )
 
-    if not definition_orm:
-        raise HTTPException(HTTPStatus.NOT_FOUND)
+    if definition_orm is None:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Contest definition not found")
 
-    def convert_orm_to_schemas(definiton_orm: DefinitionORM):
-        tasks: list[dict] = [
-            {
-                "id": task_orm.id,
-                "type": task_orm.type,
-                "autograde": task_orm.autograde,
-                **task_orm.other_fields,
-            }
-            for task_orm in definiton_orm.tasks
-        ]
+    definition: Definition = Definition.model_validate(
+        {
+            "name": definition_orm.name,
+            "description": definition_orm.description,
+            "tasks": [
+                {
+                    "id": task_orm.id,
+                    "type": task_orm.type,
+                    "autograde": task_orm.autograde,
+                    **task_orm.other_fields,
+                }
+                for task_orm in definition_orm.tasks
+            ],
+        }
+    )
 
-        return Definition.model_validate(
-            {"name": definiton_orm.name, "description": definiton_orm.description, "tasks": tasks}
-        )
+    task_results: list[TaskEvalResult] = definition.run(
+        submission.user_inputs, submission.expected_answers, task_id
+    )
+    has_pending_tasks: bool = any(
+        task_result.status == TaskEvalStatus.PENDING for task_result in task_results
+    )
 
-    definition = convert_orm_to_schemas(definition_orm)
+    submission_orm = SubmissionORM(
+        definition_id=id,
+        status=SubmissionStatus.Pending if has_pending_tasks else SubmissionStatus.Ok,
+        task_results=[
+            TaskResultORM(
+                definition_id=id,
+                task_id=task_result.task_id,
+                job_id=task_result.result if task_result.status == TaskEvalStatus.PENDING else None,
+                status=task_result.status,
+                result=task_result.result.model_dump(mode="json")
+                if task_result.status != TaskEvalStatus.PENDING and task_result.result
+                else None,
+                error=task_result.error,
+            )
+            for task_result in task_results
+        ],
+        other_fields={},
+    )
 
-    result = definition.run(submission.user_inputs, submission.expected_answers)
-    pending = any(task.result.status == TaskEvalStatus.PENDING for task in result)
-    status = SubmissionStatus.Pending if pending else SubmissionStatus.Ok
-
-    submission_orm = SubmissionORM(definition_id=id, status=status, other_fields={})
-    task_results = [
-        TaskResultORM(
-            other_fields=task.model_dump(mode="json"),
-            task_submission_id=task.result.result
-            if task.result.status == TaskEvalStatus.PENDING
-            else None,
-        )
-        for task in result
-    ]
-    submission_orm.task_results = task_results
     session.add(submission_orm)
     session.commit()
     session.refresh(submission_orm)
+
     return submission_orm.task_results
 
 
-@app.get("/submission/{id}")
+@app.get("/submission/{id}/result")
 def get_submission(
     id: int,
     _user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],
+    task_id: int | None = None,
 ):
-    submission = session.scalar(
-        select(SubmissionORM)
-        .where(SubmissionORM.id == id)
-        .options(selectinload(SubmissionORM.task_results))
-    )
-
-    return submission
+    query = select(TaskResultORM).join(SubmissionORM).where(SubmissionORM.id == id)
+    if task_id is not None:
+        query = query.where(TaskResultORM.task_id == task_id)
+    return session.execute(query).scalars().all()

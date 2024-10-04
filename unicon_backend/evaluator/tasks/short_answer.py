@@ -5,17 +5,20 @@ from pydantic import RootModel
 from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus
 
 
-class ShortAnswerTask(Task[str, bool, str]):
+class ShortAnswerTask(Task[str, RootModel[bool], str]):
     question: str
     autograde: bool = False
 
-    def run(self, user_input: str, expected_answer: str) -> TaskEvalResult[bool]:
+    def run(self, user_input: str, expected_answer: str) -> TaskEvalResult[RootModel[bool]]:
         if self.autograde is False:
-            return TaskEvalResult(status=TaskEvalStatus.SKIPPED, result=None)
+            return TaskEvalResult(task_id=self.id, status=TaskEvalStatus.SKIPPED, result=None)
 
         return TaskEvalResult(
+            task_id=self.id,
             status=TaskEvalStatus.SUCCESS,
-            result=(expected_answer is not None) and (expected_answer == user_input),
+            result=RootModel[bool](
+                (expected_answer is not None) and (expected_answer == user_input)
+            ),
         )
 
     def validate_user_input(self, user_input: Any) -> str:

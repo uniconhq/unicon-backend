@@ -1,17 +1,11 @@
 from enum import Enum
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, ForeignKeyConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from unicon_backend.evaluator.tasks.base import TaskEvalStatus, TaskType
 from unicon_backend.models.base import Base
-
-
-class TaskType(str, Enum):
-    MULTIPLE_CHOICE = "MULTIPLE_CHOICE_TASK"
-    MULTIPLE_RESPONSE = "MULTIPLE_RESPONSE_TASK"
-    SHORT_ANSWER = "SHORT_ANSWER_TASK"
-    PROGRAMMING = "PROGRAMMING_TASK"
 
 
 class DefinitionORM(Base):
@@ -59,8 +53,18 @@ class TaskResultORM(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     submission_id: Mapped[int] = mapped_column(ForeignKey("submission.id"))
+    definition_id: Mapped[int]
+    task_id: Mapped[int]
 
-    task_submission_id: Mapped[str | None] = mapped_column(unique=True, nullable=True)
-    other_fields: Mapped[dict] = mapped_column(JSONB)
+    # NOTE: Unique identifier for a worker job that evaluates the task
+    job_id: Mapped[str | None] = mapped_column(unique=True, nullable=True)
+
+    status: Mapped[TaskEvalStatus]
+    result: Mapped[dict] = mapped_column(JSONB)
+    error: Mapped[str | None] = mapped_column(nullable=True)
 
     submission: Mapped[SubmissionORM] = relationship(back_populates="task_results")
+
+    __table_args__ = (
+        ForeignKeyConstraint(["definition_id", "task_id"], [TaskORM.definition_id, TaskORM.id]),
+    )
