@@ -14,6 +14,7 @@ class ShortAnswerTask(Task[str, bool, str]):
             return TaskEvalResult(task_id=self.id, status=TaskEvalStatus.SKIPPED, result=None)
 
         return TaskEvalResult(
+            id=self.id,
             status=TaskEvalStatus.SUCCESS,
             result=(expected_answer is not None) and (expected_answer == user_input),
         )
