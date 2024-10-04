@@ -4,14 +4,8 @@ from sqlalchemy import ForeignKey, ForeignKeyConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from unicon_backend.evaluator.tasks.base import TaskEvalStatus, TaskType
 from unicon_backend.models.base import Base
-
-
-class TaskType(str, Enum):
-    MULTIPLE_CHOICE = "MULTIPLE_CHOICE_TASK"
-    MULTIPLE_RESPONSE = "MULTIPLE_RESPONSE_TASK"
-    SHORT_ANSWER = "SHORT_ANSWER_TASK"
-    PROGRAMMING = "PROGRAMMING_TASK"
 
 
 class DefinitionORM(Base):
