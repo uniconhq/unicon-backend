@@ -125,7 +125,7 @@ class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]
 
         # TODO: check output and handle pending testcases
         # TODO: maybe move submission id else where
-        return TaskEvalResult(status=TaskEvalStatus.PENDING, result=submission_id)
+        return TaskEvalResult(task_id=self.id, status=TaskEvalStatus.PENDING, result=submission_id)
 
     def validate_user_input(self, user_input: Any) -> list[File]:
         return RootModel[list[File]].model_validate(user_input).root

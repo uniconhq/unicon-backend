@@ -10,7 +10,9 @@ class MultipleChoiceTask(Task[int, bool, int]):
     choices: list[str]
 
     def run(self, user_input: int, expected_answer: int) -> TaskEvalResult[bool]:
-        return TaskEvalResult(status=TaskEvalStatus.SUCCESS, result=user_input == expected_answer)
+        return TaskEvalResult(
+            task_id=self.id, status=TaskEvalStatus.SUCCESS, result=user_input == expected_answer
+        )
 
     def validate_user_input(self, user_input: Any) -> int:
         return RootModel[int].model_validate(user_input).root
@@ -39,6 +41,7 @@ class MultipleResponseTask(Task[set[int], MultipleResponseTaskResult, set[int]])
         self, user_input: set[int], expected_answer: set[int]
     ) -> TaskEvalResult[MultipleResponseTaskResult]:
         return TaskEvalResult(
+            task_id=self.id,
             status=TaskEvalStatus.SUCCESS,
             result=MultipleResponseTaskResult(
                 correct_choices=user_input & expected_answer,

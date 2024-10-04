@@ -11,7 +11,7 @@ class ShortAnswerTask(Task[str, bool, str]):
 
     def run(self, user_input: str, expected_answer: str) -> TaskEvalResult[bool]:
         if self.autograde is False:
-            return TaskEvalResult(status=TaskEvalStatus.SKIPPED, result=None)
+            return TaskEvalResult(task_id=self.id, status=TaskEvalStatus.SKIPPED, result=None)
 
         return TaskEvalResult(
             status=TaskEvalStatus.SUCCESS,

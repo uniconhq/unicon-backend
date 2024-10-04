@@ -1,6 +1,6 @@
 from enum import Enum
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, ForeignKeyConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -59,8 +59,14 @@ class TaskResultORM(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     submission_id: Mapped[int] = mapped_column(ForeignKey("submission.id"))
+    definition_id: Mapped[int]
+    task_id: Mapped[int]
 
     task_submission_id: Mapped[str | None] = mapped_column(unique=True, nullable=True)
     other_fields: Mapped[dict] = mapped_column(JSONB)
 
     submission: Mapped[SubmissionORM] = relationship(back_populates="task_results")
+
+    __table_args__ = (
+        ForeignKeyConstraint(["definition_id", "task_id"], [TaskORM.definition_id, TaskORM.id]),
+    )

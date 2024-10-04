@@ -20,6 +20,7 @@ class TaskEvalStatus(str, Enum):
 
 
 class TaskEvalResult(BaseModel, Generic[TaskResult]):
+    task_id: int
     status: TaskEvalStatus
     result: TaskResult | None
     error: str | None = None
