@@ -19,7 +19,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 task_type_enum = sa.Enum(
-    "MULTIPLE_CHOICE", "MULTIPLE_RESPONSE", "SHORT_ANSWER", "PROGRAMMING", name="tasktype"
+    "MULTIPLE_CHOICE", "MULTIPLE_RESPONSE", "SHORT_ANSWER", "PROGRAMMING", name="task_type"
 )
 
 

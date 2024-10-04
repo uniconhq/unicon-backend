@@ -5,13 +5,15 @@ from pydantic import BaseModel, RootModel
 from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus
 
 
-class MultipleChoiceTask(Task[int, bool, int]):
+class MultipleChoiceTask(Task[int, RootModel[bool], int]):
     question: str
     choices: list[str]
 
-    def run(self, user_input: int, expected_answer: int) -> TaskEvalResult[bool]:
+    def run(self, user_input: int, expected_answer: int) -> TaskEvalResult[RootModel[bool]]:
         return TaskEvalResult(
-            task_id=self.id, status=TaskEvalStatus.SUCCESS, result=user_input == expected_answer
+            task_id=self.id,
+            status=TaskEvalStatus.SUCCESS,
+            result=RootModel[bool](user_input == expected_answer),
         )
 
     def validate_user_input(self, user_input: Any) -> int:

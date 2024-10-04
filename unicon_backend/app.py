@@ -51,23 +51,18 @@ async def listen_to_mq():
             async with message.process():
                 body = json.loads(message.body)
                 with Session(sql_engine) as session:
-                    # Update the task result
-                    task_result = session.scalar(
-                        select(TaskResultORM).where(
-                            TaskResultORM.task_submission_id == body["submission_id"]
+                    if (
+                        task_result := session.scalar(
+                            select(TaskResultORM).where(
+                                TaskResultORM.job_id == body["submission_id"]
+                            )
                         )
-                    )
-                    if not task_result:
-                        return
+                    ) is not None:
+                        task_result.status = TaskEvalStatus.SUCCESS
+                        task_result.result = body["result"]
 
-                    task_result.other_fields = TaskEvalResult(
-                        task_id=task_result.task_id,
-                        status=TaskEvalStatus.SUCCESS,
-                        result=body["result"],
-                    ).model_dump(mode="json")
-
-                    session.add(task_result)
-                    session.commit()
+                        session.add(task_result)
+                        session.commit()
 
         await queue.consume(callback)
 
@@ -182,10 +177,12 @@ def submit(
             TaskResultORM(
                 definition_id=id,
                 task_id=task_result.task_id,
-                task_submission_id=task_result.result
-                if task_result.status == TaskEvalStatus.PENDING
+                job_id=task_result.result if task_result.status == TaskEvalStatus.PENDING else None,
+                status=task_result.status,
+                result=task_result.result.model_dump(mode="json")
+                if task_result.status != TaskEvalStatus.PENDING and task_result.result
                 else None,
-                other_fields=task_result.model_dump(mode="json"),
+                error=task_result.error,
             )
             for task_result in task_results
         ],

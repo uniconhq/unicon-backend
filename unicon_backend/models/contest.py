@@ -56,8 +56,12 @@ class TaskResultORM(Base):
     definition_id: Mapped[int]
     task_id: Mapped[int]
 
-    task_submission_id: Mapped[str | None] = mapped_column(unique=True, nullable=True)
-    other_fields: Mapped[dict] = mapped_column(JSONB)
+    # NOTE: Unique identifier for a worker job that evaluates the task
+    job_id: Mapped[str | None] = mapped_column(unique=True, nullable=True)
+
+    status: Mapped[TaskEvalStatus]
+    result: Mapped[dict] = mapped_column(JSONB)
+    error: Mapped[str | None] = mapped_column(nullable=True)
 
     submission: Mapped[SubmissionORM] = relationship(back_populates="task_results")
 

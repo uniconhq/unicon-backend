@@ -19,6 +19,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 submission_status_enum = sa.Enum("Pending", "Ok", name="submissionstatus")
+task_result_status_enum = sa.Enum("SUCCESS", "PENDING", "SKIPPED", "FAILED", name="taskevalstatus")
 
 
 def upgrade() -> None:
@@ -38,12 +39,14 @@ def upgrade() -> None:
         sa.Column("submission_id", sa.Integer(), nullable=False),
         sa.Column("definition_id", sa.Integer(), nullable=True),
         sa.Column("task_id", sa.Integer(), nullable=True),
-        sa.Column("task_submission_id", sa.String(), nullable=True),
-        sa.Column("other_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("job_id", sa.String(), nullable=True),
+        sa.Column("status", task_result_status_enum, nullable=False),
+        sa.Column("result", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("error", sa.String(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(["submission_id"], ["submission.id"]),
-        sa.UniqueConstraint("task_submission_id"),
         sa.ForeignKeyConstraint(["definition_id", "task_id"], ["task.definition_id", "task.id"]),
+        sa.UniqueConstraint("job_id"),
     )
     # ### end Alembic commands ###
 
@@ -54,4 +57,5 @@ def downgrade() -> None:
     op.drop_table("submission")
 
     submission_status_enum.drop(op.get_bind())
+    task_result_status_enum.drop(op.get_bind())
     # ### end Alembic commands ###
