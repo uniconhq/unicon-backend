@@ -8,28 +8,18 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from unicon_backend.constants import SECRET_KEY, sql_engine
-from unicon_backend.dependencies import AUTH_ALGORITHM, AUTH_PWD_CONTEXT, get_current_user
+from unicon_backend.constants import SECRET_KEY
+from unicon_backend.dependencies import (
+    AUTH_ALGORITHM,
+    AUTH_PWD_CONTEXT,
+    get_current_user,
+    get_db_session,
+)
 from unicon_backend.models import User
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-def create_access_token(data: dict, expires_delta: timedelta) -> str:
-    return jwt.encode(
-        {**data, "exp": datetime.now(UTC) + expires_delta}, SECRET_KEY, algorithm=AUTH_ALGORITHM
-    )
-
-
-def authenticate_user(username: str, password: str) -> User | None:
-    with Session(sql_engine) as session:
-        user: User | None = session.scalars(select(User).where(User.username == username)).first()
-        # NOTE: user.password is the hashed password
-        return (
-            user if user is not None and AUTH_PWD_CONTEXT.verify(password, user.password) else None
-        )
 
 
 class UserPublic(BaseModel):
@@ -46,13 +36,23 @@ class Token(BaseModel):
 
 
 @router.post("/token")
-def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], response: Response):
-    if (user := authenticate_user(form_data.username, form_data.password)) is None:
+def login(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    db_session: Annotated[Session, Depends(get_db_session)],
+    response: Response,
+):
+    # NOTE: `password` is hashed
+    username, password = form_data.username, form_data.password
+
+    user: User | None = db_session.scalars(select(User).where(User.username == username)).first()
+    if user is None or not AUTH_PWD_CONTEXT.verify(password, user.password):
         raise HTTPException(status_code=400, detail="Incorrect username or password.")
 
     user_public = UserPublic.model_validate(user)
-    access_token = create_access_token(
-        data={"sub": user.id}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token: str = jwt.encode(
+        {"sub": user.id, "exp": datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)},
+        SECRET_KEY,
+        algorithm=AUTH_ALGORITHM,
     )
     response.set_cookie(key="session", value=access_token)
 

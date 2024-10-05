@@ -9,15 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pika.exchange_type import ExchangeType  # type: ignore
 from pika.spec import Basic  # type: ignore
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from unicon_backend.constants import (
-    EXCHANGE_NAME,
-    FRONTEND_URL,
-    RABBITMQ_URL,
-    RESULT_QUEUE_NAME,
-    sql_engine,
-)
+from unicon_backend.constants import EXCHANGE_NAME, FRONTEND_URL, RABBITMQ_URL, RESULT_QUEUE_NAME
+from unicon_backend.database import SessionLocal
 from unicon_backend.evaluator.tasks.base import TaskEvalStatus
 from unicon_backend.lib.amqp import AsyncConsumer
 from unicon_backend.logger import setup_rich_logger
@@ -36,7 +30,7 @@ class TaskResultsConsumer(AsyncConsumer):
         self, _basic_deliver: Basic.Deliver, _properties: pika.BasicProperties, body: bytes
     ):
         body_json: dict = json.loads(body)
-        with Session(sql_engine) as session:
+        with SessionLocal() as session:
             task_result = session.scalar(
                 select(TaskResultORM).where(TaskResultORM.job_id == body_json["submission_id"])
             )

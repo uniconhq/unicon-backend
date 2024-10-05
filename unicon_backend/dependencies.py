@@ -7,7 +7,8 @@ from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from unicon_backend.constants import SECRET_KEY, sql_engine
+from unicon_backend.constants import SECRET_KEY
+from unicon_backend.database import SessionLocal
 from unicon_backend.models import User
 
 AUTH_ALGORITHM = "HS256"
@@ -27,8 +28,14 @@ class OAuth2IgnoreError(OAuth2PasswordBearer):
 OAUTH2_SCHEME = OAuth2IgnoreError(tokenUrl="/auth/token")
 
 
+def get_db_session():
+    with SessionLocal() as session:
+        yield session
+
+
 async def get_current_user(
     token: Annotated[str | None, Depends(OAUTH2_SCHEME)],
+    db_session: Annotated[Session, Depends(get_db_session)],
     session: Annotated[str | None, Cookie()] = None,
 ) -> User:
     if (token := token or session) is None:
@@ -37,9 +44,7 @@ async def get_current_user(
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[AUTH_ALGORITHM])
         id = payload.get("sub")
-        with Session(sql_engine) as db_session:
-            user = db_session.get(User, id)
-        if user is None:
+        if (user := db_session.get(User, id)) is None:
             raise InvalidTokenError()
         return user
 
@@ -49,8 +54,3 @@ async def get_current_user(
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         ) from invalid_token_err
-
-
-def get_db_session():
-    with Session(sql_engine) as session:
-        yield session

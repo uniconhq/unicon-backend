@@ -1,7 +1,6 @@
 import os
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
 
 load_dotenv()
 
@@ -21,5 +20,3 @@ FRONTEND_URL: str = _get_env_var("FRONTEND_URL", required=False)
 EXCHANGE_NAME = _get_env_var("EXCHANGE_NAME", "unicon")
 TASK_QUEUE_NAME = _get_env_var("WORK_QUEUE_NAME", "unicon.tasks")
 RESULT_QUEUE_NAME = _get_env_var("RESULT_QUEUE_NAME", "unicon.results")
-
-sql_engine = create_engine(DATABASE_URL)
