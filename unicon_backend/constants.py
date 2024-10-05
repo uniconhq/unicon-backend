@@ -18,7 +18,8 @@ RABBITMQ_URL: str = _get_env_var("RABBITMQ_URL")
 SECRET_KEY: str = _get_env_var("SECRET_KEY", "", required=False)
 FRONTEND_URL: str = _get_env_var("FRONTEND_URL", required=False)
 
-WORK_QUEUE_NAME = _get_env_var("WORK_QUEUE_NAME", "unicon_tasks")
-RESULT_QUEUE_NAME = _get_env_var("RESULT_QUEUE_NAME", "unicon_task_results")
+EXCHANGE_NAME = _get_env_var("EXCHANGE_NAME", "unicon")
+TASK_QUEUE_NAME = _get_env_var("WORK_QUEUE_NAME", "unicon.tasks")
+RESULT_QUEUE_NAME = _get_env_var("RESULT_QUEUE_NAME", "unicon.results")
 
 sql_engine = create_engine(DATABASE_URL)
