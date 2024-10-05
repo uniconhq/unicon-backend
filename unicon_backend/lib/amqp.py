@@ -1,4 +1,6 @@
+import abc
 from asyncio import AbstractEventLoop
+from logging import getLogger
 
 import pika  # type: ignore
 from pika.adapters.asyncio_connection import AsyncioConnection  # type: ignore
@@ -7,9 +9,11 @@ from pika.exchange_type import ExchangeType  # type: ignore
 from pika.frame import Method  # type: ignore
 from pika.spec import Basic, BasicProperties  # type: ignore
 
+logger = getLogger(__name__)
+
 
 # Reference: https://github.com/pika/pika/blob/main/examples/asynchronous_consumer_example.py
-class AsyncConsumer:
+class AsyncConsumer(abc.ABC):
     def __init__(
         self,
         amqp_url: str,
@@ -42,16 +46,14 @@ class AsyncConsumer:
     def on_connection_open(self, _connection: AsyncioConnection):
         self.open_channel()
 
-    def on_connection_open_error(self, _connection: AsyncioConnection, _error: Exception):
-        # TODO: Implement error handling
-        ...
+    def on_connection_open_error(self, _connection: AsyncioConnection, error: Exception):
+        logger.error(f"Connection open error: {error}")
 
-    def on_connection_closed(self, _connection: AsyncioConnection, _reason: Exception):
+    def on_connection_closed(self, _connection: AsyncioConnection, reason: Exception):
         self._channel = None
         if not self._closing:
             # If connection was closed unexpectedly
-            # TODO: Implement reconnection logic and error handling
-            ...
+            logger.error(f"Connection closed unexpectedly: {reason}")
 
     def open_channel(self):
         assert self._connection is not None
@@ -111,13 +113,12 @@ class AsyncConsumer:
         self,
         _channel: Channel,
         basic_deliver: Basic.Deliver,
-        _properties: BasicProperties,
+        properties: BasicProperties,
         body: bytes,
     ):
         assert self._channel is not None
-        # TODO: Make this abstract method to be implemented by subclasses
-        # For now, just print the message
-        print(body)
+        logger.info(f"Received message: {basic_deliver.delivery_tag}")
+        self.message_callback(basic_deliver, properties, body)
         self._channel.basic_ack(basic_deliver.delivery_tag)
 
     def stop_consuming(self):
@@ -128,6 +129,11 @@ class AsyncConsumer:
         assert self._channel is not None
         self._consuming = False
         self._channel.close()
+
+    @abc.abstractmethod
+    def message_callback(
+        self, basic_deliver: Basic.Deliver, properties: BasicProperties, body: bytes
+    ): ...
 
     def run(self, event_loop: AbstractEventLoop | None = None):
         self._connection = AsyncioConnection(
