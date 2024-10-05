@@ -20,13 +20,14 @@ class AsyncConsumer(abc.ABC):
         exchange_name: str,
         exchange_type: ExchangeType,
         queue_name: str,
-        routing_key: str,
+        routing_key: str | None = None,
     ):
         self.exchange_name = exchange_name
         self.exchange_type = exchange_type
 
         self.queue_name = queue_name
-        self.routing_key = routing_key
+        # NOTE: If routing_key is not provided, it will default to the queue_name
+        self.routing_key = routing_key or queue_name
 
         self._url = amqp_url
 
@@ -117,7 +118,6 @@ class AsyncConsumer(abc.ABC):
         body: bytes,
     ):
         assert self._channel is not None
-        logger.info(f"Received message: {basic_deliver.delivery_tag}")
         self.message_callback(basic_deliver, properties, body)
         self._channel.basic_ack(basic_deliver.delivery_tag)
 

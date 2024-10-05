@@ -4,14 +4,20 @@ import logging
 from contextlib import asynccontextmanager
 
 import pika  # type: ignore
-import pika.exchange_type  # type: ignore
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pika.exchange_type import ExchangeType  # type: ignore
 from pika.spec import Basic  # type: ignore
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from unicon_backend.constants import FRONTEND_URL, RABBITMQ_URL, RESULT_QUEUE_NAME, sql_engine
+from unicon_backend.constants import (
+    EXCHANGE_NAME,
+    FRONTEND_URL,
+    RABBITMQ_URL,
+    RESULT_QUEUE_NAME,
+    sql_engine,
+)
 from unicon_backend.evaluator.tasks.base import TaskEvalStatus
 from unicon_backend.lib.amqp import AsyncConsumer
 from unicon_backend.logger import setup_rich_logger
@@ -24,13 +30,7 @@ setup_rich_logger()
 
 class TaskResultsConsumer(AsyncConsumer):
     def __init__(self):
-        super().__init__(
-            RABBITMQ_URL,
-            RESULT_QUEUE_NAME,
-            pika.exchange_type.ExchangeType.direct,
-            RESULT_QUEUE_NAME,
-            RESULT_QUEUE_NAME,
-        )
+        super().__init__(RABBITMQ_URL, EXCHANGE_NAME, ExchangeType.topic, RESULT_QUEUE_NAME)
 
     def message_callback(
         self, _basic_deliver: Basic.Deliver, _properties: pika.BasicProperties, body: bytes
@@ -50,10 +50,13 @@ class TaskResultsConsumer(AsyncConsumer):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _event_loop = asyncio.get_event_loop()
+
     task_results_consumer = TaskResultsConsumer()
-    # NOTE: At this point, the event loop is already running because FastAPI has started the server
-    task_results_consumer.run(event_loop=asyncio.get_event_loop())
+    task_results_consumer.run(event_loop=_event_loop)
+
     yield
+
     task_results_consumer.stop()
 
 
