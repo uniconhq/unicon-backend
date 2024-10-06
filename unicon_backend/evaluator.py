@@ -6,6 +6,7 @@ from io import TextIOWrapper
 
 from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
 from unicon_backend.logger import setup_rich_logger
+from unicon_backend.workers import task_publisher
 
 
 def exit_if(predicate: bool, err_msg: str, exit_code: int = 1) -> None:
@@ -40,8 +41,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    definition: Definition = Definition.model_validate_json(args.definition.read())
-    user_inputs: UserInputs = UserInputs.model_validate_json(args.submission.read())
-    expected_answers: ExpectedAnswers = ExpectedAnswers.model_validate_json(args.answer.read())
+    try:
+        task_publisher.run()
 
-    definition.run(user_inputs, expected_answers, task_id=args.task_id)
+        definition: Definition = Definition.model_validate_json(args.definition.read())
+        user_inputs: UserInputs = UserInputs.model_validate_json(args.submission.read())
+        expected_answers: ExpectedAnswers = ExpectedAnswers.model_validate_json(args.answer.read())
+
+        definition.run(user_inputs, expected_answers, task_id=args.task_id)
+    finally:
+        task_publisher.stop()
