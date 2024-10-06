@@ -5,13 +5,11 @@ from logging import getLogger
 from typing import Any, Generic, Literal, TypeVar
 from uuid import uuid4
 
-import pika  # type: ignore
-from pika.exchange_type import ExchangeType  # type: ignore
 from pydantic import BaseModel, RootModel
 
-from unicon_backend.constants import EXCHANGE_NAME, RABBITMQ_URL, TASK_QUEUE_NAME
-from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus
+from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus
 from unicon_backend.lib.common import CustomBaseModel
+from unicon_backend.workers import task_publisher
 
 logger = getLogger(__name__)
 
@@ -122,7 +120,8 @@ class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]
             user_input=user_input,
             expected_answer=expected_answer,
         )
-        self.send_to_runner(request)
+
+        task_publisher.publish(request.model_dump_json(serialize_as_any=True))
 
         # TODO: check output and handle pending testcases
         # TODO: maybe move submission id else where
@@ -133,18 +132,3 @@ class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]
 
     def validate_expected_answer(self, expected_answer: Any) -> list[ProgrammingTaskExpectedAnswer]:
         return RootModel[list[ProgrammingTaskExpectedAnswer]].model_validate(expected_answer).root
-
-    def send_to_runner(self, request: ProgrammingTaskRequest) -> str:
-        connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
-        send_channel = connection.channel()
-        send_channel.queue_declare(queue=TASK_QUEUE_NAME, durable=True)
-        send_channel.exchange_declare(exchange=EXCHANGE_NAME, exchange_type=ExchangeType.topic)
-        send_channel.queue_bind(
-            exchange=EXCHANGE_NAME, queue=TASK_QUEUE_NAME, routing_key=TASK_QUEUE_NAME
-        )
-
-        message = request.model_dump_json(serialize_as_any=True)
-        send_channel.basic_publish(exchange="", routing_key=TASK_QUEUE_NAME, body=message)
-        connection.close()
-
-        return ""
