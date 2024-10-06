@@ -28,11 +28,10 @@ def get_logger_config():
 
 
 def setup_rich_logger():
-    # Remove all handlers from root logger
-    # and proprogate to root logger.
-    for name in logging.root.manager.loggerDict:
-        logging.getLogger(name).handlers = []
-        logging.getLogger(name).propagate = True
+    # Remove all handlers from root logger and proprogate to root logger.
+    for logger in map(logging.getLogger, logging.root.manager.loggerDict):
+        logger.handlers = []
+        logger.propagate = True
 
     logger_config = get_logger_config()  # get Rich logging config
 

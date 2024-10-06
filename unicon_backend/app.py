@@ -10,7 +10,10 @@ from unicon_backend.logger import setup_rich_logger
 from unicon_backend.routers import auth, contest
 from unicon_backend.workers import task_publisher, task_results_consumer
 
-logging.getLogger("passlib").setLevel(logging.ERROR)
+# `passlib` has a known issue with one of its dependencies which causes it to log a non-consequential warning.
+# We suppress this warning to avoid confusion
+# Reference: https://github.com/pyca/bcrypt/issues/684
+logging.getLogger("passlib.handlers.bcrypt").setLevel(logging.ERROR)
 setup_rich_logger()
 
 
