@@ -1,9 +1,9 @@
 from http import HTTPStatus
 from typing import Annotated
 
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from unicon_backend.dependencies import get_current_user, get_db_session
@@ -53,7 +53,7 @@ def submit_contest_submission(
     task_id: int | None = None,
 ):
     definition_orm = db_session.scalar(
-        select(DefinitionORM)
+        sa.select(DefinitionORM)
         .where(DefinitionORM.id == id)
         .options(selectinload(DefinitionORM.tasks))
     )
@@ -91,6 +91,9 @@ def submit_contest_submission(
             TaskResultORM(
                 definition_id=id,
                 task_id=task_result.task_id,
+                completed_at=sa.func.now()
+                if task_result.status != TaskEvalStatus.PENDING
+                else None,
                 job_id=task_result.result if task_result.status == TaskEvalStatus.PENDING else None,
                 status=task_result.status,
                 result=task_result.result.model_dump(mode="json")
@@ -116,7 +119,7 @@ def get_submission(
     db_session: Annotated[Session, Depends(get_db_session)],
     task_id: int | None = None,
 ):
-    query = select(TaskResultORM).join(SubmissionORM).where(SubmissionORM.id == submission_id)
+    query = sa.select(TaskResultORM).join(SubmissionORM).where(SubmissionORM.id == submission_id)
     if task_id is not None:
         query = query.where(TaskResultORM.task_id == task_id)
     return db_session.execute(query).scalars().all()
