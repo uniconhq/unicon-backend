@@ -4,7 +4,6 @@ from sqlalchemy import ForeignKey, ForeignKeyConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from unicon_backend.evaluator.tasks import TaskEvalStatus, TaskType
 from unicon_backend.models.base import Base
 
 
@@ -16,6 +15,20 @@ class DefinitionORM(Base):
     description: Mapped[str]
 
     tasks: Mapped[list["TaskORM"]] = relationship(back_populates="definition")
+
+
+class TaskType(str, Enum):
+    MULTIPLE_CHOICE = "MULTIPLE_CHOICE_TASK"
+    MULTIPLE_RESPONSE = "MULTIPLE_RESPONSE_TASK"
+    SHORT_ANSWER = "SHORT_ANSWER_TASK"
+    PROGRAMMING = "PROGRAMMING_TASK"
+
+
+class TaskEvalStatus(str, Enum):
+    SUCCESS = "SUCCESS"
+    PENDING = "PENDING"
+    SKIPPED = "SKIPPED"
+    FAILED = "FAILED"
 
 
 class TaskORM(Base):

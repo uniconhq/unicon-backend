@@ -1,57 +1,29 @@
 import asyncio
-import json
 import logging
 from contextlib import asynccontextmanager
 
-import pika  # type: ignore
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pika.exchange_type import ExchangeType  # type: ignore
-from pika.spec import Basic  # type: ignore
-from sqlalchemy import select
 
-from unicon_backend.constants import EXCHANGE_NAME, FRONTEND_URL, RABBITMQ_URL, RESULT_QUEUE_NAME
-from unicon_backend.database import SessionLocal
-from unicon_backend.evaluator.tasks.base import TaskEvalStatus
-from unicon_backend.lib.amqp import AsyncConsumer
+from unicon_backend.constants import FRONTEND_URL
 from unicon_backend.logger import setup_rich_logger
-from unicon_backend.models import TaskResultORM
 from unicon_backend.routers import auth, contest
+from unicon_backend.workers import task_publisher, task_results_consumer
 
 logging.getLogger("passlib").setLevel(logging.ERROR)
 setup_rich_logger()
 
 
-class TaskResultsConsumer(AsyncConsumer):
-    def __init__(self):
-        super().__init__(RABBITMQ_URL, EXCHANGE_NAME, ExchangeType.topic, RESULT_QUEUE_NAME)
-
-    def message_callback(
-        self, _basic_deliver: Basic.Deliver, _properties: pika.BasicProperties, body: bytes
-    ):
-        body_json: dict = json.loads(body)
-        with SessionLocal() as session:
-            task_result = session.scalar(
-                select(TaskResultORM).where(TaskResultORM.job_id == body_json["submission_id"])
-            )
-            if task_result is not None:
-                task_result.status = TaskEvalStatus.SUCCESS
-                task_result.result = body_json["result"]
-
-                session.add(task_result)
-                session.commit()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _event_loop = asyncio.get_event_loop()
-
-    task_results_consumer = TaskResultsConsumer()
     task_results_consumer.run(event_loop=_event_loop)
+    task_publisher.run()
 
     yield
 
     task_results_consumer.stop()
+    task_publisher.stop()
 
 
 app = FastAPI(lifespan=lifespan)
