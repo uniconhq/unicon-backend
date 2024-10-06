@@ -55,6 +55,9 @@ class SubmissionORM(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     definition_id = mapped_column(sa.ForeignKey("definition.id"))
     status: Mapped[SubmissionStatus]
+    submitted_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
 
     # TODO: split this to one more table
     other_fields: Mapped[dict] = mapped_column(JSONB)
