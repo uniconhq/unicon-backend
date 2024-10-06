@@ -29,6 +29,9 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("status", submission_status_enum, nullable=False),
         sa.Column("definition_id", sa.Integer(), nullable=True),
+        sa.Column(
+            "submitted_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.Column("other_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.ForeignKeyConstraint(["definition_id"], ["definition.id"]),
         sa.PrimaryKeyConstraint("id"),
@@ -39,6 +42,8 @@ def upgrade() -> None:
         sa.Column("submission_id", sa.Integer(), nullable=False),
         sa.Column("definition_id", sa.Integer(), nullable=True),
         sa.Column("task_id", sa.Integer(), nullable=True),
+        sa.Column("started_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
+        sa.Column("completed_at", sa.DateTime(), nullable=True),
         sa.Column("job_id", sa.String(), nullable=True),
         sa.Column("status", task_result_status_enum, nullable=False),
         sa.Column("result", postgresql.JSONB(astext_type=sa.Text()), nullable=True),

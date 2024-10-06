@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
     task_publisher.stop()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(title="Unicon 🦄 Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

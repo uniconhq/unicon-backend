@@ -1,6 +1,7 @@
+from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import ForeignKey, ForeignKeyConstraint
+import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,7 +39,7 @@ class TaskORM(Base):
     type: Mapped[TaskType]
     autograde: Mapped[bool]
     other_fields: Mapped[dict] = mapped_column(JSONB)
-    definition_id: Mapped[int] = mapped_column(ForeignKey("definition.id"), primary_key=True)
+    definition_id: Mapped[int] = mapped_column(sa.ForeignKey("definition.id"), primary_key=True)
 
     definition: Mapped[DefinitionORM] = relationship(back_populates="tasks")
 
@@ -52,8 +53,11 @@ class SubmissionORM(Base):
     __tablename__ = "submission"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    definition_id = mapped_column(ForeignKey("definition.id"))
+    definition_id = mapped_column(sa.ForeignKey("definition.id"))
     status: Mapped[SubmissionStatus]
+    submitted_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=sa.func.now()
+    )
 
     # TODO: split this to one more table
     other_fields: Mapped[dict] = mapped_column(JSONB)
@@ -65,9 +69,14 @@ class TaskResultORM(Base):
     __tablename__ = "task_result"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    submission_id: Mapped[int] = mapped_column(ForeignKey("submission.id"))
+    submission_id: Mapped[int] = mapped_column(sa.ForeignKey("submission.id"))
     definition_id: Mapped[int]
     task_id: Mapped[int]
+
+    started_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
 
     # NOTE: Unique identifier for a worker job that evaluates the task
     job_id: Mapped[str | None] = mapped_column(unique=True, nullable=True)
@@ -79,5 +88,5 @@ class TaskResultORM(Base):
     submission: Mapped[SubmissionORM] = relationship(back_populates="task_results")
 
     __table_args__ = (
-        ForeignKeyConstraint(["definition_id", "task_id"], [TaskORM.definition_id, TaskORM.id]),
+        sa.ForeignKeyConstraint(["definition_id", "task_id"], [TaskORM.definition_id, TaskORM.id]),
     )

@@ -31,6 +31,7 @@ class TaskResultsConsumer(AsyncConsumer):
             )
             if task_result is not None:
                 task_result.status = TaskEvalStatus.SUCCESS
+                task_result.completed_at = sa.func.now()
                 task_result.result = body_json["result"]
 
                 session.add(task_result)
