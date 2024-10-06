@@ -4,7 +4,7 @@ from sqlalchemy import ForeignKey, ForeignKeyConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from unicon_backend.evaluator.tasks.base import TaskEvalStatus, TaskType
+from unicon_backend.evaluator.tasks import TaskEvalStatus, TaskType
 from unicon_backend.models.base import Base
 
 
