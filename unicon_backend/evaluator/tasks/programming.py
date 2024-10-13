@@ -1,14 +1,12 @@
-import abc
 import logging
 from enum import Enum
 from logging import getLogger
-from typing import Any, Generic, Literal, TypeVar
-from uuid import uuid4
+from typing import Any, Literal, NewType
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, ConfigDict, RootModel
 
 from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus
-from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.workers import task_publisher
 
 logger = getLogger(__name__)
@@ -41,41 +39,34 @@ class RunnerResponse(BaseModel):
     stderr: str
 
 
-class StepType(str, Enum):
-    PY_RUN_FUNCTION = "PY_RUN_FUNCTION_STEP"
-    EXTRACT_PROGRAM_OUTPUT = "EXTRACT_PROGRAM_OUTPUT_STEP"
-    STRING_MATCH = "STRING_MATCH_STEP"
-
-
-StepInputType = TypeVar("StepInputType")
-StepExpectedAnswer = TypeVar("StepExpectedAnswer")
-StepOutputType = TypeVar("StepOutputType")
-
-type Unused = None
-
-
-class Step(
-    CustomBaseModel,
-    abc.ABC,
-    Generic[StepInputType, StepExpectedAnswer, StepOutputType],
-    polymorphic=True,
-):
+class Socket(BaseModel):
     id: int
-    type: StepType
+    name: str
 
 
-class PyRunFunctionStep(Step[list[File], Unused, RunnerResponse]):
-    file_name: str
-    function_name: str
-    arguments: list[int | str]
-    keyword_arguments: dict[str, str]
+class Step(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: int
+    type: str
+    inputs: list[Socket]
+    outputs: list[Socket]
 
 
-class ExtractProgramOutputStep(Step[RunnerResponse, Unused, str]):
-    key: Literal["stdout", "stderr", "status"]
+class Edge(BaseModel):
+    id: int
+
+    from_node_id: int
+    from_socket_id: int
+
+    to_node_id: int
+    to_socket_id: int
 
 
-class StringMatchStep(Step[str, str, bool]): ...
+class Testcase(BaseModel):
+    id: int
+    steps: list[Step]
+    edges: list[Edge]
 
 
 class ProgrammingTaskExpectedAnswer(BaseModel):
@@ -84,13 +75,11 @@ class ProgrammingTaskExpectedAnswer(BaseModel):
     expected_answer: Any
 
 
-class Testcase(BaseModel):
-    id: int
-    steps: list[Step]
+SubmissionId = NewType("SubmissionId", UUID)
 
 
 class ProgrammingTaskRequest(BaseModel):
-    submission_id: str
+    submission_id: SubmissionId
     environment: ProgrammingEnvironment
     templates: list[File]
     testcases: list[Testcase]
@@ -99,7 +88,7 @@ class ProgrammingTaskRequest(BaseModel):
     executor_type: Literal["podman", "unsafe"] = "podman"
 
 
-class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]):
+class ProgrammingTask(Task[list[File], SubmissionId, list[ProgrammingTaskExpectedAnswer]]):
     question: str
     environment: ProgrammingEnvironment
     templates: list[File]
@@ -110,8 +99,9 @@ class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]
         self,
         user_input: list[File],
         expected_answer: list[ProgrammingTaskExpectedAnswer],
-    ) -> TaskEvalResult[str]:
-        submission_id = str(uuid4())
+    ) -> TaskEvalResult[SubmissionId]:
+        submission_id = SubmissionId(uuid4())
+
         request = ProgrammingTaskRequest(
             submission_id=submission_id,
             environment=self.environment,
@@ -123,8 +113,6 @@ class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]
 
         task_publisher.publish(request.model_dump_json(serialize_as_any=True))
 
-        # TODO: check output and handle pending testcases
-        # TODO: maybe move submission id else where
         return TaskEvalResult(task_id=self.id, status=TaskEvalStatus.PENDING, result=submission_id)
 
     def validate_user_input(self, user_input: Any) -> list[File]:
