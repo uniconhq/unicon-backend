@@ -1,6 +1,8 @@
 import logging
+from collections import defaultdict
 from enum import Enum
 from logging import getLogger
+from queue import Queue
 from typing import Any, Literal, NewType
 from uuid import UUID, uuid4
 
@@ -67,6 +69,39 @@ class Testcase(BaseModel):
     id: int
     steps: list[Step]
     edges: list[Edge]
+
+    def toposort(self) -> list[Step]:
+        node_index: dict[int, Step] = {step.id: step for step in self.steps}
+        out_edges_index: dict[int, list[int]] = defaultdict(list)
+        in_edges_index: dict[int, list[int]] = defaultdict(list)
+
+        for edge in self.edges:
+            out_edges_index[edge.from_node_id].append(edge.to_node_id)
+            in_edges_index[edge.to_node_id].append(edge.from_node_id)
+
+        in_degrees: dict[int, int] = defaultdict(int)
+        node_queue: Queue[int] = Queue(len(self.steps))
+
+        for step_node in self.steps:
+            in_degrees[step_node.id] = len(in_edges_index.get(step_node.id, []))
+            if in_degrees[step_node.id] == 0:
+                node_queue.put(step_node.id)
+
+        topo_order: list[int] = []
+
+        while not node_queue.empty():
+            step_node_id: int = node_queue.get()
+            topo_order.append(step_node_id)
+
+            for to_step_node_id in out_edges_index.get(step_node_id, []):
+                in_degrees[to_step_node_id] -= 1
+                if in_degrees[to_step_node_id] == 0:
+                    node_queue.put(to_step_node_id)
+
+        if len(topo_order) != len(self.steps):
+            raise ValueError(f"Testcase {self.id} has a cycle!")
+
+        return [node_index[step_id] for step_id in topo_order]
 
 
 class ProgrammingTaskExpectedAnswer(BaseModel):
