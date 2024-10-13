@@ -1,9 +1,8 @@
-import logging
 from collections import defaultdict
 from enum import Enum
 from logging import getLogger
 from queue import Queue
-from typing import Any, Literal, NewType
+from typing import Any, NewType
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, RootModel
@@ -12,9 +11,6 @@ from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus
 from unicon_backend.workers import task_publisher
 
 logger = getLogger(__name__)
-
-# TEMP: suppress pika logging
-logging.getLogger("pika").setLevel(logging.WARNING)
 
 
 class ProgrammingLanguage(str, Enum):
@@ -55,7 +51,7 @@ class Step(BaseModel):
     outputs: list[Socket]
 
 
-class Edge(BaseModel):
+class Link(BaseModel):
     id: int
 
     from_node_id: int
@@ -68,16 +64,16 @@ class Edge(BaseModel):
 class Testcase(BaseModel):
     id: int
     steps: list[Step]
-    edges: list[Edge]
+    links: list[Link]
 
-    def toposort(self) -> list[Step]:
+    def toposort(self) -> None:
         node_index: dict[int, Step] = {step.id: step for step in self.steps}
         out_edges_index: dict[int, list[int]] = defaultdict(list)
         in_edges_index: dict[int, list[int]] = defaultdict(list)
 
-        for edge in self.edges:
-            out_edges_index[edge.from_node_id].append(edge.to_node_id)
-            in_edges_index[edge.to_node_id].append(edge.from_node_id)
+        for link in self.links:
+            out_edges_index[link.from_node_id].append(link.to_node_id)
+            in_edges_index[link.to_node_id].append(link.from_node_id)
 
         in_degrees: dict[int, int] = defaultdict(int)
         node_queue: Queue[int] = Queue(len(self.steps))
@@ -101,7 +97,13 @@ class Testcase(BaseModel):
         if len(topo_order) != len(self.steps):
             raise ValueError(f"Testcase {self.id} has a cycle!")
 
-        return [node_index[step_id] for step_id in topo_order]
+        self.steps = [node_index[step_id] for step_id in topo_order]
+
+
+class ExecutorType(str, Enum):
+    PODMAN = "podman"
+    SANDBOX = "sandbox"
+    UNSAFE = "unsafe"
 
 
 class ProgrammingTaskExpectedAnswer(BaseModel):
@@ -120,7 +122,7 @@ class ProgrammingTaskRequest(BaseModel):
     testcases: list[Testcase]
     user_input: list[File]
     expected_answer: list[ProgrammingTaskExpectedAnswer]
-    executor_type: Literal["podman", "unsafe"] = "podman"
+    executor_type: ExecutorType
 
 
 class ProgrammingTask(Task[list[File], SubmissionId, list[ProgrammingTaskExpectedAnswer]]):
@@ -128,7 +130,7 @@ class ProgrammingTask(Task[list[File], SubmissionId, list[ProgrammingTaskExpecte
     environment: ProgrammingEnvironment
     templates: list[File]
     testcases: list[Testcase]
-    executor_type: Literal["podman", "unsafe"] = "podman"
+    executor_type: ExecutorType = ExecutorType.PODMAN
 
     def run(
         self,
@@ -137,6 +139,9 @@ class ProgrammingTask(Task[list[File], SubmissionId, list[ProgrammingTaskExpecte
     ) -> TaskEvalResult[SubmissionId]:
         submission_id = SubmissionId(uuid4())
 
+        for testcase in self.testcases:
+            testcase.toposort()
+
         request = ProgrammingTaskRequest(
             submission_id=submission_id,
             environment=self.environment,
@@ -144,6 +149,7 @@ class ProgrammingTask(Task[list[File], SubmissionId, list[ProgrammingTaskExpecte
             testcases=self.testcases,
             user_input=user_input,
             expected_answer=expected_answer,
+            executor_type=self.executor_type,
         )
 
         task_publisher.publish(request.model_dump_json(serialize_as_any=True))
