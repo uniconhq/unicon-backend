@@ -1,13 +1,12 @@
-from collections import defaultdict
 from enum import Enum
 from logging import getLogger
-from queue import Queue
 from typing import Any, NewType
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, RootModel
 
 from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus
+from unicon_backend.lib.graph import Graph, GraphNode
 from unicon_backend.workers import task_publisher
 
 logger = getLogger(__name__)
@@ -37,67 +36,14 @@ class RunnerResponse(BaseModel):
     stderr: str
 
 
-class Socket(BaseModel):
-    id: int
-    name: str
-
-
-class Step(BaseModel):
+class Step(GraphNode):
     model_config = ConfigDict(extra="allow")
 
-    id: int
     type: str
-    inputs: list[Socket]
-    outputs: list[Socket]
 
 
-class Link(BaseModel):
+class Testcase(Graph[Step]):
     id: int
-
-    from_node_id: int
-    from_socket_id: int
-
-    to_node_id: int
-    to_socket_id: int
-
-
-class Testcase(BaseModel):
-    id: int
-    steps: list[Step]
-    links: list[Link]
-
-    def toposort(self) -> None:
-        node_index: dict[int, Step] = {step.id: step for step in self.steps}
-        out_edges_index: dict[int, list[int]] = defaultdict(list)
-        in_edges_index: dict[int, list[int]] = defaultdict(list)
-
-        for link in self.links:
-            out_edges_index[link.from_node_id].append(link.to_node_id)
-            in_edges_index[link.to_node_id].append(link.from_node_id)
-
-        in_degrees: dict[int, int] = defaultdict(int)
-        node_queue: Queue[int] = Queue(len(self.steps))
-
-        for step_node in self.steps:
-            in_degrees[step_node.id] = len(in_edges_index.get(step_node.id, []))
-            if in_degrees[step_node.id] == 0:
-                node_queue.put(step_node.id)
-
-        topo_order: list[int] = []
-
-        while not node_queue.empty():
-            step_node_id: int = node_queue.get()
-            topo_order.append(step_node_id)
-
-            for to_step_node_id in out_edges_index.get(step_node_id, []):
-                in_degrees[to_step_node_id] -= 1
-                if in_degrees[to_step_node_id] == 0:
-                    node_queue.put(to_step_node_id)
-
-        if len(topo_order) != len(self.steps):
-            raise ValueError(f"Testcase {self.id} has a cycle!")
-
-        self.steps = [node_index[step_id] for step_id in topo_order]
 
 
 class ExecutorType(str, Enum):
@@ -140,7 +86,7 @@ class ProgrammingTask(Task[list[File], SubmissionId, list[ProgrammingTaskExpecte
         submission_id = SubmissionId(uuid4())
 
         for testcase in self.testcases:
-            testcase.toposort()
+            testcase.topological_sort()
 
         request = ProgrammingTaskRequest(
             submission_id=submission_id,
