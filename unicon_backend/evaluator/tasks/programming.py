@@ -1,20 +1,15 @@
-import abc
-import logging
 from enum import Enum
 from logging import getLogger
-from typing import Any, Generic, Literal, TypeVar
-from uuid import uuid4
+from typing import Any, NewType
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, ConfigDict, RootModel
 
 from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus
-from unicon_backend.lib.common import CustomBaseModel
+from unicon_backend.lib.graph import Graph, GraphNode
 from unicon_backend.workers import task_publisher
 
 logger = getLogger(__name__)
-
-# TEMP: suppress pika logging
-logging.getLogger("pika").setLevel(logging.WARNING)
 
 
 class ProgrammingLanguage(str, Enum):
@@ -41,41 +36,29 @@ class RunnerResponse(BaseModel):
     stderr: str
 
 
-class StepType(str, Enum):
-    PY_RUN_FUNCTION = "PY_RUN_FUNCTION_STEP"
-    EXTRACT_PROGRAM_OUTPUT = "EXTRACT_PROGRAM_OUTPUT_STEP"
-    STRING_MATCH = "STRING_MATCH_STEP"
+class Step(GraphNode):
+    model_config = ConfigDict(extra="allow")
+
+    type: str
+    subgraph: Graph["Step"] | None = None
 
 
-StepInputType = TypeVar("StepInputType")
-StepExpectedAnswer = TypeVar("StepExpectedAnswer")
-StepOutputType = TypeVar("StepOutputType")
-
-type Unused = None
-
-
-class Step(
-    CustomBaseModel,
-    abc.ABC,
-    Generic[StepInputType, StepExpectedAnswer, StepOutputType],
-    polymorphic=True,
-):
+class Testcase(Graph[Step]):
     id: int
-    type: StepType
+
+    def topological_sort(self) -> None:
+        # Perform topological sort on the graph
+        super().topological_sort()
+        # If there is a node in the graph with a subgraph, perform topological sort on the subgraph
+        for node in self.nodes:
+            if node.subgraph:
+                node.subgraph.topological_sort()
 
 
-class PyRunFunctionStep(Step[list[File], Unused, RunnerResponse]):
-    file_name: str
-    function_name: str
-    arguments: list[int | str]
-    keyword_arguments: dict[str, str]
-
-
-class ExtractProgramOutputStep(Step[RunnerResponse, Unused, str]):
-    key: Literal["stdout", "stderr", "status"]
-
-
-class StringMatchStep(Step[str, str, bool]): ...
+class ExecutorType(str, Enum):
+    PODMAN = "podman"
+    SANDBOX = "sandbox"
+    UNSAFE = "unsafe"
 
 
 class ProgrammingTaskExpectedAnswer(BaseModel):
@@ -84,34 +67,36 @@ class ProgrammingTaskExpectedAnswer(BaseModel):
     expected_answer: Any
 
 
-class Testcase(BaseModel):
-    id: int
-    steps: list[Step]
+SubmissionId = NewType("SubmissionId", UUID)
 
 
 class ProgrammingTaskRequest(BaseModel):
-    submission_id: str
+    submission_id: SubmissionId
     environment: ProgrammingEnvironment
     templates: list[File]
     testcases: list[Testcase]
     user_input: list[File]
     expected_answer: list[ProgrammingTaskExpectedAnswer]
-    executor_type: Literal["podman", "unsafe"] = "podman"
+    executor_type: ExecutorType
 
 
-class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]):
+class ProgrammingTask(Task[list[File], SubmissionId, list[ProgrammingTaskExpectedAnswer]]):
     question: str
     environment: ProgrammingEnvironment
     templates: list[File]
     testcases: list[Testcase]
-    executor_type: Literal["podman", "unsafe"] = "podman"
+    executor_type: ExecutorType = ExecutorType.PODMAN
 
     def run(
         self,
         user_input: list[File],
         expected_answer: list[ProgrammingTaskExpectedAnswer],
-    ) -> TaskEvalResult[str]:
-        submission_id = str(uuid4())
+    ) -> TaskEvalResult[SubmissionId]:
+        submission_id = SubmissionId(uuid4())
+
+        for testcase in self.testcases:
+            testcase.topological_sort()
+
         request = ProgrammingTaskRequest(
             submission_id=submission_id,
             environment=self.environment,
@@ -119,12 +104,11 @@ class ProgrammingTask(Task[list[File], str, list[ProgrammingTaskExpectedAnswer]]
             testcases=self.testcases,
             user_input=user_input,
             expected_answer=expected_answer,
+            executor_type=self.executor_type,
         )
 
         task_publisher.publish(request.model_dump_json(serialize_as_any=True))
 
-        # TODO: check output and handle pending testcases
-        # TODO: maybe move submission id else where
         return TaskEvalResult(task_id=self.id, status=TaskEvalStatus.PENDING, result=submission_id)
 
     def validate_user_input(self, user_input: Any) -> list[File]:
