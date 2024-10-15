@@ -40,10 +40,19 @@ class Step(GraphNode):
     model_config = ConfigDict(extra="allow")
 
     type: str
+    subgraph: Graph["Step"] | None = None
 
 
 class Testcase(Graph[Step]):
     id: int
+
+    def topological_sort(self) -> None:
+        # Perform topological sort on the graph
+        super().topological_sort()
+        # If there is a node in the graph with a subgraph, perform topological sort on the subgraph
+        for node in self.nodes:
+            if node.subgraph:
+                node.subgraph.topological_sort()
 
 
 class ExecutorType(str, Enum):
