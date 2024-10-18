@@ -1,5 +1,5 @@
 import json
-from logging import getLogger
+import logging
 
 import pika  # type: ignore
 import sqlalchemy as sa
@@ -14,7 +14,8 @@ from unicon_backend.evaluator.tasks import TaskEvalStatus
 from unicon_backend.lib.amqp import AsyncConsumer
 from unicon_backend.models import TaskResultORM
 
-logger = getLogger(__name__)
+logging.getLogger("pika").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
 
 
 class TaskResultsConsumer(AsyncConsumer):
