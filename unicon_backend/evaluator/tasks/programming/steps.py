@@ -55,7 +55,7 @@ class ComputeGraph(Graph[Step]):
     def _assemble_program(self, program: Program) -> AssembledProgram:
         def flatten(xs):
             for x in xs:
-                if isinstance(x, Iterable) and not isinstance(x, ProgramFragment):
+                if isinstance(x, Iterable) and not isinstance(x, str):
                     yield from flatten(x)
                 else:
                     yield x
@@ -87,3 +87,8 @@ class ComputeGraph(Graph[Step]):
             program.append(node.run(input_variables, debug))
 
         return self._assemble_program(program)
+
+
+class StringMatchStep(Step):
+    def run(self, inputs: dict[SocketName, ProgramVariable], debug: bool) -> Program:
+        return []

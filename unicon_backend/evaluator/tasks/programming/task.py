@@ -1,64 +1,24 @@
-from enum import Enum
 from logging import getLogger
-from typing import Any, NewType
-from uuid import UUID, uuid4
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, RootModel
+from pydantic import BaseModel, RootModel
 
 from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus
-from unicon_backend.lib.graph import Graph, GraphNode
+from unicon_backend.evaluator.tasks.programming.artifact import File
+from unicon_backend.evaluator.tasks.programming.runner import (
+    RunnerEnvironment,
+    RunnerRequest,
+    RunnerType,
+    SubmissionId,
+)
+from unicon_backend.evaluator.tasks.programming.steps import ComputeGraph
 from unicon_backend.workers import task_publisher
 
 logger = getLogger(__name__)
 
 
-class ProgrammingLanguage(str, Enum):
-    PYTHON = "PYTHON"
-
-
-class ProgrammingEnvironment(BaseModel):
-    language: ProgrammingLanguage
-    options: dict[str, str]
-    time_limit: int  # in seconds
-    memory_limit: int  # in MB
-
-
-class File(BaseModel):
-    file_name: str
-    content: str
-
-
-class RunnerResponse(BaseModel):
-    # Reference: https://github.com/uniconhq/unicon-runner/blob/main/unicon_runner/executor/run.py#L69-L73
-    submission_id: str
-    status: int
-    stdout: str
-    stderr: str
-
-
-class Step(GraphNode):
-    model_config = ConfigDict(extra="allow")
-
-    type: str
-    subgraph: Graph["Step"] | None = None
-
-
-class Testcase(Graph[Step]):
+class Testcase(ComputeGraph):
     id: int
-
-    def topological_sort(self) -> None:
-        # Perform topological sort on the graph
-        super().topological_sort()
-        # If there is a node in the graph with a subgraph, perform topological sort on the subgraph
-        for node in self.nodes:
-            if node.subgraph:
-                node.subgraph.topological_sort()
-
-
-class ExecutorType(str, Enum):
-    PODMAN = "podman"
-    SANDBOX = "sandbox"
-    UNSAFE = "unsafe"
 
 
 class ProgrammingTaskExpectedAnswer(BaseModel):
@@ -67,49 +27,43 @@ class ProgrammingTaskExpectedAnswer(BaseModel):
     expected_answer: Any
 
 
-SubmissionId = NewType("SubmissionId", UUID)
-
-
-class ProgrammingTaskRequest(BaseModel):
-    submission_id: SubmissionId
-    environment: ProgrammingEnvironment
-    templates: list[File]
-    testcases: list[Testcase]
-    user_input: list[File]
-    expected_answer: list[ProgrammingTaskExpectedAnswer]
-    executor_type: ExecutorType
-
-
-class ProgrammingTask(Task[list[File], SubmissionId, list[ProgrammingTaskExpectedAnswer]]):
+class ProgrammingTask(
+    Task[list[File], dict[int, SubmissionId], list[ProgrammingTaskExpectedAnswer]]
+):
     question: str
-    environment: ProgrammingEnvironment
+    environment: RunnerEnvironment
     templates: list[File]
     testcases: list[Testcase]
-    executor_type: ExecutorType = ExecutorType.PODMAN
+
+    runner: RunnerType = RunnerType.PODMAN
 
     def run(
         self,
         user_input: list[File],
         expected_answer: list[ProgrammingTaskExpectedAnswer],
-    ) -> TaskEvalResult[SubmissionId]:
-        submission_id = SubmissionId(uuid4())
+    ) -> TaskEvalResult[dict[int, SubmissionId]]:
+        # TODO: check if user input matches templates
+        # TODO: user inputs can be a IMPLICIT input node for each test case
+        #       this will help when it comes to passing user inputs to nodes in test case
 
+        job_submissions: dict[int, SubmissionId] = {}
         for testcase in self.testcases:
-            testcase.topological_sort()
+            assembled_program = testcase.run()
 
-        request = ProgrammingTaskRequest(
-            submission_id=submission_id,
-            environment=self.environment,
-            templates=self.templates,
-            testcases=self.testcases,
-            user_input=user_input,
-            expected_answer=expected_answer,
-            executor_type=self.executor_type,
+            runner_request = RunnerRequest.create(
+                entrypoint="__entrypoint.py",
+                # TODO: instead of always passing in user_input, we can refactor in the future
+                # to let ComputeGraph derive all the files needed to run the testcase
+                files=[*user_input, File(file_name="__entrypoint.py", content=assembled_program)],
+                environment=self.environment,
+            )
+            task_publisher.publish(runner_request.model_dump_json(serialize_as_any=True))
+
+            job_submissions[testcase.id] = runner_request.submission_id
+
+        return TaskEvalResult(
+            task_id=self.id, status=TaskEvalStatus.PENDING, result=job_submissions
         )
-
-        task_publisher.publish(request.model_dump_json(serialize_as_any=True))
-
-        return TaskEvalResult(task_id=self.id, status=TaskEvalStatus.PENDING, result=submission_id)
 
     def validate_user_input(self, user_input: Any) -> list[File]:
         return RootModel[list[File]].model_validate(user_input).root

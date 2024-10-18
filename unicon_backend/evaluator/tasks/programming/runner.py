@@ -52,8 +52,10 @@ class RunnerRequest(BaseModel):
 
     environment: RunnerEnvironment
 
-    @staticmethod
-    def create(entrypoint: str, files: list[File], environment: RunnerEnvironment) -> SubmissionId:
+    @classmethod
+    def create(
+        cls, entrypoint: str, files: list[File], environment: RunnerEnvironment
+    ) -> "RunnerRequest":
         package = RunnerPackage(entrypoint=entrypoint, files=files)
         submission_id = SubmissionId(UUID())
         return RunnerRequest(submission_id=submission_id, package=package, environment=environment)
