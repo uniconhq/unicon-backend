@@ -39,6 +39,11 @@ class Graph(BaseModel, Generic[GraphNodeType]):
         return {node.id: node for node in self.nodes}
 
     @cached_property
+    def edge_index(self) -> dict[int, GraphEdge]:
+        """Return a dictionary of edge id to edge object"""
+        return {edge.id: edge for edge in self.edges}
+
+    @cached_property
     def out_edges_index(self) -> defaultdict[int, list[int]]:
         """Return a dictionary of node id to a list of node ids that are connected by an edge from the node"""
         out_edges_index = defaultdict(list)
