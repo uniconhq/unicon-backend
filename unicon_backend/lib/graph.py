@@ -54,11 +54,15 @@ class Graph(BaseModel, Generic[GraphNodeType]):
             in_edges_index[edge.to_node_id].append(edge.from_node_id)
         return in_edges_index
 
-    def topological_sort(self) -> None:
+    def topological_sort(self) -> list[GraphNodeType]:
         """
-        Perform a topological sort on the graph and update the nodes list in place
+        Perform topological sort on the graph
+
+        Returns:
+            list[GraphNodeType]: A list of nodes in topological order
+
         Raises:
-            ValueError: if the graph has a cycle
+            ValueError: If the graph has a cycle
         """
         in_degrees: dict[int, int] = defaultdict(int)
         node_id_queue: deque[int] = deque(maxlen=len(self.nodes))
@@ -81,4 +85,4 @@ class Graph(BaseModel, Generic[GraphNodeType]):
         if len(topo_order) != len(self.nodes):
             raise ValueError("Graph has a cycle")
 
-        self.nodes = [self.node_index[node_id] for node_id in topo_order]
+        return [self.node_index[node_id] for node_id in topo_order]
