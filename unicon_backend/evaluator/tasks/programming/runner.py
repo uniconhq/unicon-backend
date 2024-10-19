@@ -25,7 +25,7 @@ class RunnerEnvironment(BaseModel):
     time_limit: int  # in seconds
     memory_limit: int  # in MB
 
-    extra_options: dict[str, Any]
+    extra_options: dict[str, Any] | None = None
 
 
 class RunnerResponse(BaseModel):
