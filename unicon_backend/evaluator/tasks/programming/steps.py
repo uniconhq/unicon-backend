@@ -50,11 +50,11 @@ class Step(CustomBaseModel, GraphNode, abc.ABC, polymorphic=True):
 
     @model_validator(mode="after")
     def validate_num_inputs_outputs(self) -> Self:
-        if len(self.inputs) != self.expected_num_inputs:
+        if len(self.inputs) != self.expected_num_inputs and self.expected_num_inputs != -1:
             raise ValueError(
                 f"Step {self.id} ({self.type}) expects {self.expected_num_inputs} inputs, but got {len(self.inputs)}"
             )
-        if len(self.outputs) != self.expected_num_outputs:
+        if len(self.outputs) != self.expected_num_outputs and self.expected_num_outputs != -1:
             raise ValueError(
                 f"Step {self.id} ({self.type}) expects {self.expected_num_outputs} outputs, but got {len(self.outputs)}"
             )
