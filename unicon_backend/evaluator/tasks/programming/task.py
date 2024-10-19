@@ -4,7 +4,7 @@ from typing import Any
 from pydantic import BaseModel, RootModel
 
 from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus
-from unicon_backend.evaluator.tasks.programming.artifact import File
+from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
 from unicon_backend.evaluator.tasks.programming.runner import (
     RunnerEnvironment,
     RunnerRequest,
@@ -30,7 +30,7 @@ class Testcase(ComputeGraph):
 
 class RequiredInput(BaseModel):
     id: int
-    data: File
+    data: PrimitiveData | File
 
 
 class ExpectedAnswer(BaseModel):
@@ -65,7 +65,10 @@ class ProgrammingTask(Task[list[RequiredInput], dict[int, SubmissionId], list[Ex
             ],
             type=StepType.INPUT,
         )
-        user_input_files = [user_input.data for user_input in user_inputs]
+
+        user_input_files: list[File] = [
+            user_input.data for user_input in user_inputs if isinstance(user_input.data, File)
+        ]
 
         job_submissions: dict[int, SubmissionId] = {}
         for testcase in self.testcases:
