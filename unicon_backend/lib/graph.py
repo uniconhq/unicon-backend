@@ -10,10 +10,13 @@ class NodeSocket(BaseModel):
     name: str
 
 
-class GraphNode(BaseModel):
+NodeSocketType = TypeVar("NodeSocketType", bound=NodeSocket)
+
+
+class GraphNode(BaseModel, Generic[NodeSocketType]):
     id: int
-    inputs: list[NodeSocket]
-    outputs: list[NodeSocket]
+    inputs: list[NodeSocketType]
+    outputs: list[NodeSocketType]
 
 
 class GraphEdge(BaseModel):

@@ -6,7 +6,7 @@ from typing import Any, ClassVar, Self, Union
 from pydantic import model_validator
 
 from unicon_backend.lib.common import CustomBaseModel
-from unicon_backend.lib.graph import Graph, GraphEdge, GraphNode
+from unicon_backend.lib.graph import Graph, GraphEdge, GraphNode, NodeSocket
 
 type SocketName = str
 type ProgramVariable = str
@@ -32,7 +32,13 @@ class StepType(str, Enum):
     STRING_MATCH = "STRING_MATCH_STEP"
 
 
-class Step(CustomBaseModel, GraphNode, abc.ABC, polymorphic=True):
+class StepSocket(NodeSocket):
+    # The data that the socket holds. All primitive types are supported
+    # TODO: Support for artifacts (e.g. `File`)
+    data: str | int | float | bool | None = None
+
+
+class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
     id: int
     type: StepType
 
@@ -116,6 +122,36 @@ class ComputeGraph(Graph[Step]):
             program.append(node.run(input_variables, debug))
 
         return self._assemble_program(program)
+
+
+class InputStep(Step):
+    expected_num_inputs: ClassVar[int] = 0
+    expected_num_outputs: ClassVar[int] = -1  # Variable number of outputs
+
+    @model_validator(mode="after")
+    def check_non_empty_outputs(self) -> Self:
+        if len(self.outputs) == 0:
+            raise ValueError("Input step must have at least one output")
+
+        for output in self.outputs:
+            if output.data is None:
+                raise ValueError(f"Output socket {output.name} must have data")
+
+        return self
+
+    def run(self, _, debug: bool) -> Program:
+        def _serialize_data(data: str | int | float | bool) -> str:
+            return f'"{data}"' if isinstance(data, str) else str(data)
+
+        return [
+            self.debug_stmt() if debug else "",
+            *[
+                f"{self.get_output_variable(output.name)} = {_serialize_data(output.data)}"
+                if output.data is not None
+                else ""
+                for output in self.outputs
+            ],
+        ]
 
 
 class StringMatchStep(Step):
