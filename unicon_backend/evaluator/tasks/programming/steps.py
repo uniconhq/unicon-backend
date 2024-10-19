@@ -188,3 +188,51 @@ class StringMatchStep(Step):
             self.debug_stmt() if debug else "",
             f"{self.get_output_variable(output_socket_name)} = str({var_inputs[self.inputs[0].name]}) == str({var_inputs[self.inputs[1].name]})",
         ]
+
+
+class PyRunFunctionStep(Step):
+    """
+    A step that runs a Python function.
+    To use this step, the user must provide the function name and the arguments to the function via the input sockets.
+
+    Socket Name Format:
+    - ARG.{index}.{name}: For positional arguments
+    - KWARG.{name}: For keyword arguments
+    - FILE: For the `File` object that contains the Python function
+    """
+
+    expected_num_inputs: ClassVar[int] = -1
+    expected_num_outputs: ClassVar[int] = (
+        1  # Assume that the function will always return a single value
+    )
+
+    function_identifier: str
+
+    def run(
+        self,
+        var_inputs: dict[SocketName, ProgramVariable],
+        file_inputs: dict[SocketName, File],
+        debug: bool,
+    ) -> Program:
+        # Get the input file that we are running the function from
+        program_file: File | None = file_inputs.get("FILE")
+        if program_file is None:
+            raise ValueError("No program file provided")
+
+        # Gather all function arguments
+        positional_args: list[str] = [
+            var_inputs[socket.name] for socket in self.inputs if socket.name.startswith("ARG.")
+        ]
+        keyword_args: dict[str, str] = {
+            socket_name.split(".")[1]: program_variable
+            for socket_name, program_variable in var_inputs.items()
+            if socket_name.startswith("KWARG.")
+        }
+
+        return [
+            self.debug_stmt() if debug else "",
+            # Import statement for the function
+            f"from {program_file.file_name.split('.py')[0]} import {self.function_identifier}",
+            # Function invocation
+            f"{self.get_output_variable(self.outputs[0].name)} = {self.function_identifier}({', '.join(positional_args)}, **{keyword_args})",
+        ]
