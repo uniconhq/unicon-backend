@@ -106,7 +106,16 @@ class ComputeGraph(Graph[Step]):
         #       right now the whole program have no spacing (no blank lines) between different logical parts
         return "\n".join(flatten(program))
 
-    def run(self, debug: bool = True) -> AssembledProgram:
+    def run(self, user_input_step: "InputStep", debug: bool = True) -> AssembledProgram:
+        """
+        Run the compute graph with the given user input.
+
+        Args:
+            user_input_step (InputStep): The input step (id = 0) that contains the user input
+            debug (bool, optional): Whether to include debug statements in the program. Defaults to True.
+        """
+        # Add user input step (node) to compute graph
+        self.nodes.append(user_input_step)
         topological_order: list[Step] = self.topological_sort()
 
         program: Program = []

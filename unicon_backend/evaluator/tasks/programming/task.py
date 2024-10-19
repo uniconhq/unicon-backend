@@ -11,50 +11,77 @@ from unicon_backend.evaluator.tasks.programming.runner import (
     RunnerType,
     SubmissionId,
 )
-from unicon_backend.evaluator.tasks.programming.steps import ComputeGraph
+from unicon_backend.evaluator.tasks.programming.steps import (
+    ComputeGraph,
+    InputStep,
+    StepSocket,
+    StepType,
+)
 from unicon_backend.workers import task_publisher
 
 logger = getLogger(__name__)
+
+USER_INPUT_STEP_ID: int = 0
 
 
 class Testcase(ComputeGraph):
     id: int
 
 
-class ProgrammingTaskExpectedAnswer(BaseModel):
+class RequiredInput(BaseModel):
+    id: int
+    data: File
+
+
+class ExpectedAnswer(BaseModel):
     testcase_id: int
     step_id: int
     expected_answer: Any
 
 
-class ProgrammingTask(
-    Task[list[File], dict[int, SubmissionId], list[ProgrammingTaskExpectedAnswer]]
-):
+class ProgrammingTask(Task[list[RequiredInput], dict[int, SubmissionId], list[ExpectedAnswer]]):
     question: str
     environment: RunnerEnvironment
-    templates: list[File]
+    required_inputs: list[RequiredInput]
     testcases: list[Testcase]
 
     runner: RunnerType = RunnerType.PODMAN
 
-    def run(
-        self,
-        user_input: list[File],
-        expected_answer: list[ProgrammingTaskExpectedAnswer],
-    ) -> TaskEvalResult[dict[int, SubmissionId]]:
-        # TODO: check if user input matches templates
-        # TODO: user inputs can be a IMPLICIT input node for each test case
-        #       this will help when it comes to passing user inputs to nodes in test case
+    def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[dict[int, SubmissionId]]:
+        # Check if all required inputs are provided
+        for required_input in self.required_inputs:
+            if not any(required_input.id == user_input.id for user_input in user_inputs):
+                raise ValueError(f"Required input {required_input.id} not provided")
+
+        # Transform user input into InputStep
+        # This is so that we simply treat it as a node in the graph
+        # NOTE: We assume that the id of user inputs is always 0
+        user_input_step: InputStep = InputStep(
+            id=USER_INPUT_STEP_ID,
+            inputs=[],
+            outputs=[
+                StepSocket(id=user_input.id, data=user_input.data, name=f"USER_INPUT_{idx}")
+                for idx, user_input in enumerate(user_inputs)
+            ],
+            type=StepType.INPUT,
+        )
+        user_input_files = [user_input.data for user_input in user_inputs]
 
         job_submissions: dict[int, SubmissionId] = {}
         for testcase in self.testcases:
-            assembled_program = testcase.run()
+            assembled_program = testcase.run(user_input_step)
+
+            # TEMP: For debugging purposes
+            print(assembled_program)
 
             runner_request = RunnerRequest.create(
                 entrypoint="__entrypoint.py",
                 # TODO: instead of always passing in user_input, we can refactor in the future
                 # to let ComputeGraph derive all the files needed to run the testcase
-                files=[*user_input, File(file_name="__entrypoint.py", content=assembled_program)],
+                files=[
+                    *user_input_files,
+                    File(file_name="__entrypoint.py", content=assembled_program),
+                ],
                 environment=self.environment,
             )
             task_publisher.publish(runner_request.model_dump_json(serialize_as_any=True))
@@ -65,8 +92,8 @@ class ProgrammingTask(
             task_id=self.id, status=TaskEvalStatus.PENDING, result=job_submissions
         )
 
-    def validate_user_input(self, user_input: Any) -> list[File]:
-        return RootModel[list[File]].model_validate(user_input).root
+    def validate_user_input(self, user_input: Any) -> list[RequiredInput]:
+        return RootModel[list[RequiredInput]].model_validate(user_input).root
 
-    def validate_expected_answer(self, expected_answer: Any) -> list[ProgrammingTaskExpectedAnswer]:
-        return RootModel[list[ProgrammingTaskExpectedAnswer]].model_validate(expected_answer).root
+    def validate_expected_answer(self, expected_answer: Any) -> list[ExpectedAnswer]:
+        return RootModel[list[ExpectedAnswer]].model_validate(expected_answer).root
