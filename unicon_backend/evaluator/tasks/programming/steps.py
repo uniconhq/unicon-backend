@@ -1,7 +1,9 @@
 import abc
 from collections.abc import Iterable
 from enum import Enum
-from typing import Any, Union
+from typing import Any, Self, Union
+
+from pydantic import model_validator
 
 from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.lib.graph import Graph, GraphEdge, GraphNode
@@ -33,6 +35,30 @@ class StepType(str, Enum):
 class Step(CustomBaseModel, GraphNode, abc.ABC, polymorphic=True):
     id: int
     type: StepType
+
+    @property
+    @abc.abstractmethod
+    def expected_num_inputs(self) -> int:
+        """Return the expected number of input sockets for the step"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def expected_num_outputs(self) -> int:
+        """Return the expected number of output sockets for the step"""
+        ...
+
+    @model_validator(mode="after")
+    def validate_num_inputs_outputs(self) -> Self:
+        if len(self.inputs) != self.expected_num_inputs:
+            raise ValueError(
+                f"Step {self.id} ({self.type}) expects {self.expected_num_inputs} inputs, but got {len(self.inputs)}"
+            )
+        if len(self.outputs) != self.expected_num_outputs:
+            raise ValueError(
+                f"Step {self.id} ({self.type}) expects {self.expected_num_outputs} outputs, but got {len(self.outputs)}"
+            )
+        return self
 
     def debug_stmt(self) -> str:
         return f"# Step {self.id}: {self.type.value}"
