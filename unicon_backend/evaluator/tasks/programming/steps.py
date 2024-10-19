@@ -5,7 +5,7 @@ from typing import ClassVar, Self, Union
 
 from pydantic import model_validator
 
-from unicon_backend.evaluator.tasks.programming.artifact import File
+from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
 from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.lib.graph import Graph, GraphEdge, GraphNode, NodeSocket
 
@@ -16,7 +16,6 @@ type AssembledProgram = str
 
 # A program can be made up of sub programs, especially with subgraphs
 Program = list[Union["Program", ProgramFragment]]
-PrimitiveData = str | int | float | bool
 
 
 class StepType(str, Enum):
