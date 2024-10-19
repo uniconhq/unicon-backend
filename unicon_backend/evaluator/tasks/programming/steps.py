@@ -1,10 +1,11 @@
 import abc
 from collections.abc import Iterable
 from enum import Enum
-from typing import Any, ClassVar, Self, Union
+from typing import ClassVar, Self, Union
 
 from pydantic import model_validator
 
+from unicon_backend.evaluator.tasks.programming.artifact import File
 from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.lib.graph import Graph, GraphEdge, GraphNode, NodeSocket
 
@@ -15,6 +16,7 @@ type AssembledProgram = str
 
 # A program can be made up of sub programs, especially with subgraphs
 Program = list[Union["Program", ProgramFragment]]
+PrimitiveData = str | int | float | bool
 
 
 class StepType(str, Enum):
@@ -33,9 +35,8 @@ class StepType(str, Enum):
 
 
 class StepSocket(NodeSocket):
-    # The data that the socket holds. All primitive types are supported
-    # TODO: Support for artifacts (e.g. `File`)
-    data: str | int | float | bool | None = None
+    # The data that the socket holds
+    data: PrimitiveData | File | None = None
 
 
 class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
@@ -73,7 +74,12 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
         return f"var_{self.id}_{output}"
 
     @abc.abstractmethod
-    def run(self, inputs: dict[SocketName, ProgramVariable], debug: bool) -> Program: ...
+    def run(
+        self,
+        var_inputs: dict[SocketName, ProgramVariable],
+        file_inputs: dict[SocketName, File],
+        debug: bool,
+    ) -> Program: ...
 
 
 class ComputeGraph(Graph[Step]):
@@ -109,7 +115,8 @@ class ComputeGraph(Graph[Step]):
             # It is assumed that every step will always output the same number of values as the number of output sockets
             # As such, all we need to do is to pass in the correct variables to the next step
 
-            input_variables: dict[str, Any] = {}
+            input_variables: dict[SocketName, ProgramVariable] = {}
+            file_inputs: dict[SocketName, File] = {}
 
             for in_edge_id in self.in_edges_index[node.id]:
                 in_edge: GraphEdge = self.edge_index[in_edge_id]
@@ -117,9 +124,21 @@ class ComputeGraph(Graph[Step]):
 
                 # Find the socket that the link is connected to
                 for socket in filter(lambda socket: socket.id == in_edge.to_socket_id, node.inputs):
-                    input_variables[socket.name] = self._create_link_variable(in_node, socket.name)
+                    # Get origining node socket from in_node
+                    # TODO: Make this into a cached property
+                    in_node_socket: StepSocket = next(
+                        filter(lambda socket: socket.id == in_edge.from_socket_id, in_node.outputs)
+                    )
 
-            program.append(node.run(input_variables, debug))
+                    if in_node_socket.data is not None and isinstance(in_node_socket.data, File):
+                        # NOTE: File objects are passed directly to the next step and not serialized as a variable
+                        file_inputs[socket.name] = in_node_socket.data
+                    else:
+                        input_variables[socket.name] = self._create_link_variable(
+                            in_node, in_node_socket.name
+                        )
+
+            program.append(node.run(input_variables, file_inputs, debug))
 
         return self._assemble_program(program)
 
@@ -139,29 +158,33 @@ class InputStep(Step):
 
         return self
 
-    def run(self, _, debug: bool) -> Program:
+    def run(self, _, __, debug: bool) -> Program:
         def _serialize_data(data: str | int | float | bool) -> str:
             return f'"{data}"' if isinstance(data, str) else str(data)
 
-        return [
-            self.debug_stmt() if debug else "",
-            *[
-                f"{self.get_output_variable(output.name)} = {_serialize_data(output.data)}"
-                if output.data is not None
-                else ""
-                for output in self.outputs
-            ],
-        ]
+        program: Program = [self.debug_stmt() if debug else ""]
+        for output in self.outputs:
+            assert output.data is not None
+            if isinstance(output.data, File):
+                # If the input is a `File`, we skip the serialization and just pass the file object
+                # directly to the next step. This is handled by the `ComputeGraph` class
+                continue
+            elif isinstance(output.data, PrimitiveData):
+                program.append(
+                    f"{self.get_output_variable(output.name)} = {_serialize_data(output.data)}"
+                )
+
+        return program
 
 
 class StringMatchStep(Step):
     expected_num_inputs: ClassVar[int] = 2
     expected_num_outputs: ClassVar[int] = 1
 
-    def run(self, inputs: dict[SocketName, ProgramVariable], debug: bool) -> Program:
+    def run(self, var_inputs: dict[SocketName, ProgramVariable], _, debug: bool) -> Program:
         output_socket_name: str = self.outputs[0].name
 
         return [
             self.debug_stmt() if debug else "",
-            f"{self.get_output_variable(output_socket_name)} = str({inputs[self.inputs[0].name]}) == str({inputs[self.inputs[1].name]})",
+            f"{self.get_output_variable(output_socket_name)} = str({var_inputs[self.inputs[0].name]}) == str({var_inputs[self.inputs[1].name]})",
         ]
