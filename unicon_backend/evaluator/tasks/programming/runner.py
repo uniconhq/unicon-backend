@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import Any, NewType, Self
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, model_validator
 
@@ -57,5 +57,5 @@ class RunnerRequest(BaseModel):
         cls, entrypoint: str, files: list[File], environment: RunnerEnvironment
     ) -> "RunnerRequest":
         package = RunnerPackage(entrypoint=entrypoint, files=files)
-        submission_id = SubmissionId(UUID())
+        submission_id = SubmissionId(uuid4())
         return RunnerRequest(submission_id=submission_id, package=package, environment=environment)
