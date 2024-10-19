@@ -37,6 +37,9 @@ class Step(CustomBaseModel, GraphNode, abc.ABC, polymorphic=True):
     def debug_stmt(self) -> str:
         return f"# Step {self.id}: {self.type.value}"
 
+    def get_output_variable(self, output: SocketName) -> str:
+        return f"var_{self.id}_{output}"
+
     @abc.abstractmethod
     def run(self, inputs: dict[SocketName, ProgramVariable], debug: bool) -> Program: ...
 
@@ -50,7 +53,7 @@ class ComputeGraph(Graph[Step]):
             from_node (Step): The node that is outputting the variable
             from_socket (str): The socket that the variable is outputting from
         """
-        return f"var_{from_node.id}_{from_socket}"
+        return from_node.get_output_variable(from_socket)
 
     def _assemble_program(self, program: Program) -> AssembledProgram:
         def flatten(xs):
