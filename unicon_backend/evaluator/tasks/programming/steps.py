@@ -1,7 +1,7 @@
 import abc
 from collections.abc import Iterable
 from enum import Enum
-from typing import Any, Self, Union
+from typing import Any, ClassVar, Self, Union
 
 from pydantic import model_validator
 
@@ -119,5 +119,13 @@ class ComputeGraph(Graph[Step]):
 
 
 class StringMatchStep(Step):
+    expected_num_inputs: ClassVar[int] = 2
+    expected_num_outputs: ClassVar[int] = 1
+
     def run(self, inputs: dict[SocketName, ProgramVariable], debug: bool) -> Program:
-        return []
+        output_socket_name: str = self.outputs[0].name
+
+        return [
+            self.debug_stmt() if debug else "",
+            f"{self.get_output_variable(output_socket_name)} = str({inputs[self.inputs[0].name]}) == str({inputs[self.inputs[1].name]})",
+        ]
