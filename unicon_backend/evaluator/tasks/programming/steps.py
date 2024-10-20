@@ -95,13 +95,12 @@ class ComputeGraph(Graph[Step]):
         def flatten(xs):
             for x in xs:
                 if isinstance(x, Iterable) and not isinstance(x, str):
+                    yield ""  # Add a blank line between different parts of the program
                     yield from flatten(x)
                 else:
                     yield x
 
-        # Flatten the program into a list of strings
-        # TODO: Have a clear separation between the different parts of the program,
-        #       right now the whole program have no spacing (no blank lines) between different logical parts
+        # TODO: Handle different indentation levels
         return "\n".join(flatten(program))
 
     def run(self, user_input_step: "InputStep", debug: bool = True) -> AssembledProgram:
