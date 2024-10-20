@@ -239,12 +239,16 @@ class PyRunFunctionStep(Step):
             if socket_name.startswith("KWARG.")
         }
 
+        function_args_str: str = (
+            ", ".join([*positional_args, ""]) + f"**{keyword_args}" if keyword_args else ""
+        )
+
         return [
             self.debug_stmt() if debug else "",
             # Import statement for the function
             f"from {program_file.file_name.split('.py')[0]} import {self.function_identifier}",
             # Function invocation
-            f"{self.get_output_variable(self.outputs[0].name)} = {self.function_identifier}({', '.join(positional_args)}, **{keyword_args})",
+            f"{self.get_output_variable(self.outputs[0].name)} = {self.function_identifier}({function_args_str})",
         ]
 
 
