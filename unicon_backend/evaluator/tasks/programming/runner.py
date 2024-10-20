@@ -6,13 +6,6 @@ from pydantic import BaseModel, model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File
 
-
-class RunnerType(str, Enum):
-    PODMAN = "podman"
-    SANDBOX = "sandbox"
-    UNSAFE = "unsafe"
-
-
 SubmissionId = NewType("SubmissionId", UUID)
 
 

@@ -8,7 +8,6 @@ from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveD
 from unicon_backend.evaluator.tasks.programming.runner import (
     RunnerEnvironment,
     RunnerRequest,
-    RunnerType,
     SubmissionId,
 )
 from unicon_backend.evaluator.tasks.programming.steps import (
@@ -44,8 +43,6 @@ class ProgrammingTask(Task[list[RequiredInput], dict[int, SubmissionId], list[Ex
     environment: RunnerEnvironment
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
-
-    runner: RunnerType = RunnerType.PODMAN
 
     def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[dict[int, SubmissionId]]:
         # Check if all required inputs are provided
