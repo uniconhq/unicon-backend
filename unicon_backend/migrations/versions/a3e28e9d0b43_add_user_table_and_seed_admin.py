@@ -6,6 +6,7 @@ Create Date: 2024-10-01 01:55:36.446876
 
 """
 
+import logging
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -14,6 +15,11 @@ from sqlalchemy import orm
 
 from unicon_backend.dependencies import AUTH_PWD_CONTEXT
 from unicon_backend.models.user import User
+
+# `passlib` has a known issue with one of its dependencies which causes it to log a non-consequential warning.
+# We suppress this warning to avoid confusion
+# Reference: https://github.com/pyca/bcrypt/issues/684
+logging.getLogger("passlib.handlers.bcrypt").setLevel(logging.ERROR)
 
 # revision identifiers, used by Alembic.
 revision: str = "a3e28e9d0b43"
