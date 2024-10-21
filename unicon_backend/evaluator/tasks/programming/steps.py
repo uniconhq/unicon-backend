@@ -26,8 +26,7 @@ class StepType(str, Enum):
     OUTPUT = "OUTPUT_STEP"
 
     # Control Flow Operations
-    LOOP_STEP = "LOOP_STEP"
-    BREAKING_CONDITION = "BREAKING_CONDITION_STEP"
+    LOOP = "LOOP_STEP"
 
     # Comparison Operations
     STRING_MATCH = "STRING_MATCH_STEP"
@@ -96,13 +95,12 @@ class ComputeGraph(Graph[Step]):
         def flatten(xs):
             for x in xs:
                 if isinstance(x, Iterable) and not isinstance(x, str):
+                    yield ""  # Add a blank line between different parts of the program
                     yield from flatten(x)
                 else:
                     yield x
 
-        # Flatten the program into a list of strings
-        # TODO: Have a clear separation between the different parts of the program,
-        #       right now the whole program have no spacing (no blank lines) between different logical parts
+        # TODO: Handle different indentation levels
         return "\n".join(flatten(program))
 
     def run(self, user_input_step: "InputStep", debug: bool = True) -> AssembledProgram:
@@ -168,7 +166,10 @@ class InputStep(Step):
 
     def run(self, _, __, debug: bool) -> Program:
         def _serialize_data(data: str | int | float | bool) -> str:
-            return f'"{data}"' if isinstance(data, str) else str(data)
+            # TODO: Better handle of variables vs strings
+            if isinstance(data, str):
+                return f'"{data}"' if not data.startswith("var_") else data
+            return str(data)
 
         program: Program = [self.debug_stmt() if debug else ""]
         for output in self.outputs:
@@ -237,10 +238,50 @@ class PyRunFunctionStep(Step):
             if socket_name.startswith("KWARG.")
         }
 
+        function_args_str: str = (
+            ", ".join([*positional_args, ""]) + f"**{keyword_args}" if keyword_args else ""
+        )
+
         return [
             self.debug_stmt() if debug else "",
             # Import statement for the function
             f"from {program_file.file_name.split('.py')[0]} import {self.function_identifier}",
             # Function invocation
-            f"{self.get_output_variable(self.outputs[0].name)} = {self.function_identifier}({', '.join(positional_args)}, **{keyword_args})",
+            f"{self.get_output_variable(self.outputs[0].name)} = {self.function_identifier}({function_args_str})",
+        ]
+
+
+class LoopStep(Step):
+    expected_num_inputs: ClassVar[int] = -1
+    expected_num_outputs: ClassVar[int] = 1
+
+    subgraph: ComputeGraph
+
+    def run(
+        self,
+        var_inputs: dict[SocketName, ProgramVariable],
+        file_inputs: dict[SocketName, File],
+        debug: bool,
+    ) -> Program:
+        subgraph_input_sockets: list[StepSocket] = []
+        for input_socket in self.inputs:
+            subgraph_input_sockets.append(
+                StepSocket(
+                    id=input_socket.id,
+                    name=input_socket.name,
+                    data=var_inputs[input_socket.name]
+                    if input_socket.name in var_inputs
+                    else file_inputs[input_socket.name],
+                )
+            )
+
+        # Add the input step to the subgraph
+        subgraph_program: AssembledProgram = self.subgraph.run(
+            InputStep(id=0, inputs=[], outputs=subgraph_input_sockets, type=StepType.INPUT), debug
+        )
+
+        return [
+            self.debug_stmt() if debug else "",
+            "while True:",
+            subgraph_program.replace("\n", "\n\t"),
         ]
