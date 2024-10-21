@@ -6,8 +6,7 @@ from pydantic import BaseModel
 
 
 class NodeSocket(BaseModel):
-    id: int
-    name: str
+    id: str
 
 
 NodeSocketType = TypeVar("NodeSocketType", bound=NodeSocket)
