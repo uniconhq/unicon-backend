@@ -128,7 +128,7 @@ class Graph(BaseModel, Generic[GraphNodeType]):
                 if in_degrees[to_node_id] == 0:
                     node_id_queue.append(to_node_id)
 
-        if len(topo_order) != (working_node_ids):
+        if len(topo_order) != len(working_node_ids):
             raise ValueError("Graph has a cycle")
 
         return [self.node_index[node_id] for node_id in topo_order]
