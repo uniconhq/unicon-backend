@@ -1,6 +1,5 @@
 import abc
 from collections import deque
-from collections.abc import Iterable
 from enum import Enum
 from functools import cached_property
 from typing import ClassVar, Optional, Self, Union
@@ -8,13 +7,12 @@ from typing import ClassVar, Optional, Self, Union
 from pydantic import model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
-from unicon_backend.lib.common import CustomBaseModel
+from unicon_backend.lib.common import CustomBaseModel, flatten_list
 from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
 
 type SocketName = str
 type ProgramVariable = str
 type ProgramFragment = str
-type AssembledProgram = str
 
 # A program can be made up of sub programs, especially with subgraphs
 Program = list[Union["Program", ProgramFragment]]
@@ -162,24 +160,12 @@ class ComputeGraph(Graph[Step]):
         """
         return from_node.get_output_variable(from_socket)
 
-    def _assemble_program(self, program: Program) -> AssembledProgram:
-        def flatten(xs):
-            for x in xs:
-                if isinstance(x, Iterable) and not isinstance(x, str):
-                    yield ""  # Add a blank line between different parts of the program
-                    yield from flatten(x)
-                else:
-                    yield x
-
-        # TODO: Handle different indentation levels
-        return "\n".join(flatten(program))
-
     def run(
         self,
         user_input_step: Optional["InputStep"] = None,
         debug: bool = True,
         node_ids: set[int] | None = None,
-    ) -> AssembledProgram:
+    ) -> Program:
         """
         Run the compute graph with the given user input.
 
@@ -189,7 +175,7 @@ class ComputeGraph(Graph[Step]):
             node_ids (set[int], optional): The node ids to run. Defaults to None.
 
         Returns:
-            AssembledProgram: The assembled program
+            Program: The program that is generated from the compute graph
         """
         # Add user input step (node) to compute graph
         if user_input_step is not None:
@@ -241,7 +227,7 @@ class ComputeGraph(Graph[Step]):
 
             program.append(node.run(input_variables, file_inputs, self, debug))
 
-        return self._assemble_program(program)
+        return program
 
 
 class InputStep(Step):
@@ -355,15 +341,18 @@ class LoopStep(Step):
         predicate_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.IN.PREDICATE", graph)
         body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.BODY", graph)
 
-        predicate_assembled_program: AssembledProgram = graph.run(
-            debug=debug, node_ids=predicate_node_ids
-        )
-        body_assembled_program: AssembledProgram = graph.run(debug=debug, node_ids=body_node_ids)
+        predicate_program: Program = graph.run(debug=debug, node_ids=predicate_node_ids)
+        print(list(flatten_list(predicate_program, 1)))
+        body_program: Program = graph.run(debug=debug, node_ids=body_node_ids)
+        print(body_program)
+        print(list(flatten_list(body_program, 1)))
 
         return [
             self.debug_stmt() if debug else "",
             "while True:",
-            predicate_assembled_program.replace("\n", "\n\t"),
-            f"\tif {var_inputs['CONTROL.IN.PREDICATE']}:\n\t\tbreak",
-            body_assembled_program.replace("\n", "\n\t"),
+            [
+                *flatten_list(predicate_program, 1, ""),
+                f"if {var_inputs['CONTROL.IN.PREDICATE']}: break",
+                *flatten_list(body_program, 1, ""),
+            ],
         ]

@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from logging import getLogger
 from typing import Any
 
@@ -13,6 +14,7 @@ from unicon_backend.evaluator.tasks.programming.runner import (
 from unicon_backend.evaluator.tasks.programming.steps import (
     ComputeGraph,
     InputStep,
+    Program,
     StepSocket,
     StepType,
 )
@@ -23,12 +25,24 @@ logger = getLogger(__name__)
 USER_INPUT_STEP_ID: int = 0
 
 
+def assemble_program(program: Program, indent_symbol: str = " " * 2) -> str:
+    def flatten(xs, indent_level=-1):
+        for x in xs:
+            if isinstance(x, Iterable) and not isinstance(x, str):
+                yield ""  # Add a blank line between different parts of the program
+                yield from flatten(x, indent_level + 1)
+            else:
+                yield f"{indent_symbol * indent_level}{x}"
+
+    return "\n".join(flatten(program))
+
+
 class Testcase(ComputeGraph):
     id: int
 
 
 class RequiredInput(BaseModel):
-    id: int
+    id: str
     data: PrimitiveData | File
 
 
@@ -57,8 +71,8 @@ class ProgrammingTask(Task[list[RequiredInput], dict[int, SubmissionId], list[Ex
             id=USER_INPUT_STEP_ID,
             inputs=[],
             outputs=[
-                StepSocket(id=user_input.id, data=user_input.data, name=f"USER_INPUT_{idx}")
-                for idx, user_input in enumerate(user_inputs)
+                StepSocket(id=str(user_input.id), data=user_input.data)
+                for user_input in user_inputs
             ],
             type=StepType.INPUT,
         )
@@ -69,7 +83,7 @@ class ProgrammingTask(Task[list[RequiredInput], dict[int, SubmissionId], list[Ex
 
         job_submissions: dict[int, SubmissionId] = {}
         for testcase in self.testcases:
-            assembled_program = testcase.run(user_input_step)
+            assembled_program = assemble_program(testcase.run(user_input_step))
 
             # TEMP: For debugging purposes
             print(assembled_program)
