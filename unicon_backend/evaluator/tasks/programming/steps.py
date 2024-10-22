@@ -1,6 +1,7 @@
 import abc
 from collections.abc import Iterable
 from enum import Enum
+from functools import cached_property
 from typing import ClassVar, Self, Union
 
 from pydantic import model_validator
@@ -33,8 +34,35 @@ class StepType(str, Enum):
 
 
 class StepSocket(NodeSocket):
+    """
+    A socket that is used to connect steps to each other.
+
+    Socket ID Format: <TYPE>.<DIRECTION>.<NAME>.<INDEX>
+    - <NAME>.<INDEX> is optional and is used to differentiate between multiple sockets of the same type
+        - Collectively, <NAME>.<INDEX> is referred to as the "label"
+
+    There can be 2 types of sockets:
+
+    1. Control Sockets: Used to control the flow of the program
+        - e.g. CONTROL.IN.<NAME>.<INDEX>
+    2. Data Sockets: Used to pass data between steps
+        - e.g. DATA.OUT.<NAME>.<INDEX>
+    """
+
     # The data that the socket holds
     data: PrimitiveData | File | None = None
+
+    @cached_property
+    def type(self) -> str:
+        return self.id.split(".")[0]
+
+    @cached_property
+    def direction(self) -> str:
+        return self.id.split(".")[1]
+
+    @cached_property
+    def label(self) -> str:
+        return self.id.split(".", 2)[-1]
 
 
 class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
