@@ -277,12 +277,13 @@ class PyRunFunctionStep(Step):
     To use this step, the user must provide the function name and the arguments to the function via the input sockets.
 
     Socket Name Format:
-    - ARG.{index}.{name}: For positional arguments
-    - KWARG.{name}: For keyword arguments
-    - FILE: For the `File` object that contains the Python function
+    - DATA.IN.ARG.{index}.{name}: For positional arguments
+    - DATA.IN.KWARG.{name}: For keyword arguments
+    - DATA.IN.FILE: For the `File` object that contains the Python function
     """
 
     subgraph_socket_ids: ClassVar[set[str]] = set()
+
     function_identifier: str
 
     def run(
@@ -292,18 +293,18 @@ class PyRunFunctionStep(Step):
         debug: bool,
     ) -> Program:
         # Get the input file that we are running the function from
-        program_file: File | None = file_inputs.get("FILE")
+        program_file: File | None = file_inputs.get("DATA.IN.FILE")
         if program_file is None:
             raise ValueError("No program file provided")
 
         # Gather all function arguments
         positional_args: list[str] = [
-            var_inputs[socket.id] for socket in self.inputs if socket.id.startswith("ARG.")
+            var_inputs[socket.id] for socket in self.inputs if socket.id.startswith("DATA.IN.ARG")
         ]
         keyword_args: dict[str, str] = {
             socket_name.split(".")[1]: program_variable
             for socket_name, program_variable in var_inputs.items()
-            if socket_name.startswith("KWARG.")
+            if socket_name.startswith("DATA.IN.KWARG")
         }
 
         function_args_str: str = (
