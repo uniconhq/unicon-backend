@@ -114,21 +114,24 @@ class Graph(BaseModel, Generic[GraphNodeType]):
         node_id_queue: deque[int] = deque(maxlen=len(working_node_ids))
 
         for node_id in working_node_ids:
-            in_degrees[node_id] = len(self.in_nodes_index.get(node_id, []))
+            in_degrees[node_id] = len(set(self.in_nodes_index.get(node_id, [])) - ignored_node_ids)
             if in_degrees[node_id] == 0:
                 node_id_queue.append(node_id)
 
-        topo_order: list[int] = []  # topological order of node ids
+        topo_order_node_ids: list[int] = []
         while len(node_id_queue):
             curr_node_id: int = node_id_queue.popleft()
-            topo_order.append(curr_node_id)
+            topo_order_node_ids.append(curr_node_id)
 
             for to_node_id in self.out_nodes_index.get(curr_node_id, []):
+                if to_node_id in ignored_node_ids:
+                    continue
+
                 in_degrees[to_node_id] -= 1
                 if in_degrees[to_node_id] == 0:
                     node_id_queue.append(to_node_id)
 
-        if len(topo_order) != len(working_node_ids):
+        if len(topo_order_node_ids) != len(working_node_ids):
             raise ValueError("Graph has a cycle")
 
-        return [self.node_index[node_id] for node_id in topo_order]
+        return [self.node_index[node_id] for node_id in topo_order_node_ids]
