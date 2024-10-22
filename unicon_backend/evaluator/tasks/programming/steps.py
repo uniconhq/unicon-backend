@@ -1,4 +1,5 @@
 import abc
+from collections import deque
 from collections.abc import Iterable
 from enum import Enum
 from functools import cached_property
@@ -8,7 +9,7 @@ from pydantic import model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
 from unicon_backend.lib.common import CustomBaseModel
-from unicon_backend.lib.graph import Graph, GraphEdge, GraphNode, NodeSocket
+from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
 
 type SocketName = str
 type ProgramVariable = str
@@ -71,27 +72,67 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
 
     @property
     @abc.abstractmethod
-    def expected_num_inputs(self) -> int:
-        """Return the expected number of input sockets for the step"""
+    def subgraph_socket_ids(self) -> set[str]:
+        """
+        Socket IDs that are used to connect to the subgraph of a Step.
+        """
         ...
 
-    @property
-    @abc.abstractmethod
-    def expected_num_outputs(self) -> int:
-        """Return the expected number of output sockets for the step"""
-        ...
+    def get_subgraph_node_ids(self, graph: "ComputeGraph") -> set[int]:
+        def gather_subgraph(socket_id: str) -> set[int]:
+            subgraph_socket: StepSocket | None = self.get_socket(socket_id)
+            if subgraph_socket is None:
+                raise ValueError(f"Subgraph socket {socket_id} not found!")
 
-    @model_validator(mode="after")
-    def validate_num_inputs_outputs(self) -> Self:
-        if len(self.inputs) != self.expected_num_inputs and self.expected_num_inputs != -1:
-            raise ValueError(
-                f"Step {self.id} ({self.type}) expects {self.expected_num_inputs} inputs, but got {len(self.inputs)}"
-            )
-        if len(self.outputs) != self.expected_num_outputs and self.expected_num_outputs != -1:
-            raise ValueError(
-                f"Step {self.id} ({self.type}) expects {self.expected_num_outputs} outputs, but got {len(self.outputs)}"
-            )
-        return self
+            subgraph_start_node: Step | None = None
+
+            # Check both incoming and outgoing edges to find the subgraph start node
+            # NOTE: Assumes that there is only one edge connected to the subgraph socket
+
+            for out_edge in graph.out_edges_index[self.id]:
+                if out_edge.from_socket_id == subgraph_socket.id:
+                    subgraph_start_node = graph.node_index[out_edge.to_node_id]
+                    break
+
+            for in_edge in graph.in_edges_index[self.id]:
+                if in_edge.to_socket_id == subgraph_socket.id:
+                    subgraph_start_node = graph.node_index[in_edge.from_node_id]
+                    break
+
+            if subgraph_start_node is None:
+                # If no subgraph start node is found, then the subgraph is empty
+                # This can happen if the a step allows an empty subgraph - we defer the check to the step
+                return set()
+
+            subgraph_node_ids: set[int] = set()
+            bfs_queue: deque[Step] = deque([subgraph_start_node])
+            while len(bfs_queue):
+                frontier_node = bfs_queue.popleft()
+                if frontier_node.id in subgraph_node_ids:
+                    continue
+
+                subgraph_node_ids.add(frontier_node.id)
+                for out_edge in graph.out_edges_index[frontier_node.id]:
+                    from_socket_id = out_edge.from_socket_id
+                    to_socket_id = out_edge.to_socket_id
+
+                    if from_socket_id == "CONTROL.OUT" and to_socket_id == "CONTROL.IN":
+                        bfs_queue.append(graph.node_index[out_edge.to_node_id])
+
+                for in_edge in graph.in_edges_index[frontier_node.id]:
+                    to_socket_id = in_edge.to_socket_id
+                    from_socket_id = in_edge.from_socket_id
+
+                    if to_socket_id == "CONTROL.IN" and from_socket_id == "CONTROL.OUT":
+                        bfs_queue.append(graph.node_index[out_edge.from_node_id])
+
+            return subgraph_node_ids
+
+        subgraph_node_ids: set[int] = set()
+        for socket_id in self.subgraph_socket_ids:
+            subgraph_node_ids |= gather_subgraph(socket_id)
+
+        return subgraph_node_ids
 
     def debug_stmt(self) -> str:
         return f"# Step {self.id}: {self.type.value}"
@@ -141,7 +182,14 @@ class ComputeGraph(Graph[Step]):
         """
         # Add user input step (node) to compute graph
         self.nodes.append(user_input_step)
-        topological_order: list[Step] = self.topological_sort()
+
+        subgraph_node_ids: set[int] = set()
+        for node in self.nodes:
+            subgraph_node_ids |= node.get_subgraph_node_ids(self)
+
+        # We do not consider subgraph nodes when determining the flow order (topological order) of the main compute graph
+        # The responsibility of determining the order of subgraph nodes is deferred to the step itself
+        topological_order: list[Step] = self.topological_sort(subgraph_node_ids)
 
         program: Program = []
         for node in topological_order:
@@ -152,24 +200,22 @@ class ComputeGraph(Graph[Step]):
             input_variables: dict[SocketName, ProgramVariable] = {}
             file_inputs: dict[SocketName, File] = {}
 
-            for in_edge_id in self.in_edges_index[node.id]:
-                in_edge: GraphEdge = self.edge_index[in_edge_id]
+            for in_edge in self.in_edges_index[node.id]:
                 in_node: Step = self.node_index[in_edge.from_node_id]
 
                 # Find the socket that the link is connected to
                 for socket in filter(lambda socket: socket.id == in_edge.to_socket_id, node.inputs):
                     # Get origining node socket from in_node
-                    # TODO: Make this into a cached property
                     in_node_socket: StepSocket = next(
                         filter(lambda socket: socket.id == in_edge.from_socket_id, in_node.outputs)
                     )
 
                     if in_node_socket.data is not None and isinstance(in_node_socket.data, File):
                         # NOTE: File objects are passed directly to the next step and not serialized as a variable
-                        file_inputs[socket.name] = in_node_socket.data
+                        file_inputs[socket.id] = in_node_socket.data
                     else:
-                        input_variables[socket.name] = self._create_link_variable(
-                            in_node, in_node_socket.name
+                        input_variables[socket.id] = self._create_link_variable(
+                            in_node, in_node_socket.id
                         )
 
             program.append(node.run(input_variables, file_inputs, debug))
@@ -178,8 +224,7 @@ class ComputeGraph(Graph[Step]):
 
 
 class InputStep(Step):
-    expected_num_inputs: ClassVar[int] = 0
-    expected_num_outputs: ClassVar[int] = -1  # Variable number of outputs
+    subgraph_socket_ids: ClassVar[set[str]] = set()
 
     @model_validator(mode="after")
     def check_non_empty_outputs(self) -> Self:
@@ -188,7 +233,7 @@ class InputStep(Step):
 
         for output in self.outputs:
             if output.data is None:
-                raise ValueError(f"Output socket {output.name} must have data")
+                raise ValueError(f"Output socket {output.id} must have data")
 
         return self
 
@@ -208,22 +253,21 @@ class InputStep(Step):
                 continue
             elif isinstance(output.data, PrimitiveData):
                 program.append(
-                    f"{self.get_output_variable(output.name)} = {_serialize_data(output.data)}"
+                    f"{self.get_output_variable(output.id)} = {_serialize_data(output.data)}"
                 )
 
         return program
 
 
 class StringMatchStep(Step):
-    expected_num_inputs: ClassVar[int] = 2
-    expected_num_outputs: ClassVar[int] = 1
+    subgraph_socket_ids: ClassVar[set[str]] = set()
 
     def run(self, var_inputs: dict[SocketName, ProgramVariable], _, debug: bool) -> Program:
-        output_socket_name: str = self.outputs[0].name
+        output_socket_name: str = self.outputs[0].id
 
         return [
             self.debug_stmt() if debug else "",
-            f"{self.get_output_variable(output_socket_name)} = str({var_inputs[self.inputs[0].name]}) == str({var_inputs[self.inputs[1].name]})",
+            f"{self.get_output_variable(output_socket_name)} = str({var_inputs[self.inputs[0].id]}) == str({var_inputs[self.inputs[1].id]})",
         ]
 
 
@@ -238,11 +282,7 @@ class PyRunFunctionStep(Step):
     - FILE: For the `File` object that contains the Python function
     """
 
-    expected_num_inputs: ClassVar[int] = -1
-    expected_num_outputs: ClassVar[int] = (
-        1  # Assume that the function will always return a single value
-    )
-
+    subgraph_socket_ids: ClassVar[set[str]] = set()
     function_identifier: str
 
     def run(
@@ -258,7 +298,7 @@ class PyRunFunctionStep(Step):
 
         # Gather all function arguments
         positional_args: list[str] = [
-            var_inputs[socket.name] for socket in self.inputs if socket.name.startswith("ARG.")
+            var_inputs[socket.id] for socket in self.inputs if socket.id.startswith("ARG.")
         ]
         keyword_args: dict[str, str] = {
             socket_name.split(".")[1]: program_variable
@@ -275,15 +315,12 @@ class PyRunFunctionStep(Step):
             # Import statement for the function
             f"from {program_file.file_name.split('.py')[0]} import {self.function_identifier}",
             # Function invocation
-            f"{self.get_output_variable(self.outputs[0].name)} = {self.function_identifier}({function_args_str})",
+            f"{self.get_output_variable(self.outputs[0].id)} = {self.function_identifier}({function_args_str})",
         ]
 
 
 class LoopStep(Step):
-    expected_num_inputs: ClassVar[int] = -1
-    expected_num_outputs: ClassVar[int] = 1
-
-    subgraph: ComputeGraph
+    subgraph_socket_ids: ClassVar[set[str]] = {"CONTROL.IN.PREDICATE", "CONTROL.OUT.BODY"}
 
     def run(
         self,
@@ -291,25 +328,4 @@ class LoopStep(Step):
         file_inputs: dict[SocketName, File],
         debug: bool,
     ) -> Program:
-        subgraph_input_sockets: list[StepSocket] = []
-        for input_socket in self.inputs:
-            subgraph_input_sockets.append(
-                StepSocket(
-                    id=input_socket.id,
-                    name=input_socket.name,
-                    data=var_inputs[input_socket.name]
-                    if input_socket.name in var_inputs
-                    else file_inputs[input_socket.name],
-                )
-            )
-
-        # Add the input step to the subgraph
-        subgraph_program: AssembledProgram = self.subgraph.run(
-            InputStep(id=0, inputs=[], outputs=subgraph_input_sockets, type=StepType.INPUT), debug
-        )
-
-        return [
-            self.debug_stmt() if debug else "",
-            "while True:",
-            subgraph_program.replace("\n", "\n\t"),
-        ]
+        raise NotImplementedError("LoopStep is not implemented yet")
