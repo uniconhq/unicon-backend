@@ -21,7 +21,7 @@ class GraphNode(BaseModel, Generic[NodeSocketType]):
     @model_validator(mode="after")
     def unique_socket_ids(self) -> Self:
         id_counter = Counter(map(lambda socket: socket.id, chain(self.inputs, self.outputs)))
-        if id_counter.most_common(1)[0][1] > 1:
+        if len(id_counter) > 0 and id_counter.most_common(1)[0][1] > 1:
             raise ValueError("Socket ids must be unique")
         return self
 
