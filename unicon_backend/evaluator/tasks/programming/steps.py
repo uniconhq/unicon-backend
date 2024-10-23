@@ -342,10 +342,7 @@ class LoopStep(Step):
         body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.BODY", graph)
 
         predicate_program: Program = graph.run(debug=debug, node_ids=predicate_node_ids)
-        print(list(flatten_list(predicate_program, 1)))
         body_program: Program = graph.run(debug=debug, node_ids=body_node_ids)
-        print(body_program)
-        print(list(flatten_list(body_program, 1)))
 
         return [
             self.debug_stmt() if debug else "",
