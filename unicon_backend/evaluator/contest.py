@@ -18,7 +18,7 @@ ExpectedAnswers = RootModelList[ExpectedAnswer]
 
 
 class UserInput(BaseModel):
-    id: int
+    task_id: int
     user_input: Any
 
 
@@ -39,7 +39,7 @@ class Definition(BaseModel):
         task_id: int | None = None,
     ) -> list[TaskEvalResult]:
         user_input_index: dict[int, UserInput] = {
-            task_input.id: task_input for task_input in user_inputs
+            user_input.task_id: user_input for user_input in user_inputs
         }
         expected_answer_index: dict[int, ExpectedAnswer] = {
             task_answer.id: task_answer for task_answer in expected_answers

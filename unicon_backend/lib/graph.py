@@ -1,13 +1,13 @@
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
 from functools import cached_property
-from typing import Generic, TypeVar
+from itertools import chain
+from typing import Generic, Self, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class NodeSocket(BaseModel):
-    id: int
-    name: str
+    id: str
 
 
 NodeSocketType = TypeVar("NodeSocketType", bound=NodeSocket)
@@ -18,15 +18,30 @@ class GraphNode(BaseModel, Generic[NodeSocketType]):
     inputs: list[NodeSocketType]
     outputs: list[NodeSocketType]
 
+    @model_validator(mode="after")
+    def unique_socket_ids(self) -> Self:
+        id_counter = Counter(map(lambda socket: socket.id, chain(self.inputs, self.outputs)))
+        if len(id_counter) > 0 and id_counter.most_common(1)[0][1] > 1:
+            raise ValueError("Socket ids must be unique")
+        return self
+
+    @cached_property
+    def socket_index(self) -> dict[str, NodeSocketType]:
+        """Return a dictionary of socket id to socket object"""
+        return {socket.id: socket for socket in chain(self.inputs, self.outputs)}
+
+    def get_socket(self, socket_id: str) -> NodeSocketType | None:
+        return self.socket_index.get(socket_id)
+
 
 class GraphEdge(BaseModel):
     id: int
 
     from_node_id: int
-    from_socket_id: int
+    from_socket_id: str
 
     to_node_id: int
-    to_socket_id: int
+    to_socket_id: str
 
 
 GraphNodeType = TypeVar("GraphNodeType", bound=GraphNode)
@@ -63,24 +78,27 @@ class Graph(BaseModel, Generic[GraphNodeType]):
         return {edge.id: edge for edge in self.edges}
 
     @cached_property
-    def out_edges_index(self) -> defaultdict[int, list[int]]:
+    def out_edges_index(self) -> defaultdict[int, list[GraphEdge]]:
         """Return a dictionary of node id to a list of ids of edges that are outgoing from the node"""
         out_edges_index = defaultdict(list)
         for edge in self.edges:
-            out_edges_index[edge.from_node_id].append(edge.id)
+            out_edges_index[edge.from_node_id].append(edge)
         return out_edges_index
 
     @cached_property
-    def in_edges_index(self) -> defaultdict[int, list[int]]:
+    def in_edges_index(self) -> defaultdict[int, list[GraphEdge]]:
         """Return a dictionary of node id to a list of ids of edges that are incoming to the node"""
         in_edges_index = defaultdict(list)
         for edge in self.edges:
-            in_edges_index[edge.to_node_id].append(edge.id)
+            in_edges_index[edge.to_node_id].append(edge)
         return in_edges_index
 
-    def topological_sort(self) -> list[GraphNodeType]:
+    def topological_sort(self, ignored_node_ids: set[int] | None = None) -> list[GraphNodeType]:
         """
         Perform topological sort on the graph
+
+        Args:
+            ignored_node_ids (set[int]): A set of node ids to ignore
 
         Returns:
             list[GraphNodeType]: A list of nodes in topological order
@@ -88,25 +106,32 @@ class Graph(BaseModel, Generic[GraphNodeType]):
         Raises:
             ValueError: If the graph has a cycle
         """
+        # NOTE: These nodes will be ignored during topological sort
+        ignored_node_ids = ignored_node_ids or set()
+        working_node_ids = set(self.node_index.keys()) - ignored_node_ids
+
         in_degrees: dict[int, int] = defaultdict(int)
-        node_id_queue: deque[int] = deque(maxlen=len(self.nodes))
+        node_id_queue: deque[int] = deque(maxlen=len(working_node_ids))
 
-        for node in self.nodes:
-            in_degrees[node.id] = len(self.in_nodes_index.get(node.id, []))
-            if in_degrees[node.id] == 0:
-                node_id_queue.append(node.id)
+        for node_id in working_node_ids:
+            in_degrees[node_id] = len(set(self.in_nodes_index.get(node_id, [])) - ignored_node_ids)
+            if in_degrees[node_id] == 0:
+                node_id_queue.append(node_id)
 
-        topo_order: list[int] = []  # topological order of node ids
+        topo_order_node_ids: list[int] = []
         while len(node_id_queue):
-            step_node_id: int = node_id_queue.popleft()
-            topo_order.append(step_node_id)
+            curr_node_id: int = node_id_queue.popleft()
+            topo_order_node_ids.append(curr_node_id)
 
-            for to_step_node_id in self.out_nodes_index.get(step_node_id, []):
-                in_degrees[to_step_node_id] -= 1
-                if in_degrees[to_step_node_id] == 0:
-                    node_id_queue.append(to_step_node_id)
+            for to_node_id in self.out_nodes_index.get(curr_node_id, []):
+                if to_node_id in ignored_node_ids:
+                    continue
 
-        if len(topo_order) != len(self.nodes):
+                in_degrees[to_node_id] -= 1
+                if in_degrees[to_node_id] == 0:
+                    node_id_queue.append(to_node_id)
+
+        if len(topo_order_node_ids) != len(working_node_ids):
             raise ValueError("Graph has a cycle")
 
-        return [self.node_index[node_id] for node_id in topo_order]
+        return [self.node_index[node_id] for node_id in topo_order_node_ids]
