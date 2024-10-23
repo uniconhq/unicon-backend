@@ -315,8 +315,8 @@ class PyRunFunctionStep(Step):
             if socket_name.startswith("DATA.IN.KWARG")
         }
 
-        function_args_str: str = (
-            ", ".join([*positional_args, ""]) + f"**{keyword_args}" if keyword_args else ""
+        function_args_str: str = ", ".join([*positional_args, ""]) + (
+            f"**{keyword_args}" if keyword_args else ""
         )
 
         return [
