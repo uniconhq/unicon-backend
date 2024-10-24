@@ -33,6 +33,7 @@ class StepType(str, Enum):
 
     # Control Flow Operations
     LOOP = "LOOP_STEP"
+    IF_ELSE = "IF_ELSE_STEP"
 
     # Comparison Operations
     STRING_MATCH = "STRING_MATCH_STEP"
