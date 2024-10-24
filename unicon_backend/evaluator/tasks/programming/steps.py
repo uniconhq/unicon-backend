@@ -375,15 +375,15 @@ class IfElseStep(Step):
         if_body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.IF", graph)
         else_body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.ELSE", graph)
 
-        predicate_program: Program = graph.run(debug=self._debug, node_ids=predicate_node_ids)
-        if_body_program: Program = graph.run(debug=self._debug, node_ids=if_body_node_ids)
-        else_body_program: Program = graph.run(debug=self._debug, node_ids=else_body_node_ids)
+        predicate: Program = graph.run(debug=self._debug, node_ids=predicate_node_ids)
+        if_body: Program = graph.run(debug=self._debug, node_ids=if_body_node_ids)
+        else_body: Program = graph.run(debug=self._debug, node_ids=else_body_node_ids)
 
         return [
             *self.debug_stmts(),
-            *predicate_program,
+            *predicate,
             f"if {var_inputs['CONTROL.IN.PREDICATE']}:",
-            if_body_program,
+            if_body,
             "else:",
-            else_body_program,
+            else_body,
         ]
