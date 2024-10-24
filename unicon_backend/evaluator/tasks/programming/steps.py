@@ -339,6 +339,8 @@ class LoopStep(Step):
         debug: bool,
     ) -> Program:
         predicate_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.IN.PREDICATE", graph)
+        has_predicate: bool = len(predicate_node_ids) > 0
+
         body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.BODY", graph)
 
         predicate_program: Program = graph.run(debug=debug, node_ids=predicate_node_ids)
@@ -349,7 +351,7 @@ class LoopStep(Step):
             "while True:",
             [
                 *flatten_list(predicate_program, 1, ""),
-                f"if {var_inputs['CONTROL.IN.PREDICATE']}: break",
+                *([f"if {var_inputs['CONTROL.IN.PREDICATE']}: break"] if has_predicate else []),
                 *flatten_list(body_program, 1, ""),
             ],
         ]
