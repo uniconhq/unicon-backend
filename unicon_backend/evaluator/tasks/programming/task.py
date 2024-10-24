@@ -53,7 +53,7 @@ class ExpectedAnswer(BaseModel):
     expected_answer: Any
 
 
-class ProgrammingTask(Task[list[RequiredInput], dict[int, SubmissionId], list[ExpectedAnswer]]):
+class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswer]]):
     question: str
     environment: RunnerEnvironment
     required_inputs: list[RequiredInput]
@@ -89,12 +89,19 @@ class ProgrammingTask(Task[list[RequiredInput], dict[int, SubmissionId], list[Ex
             # TEMP: For debugging purposes
             print(assembled_program)
 
+            graph_files: list[File] = []
+            for node in testcase.nodes:
+                for output in node.outputs:
+                    if isinstance(output.data, File):
+                        graph_files.append(output.data)
+
             runner_package = RunnerPackage(
                 entrypoint="__entrypoint.py",
                 # TODO: instead of always passing in user_input, we can refactor in the future
                 # to let ComputeGraph derive all the files needed to run the testcase
                 files=[
                     *user_input_files,
+                    *graph_files,
                     File(file_name="__entrypoint.py", content=assembled_program),
                 ],
             )

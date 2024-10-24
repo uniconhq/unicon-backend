@@ -48,7 +48,6 @@ class RunnerRequest(BaseModel):
     def create(
         cls, programs: list[RunnerPackage], environment: RunnerEnvironment
     ) -> "RunnerRequest":
-        # package = RunnerPackage(entrypoint=entrypoint, files=files)
         submission_id = SubmissionId(uuid4())
         return RunnerRequest(
             submission_id=submission_id, programs=programs, environment=environment
