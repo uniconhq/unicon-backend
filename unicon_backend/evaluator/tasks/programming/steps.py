@@ -361,3 +361,29 @@ class LoopStep(Step):
             "while True:",
             [*predicate, FRAGMENT_SEPARATOR, *guard, FRAGMENT_SEPARATOR, *body],
         ]
+
+
+class IfElseStep(Step):
+    subgraph_socket_ids: ClassVar[set[str]] = {
+        "CONTROL.IN.PREDICATE",
+        "CONTROL.OUT.IF",
+        "CONTROL.OUT.ELSE",
+    }
+
+    def run(self, var_inputs: dict[SocketName, ProgramVariable], _, graph: ComputeGraph) -> Program:
+        predicate_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.IN.PREDICATE", graph)
+        if_body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.IF", graph)
+        else_body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.ELSE", graph)
+
+        predicate_program: Program = graph.run(debug=self._debug, node_ids=predicate_node_ids)
+        if_body_program: Program = graph.run(debug=self._debug, node_ids=if_body_node_ids)
+        else_body_program: Program = graph.run(debug=self._debug, node_ids=else_body_node_ids)
+
+        return [
+            *self.debug_stmts(),
+            *predicate_program,
+            f"if {var_inputs['CONTROL.IN.PREDICATE']}:",
+            if_body_program,
+            "else:",
+            else_body_program,
+        ]
