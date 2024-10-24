@@ -33,6 +33,7 @@ class StepType(str, Enum):
 
     # Control Flow Operations
     LOOP = "LOOP_STEP"
+    IF_ELSE = "IF_ELSE_STEP"
 
     # Comparison Operations
     STRING_MATCH = "STRING_MATCH_STEP"
@@ -343,21 +344,49 @@ class LoopStep(Step):
         predicate_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.IN.PREDICATE", graph)
         has_predicate: bool = len(predicate_node_ids) > 0
 
+        predicate: Program = []
         if has_predicate is False:
             logger.warning(
                 f"[Step {self.id}] No predicate found for LoopStep. Loop will run indefinitely."
             )
+        else:
+            predicate = graph.run(debug=self._debug, node_ids=predicate_node_ids)
 
-        body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.BODY", graph)
-
-        predicate: Program = graph.run(debug=self._debug, node_ids=predicate_node_ids)
         guard: Program = (
             [f"if {var_inputs['CONTROL.IN.PREDICATE']}:", ["break"]] if has_predicate else []
         )
+
+        body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.BODY", graph)
         body: Program = graph.run(debug=self._debug, node_ids=body_node_ids)
 
         return [
             *self.debug_stmts(),
             "while True:",
             [*predicate, FRAGMENT_SEPARATOR, *guard, FRAGMENT_SEPARATOR, *body],
+        ]
+
+
+class IfElseStep(Step):
+    subgraph_socket_ids: ClassVar[set[str]] = {
+        "CONTROL.IN.PREDICATE",
+        "CONTROL.OUT.IF",
+        "CONTROL.OUT.ELSE",
+    }
+
+    def run(self, var_inputs: dict[SocketName, ProgramVariable], _, graph: ComputeGraph) -> Program:
+        predicate_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.IN.PREDICATE", graph)
+        if_body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.IF", graph)
+        else_body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.ELSE", graph)
+
+        predicate: Program = graph.run(debug=self._debug, node_ids=predicate_node_ids)
+        if_body: Program = graph.run(debug=self._debug, node_ids=if_body_node_ids)
+        else_body: Program = graph.run(debug=self._debug, node_ids=else_body_node_ids)
+
+        return [
+            *self.debug_stmts(),
+            *predicate,
+            f"if {var_inputs['CONTROL.IN.PREDICATE']}:",
+            if_body,
+            "else:",
+            else_body,
         ]
