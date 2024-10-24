@@ -343,17 +343,19 @@ class LoopStep(Step):
         predicate_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.IN.PREDICATE", graph)
         has_predicate: bool = len(predicate_node_ids) > 0
 
+        predicate: Program = []
         if has_predicate is False:
             logger.warning(
                 f"[Step {self.id}] No predicate found for LoopStep. Loop will run indefinitely."
             )
+        else:
+            predicate = graph.run(debug=self._debug, node_ids=predicate_node_ids)
 
-        body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.BODY", graph)
-
-        predicate: Program = graph.run(debug=self._debug, node_ids=predicate_node_ids)
         guard: Program = (
             [f"if {var_inputs['CONTROL.IN.PREDICATE']}:", ["break"]] if has_predicate else []
         )
+
+        body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.BODY", graph)
         body: Program = graph.run(debug=self._debug, node_ids=body_node_ids)
 
         return [
