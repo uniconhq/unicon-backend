@@ -1,4 +1,5 @@
 import abc
+import logging
 from collections import deque
 from enum import Enum
 from functools import cached_property
@@ -9,6 +10,8 @@ from pydantic import model_validator
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
 from unicon_backend.lib.common import CustomBaseModel, flatten_list
 from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
+
+logger = logging.getLogger(__name__)
 
 type SocketName = str
 type ProgramVariable = str
@@ -340,6 +343,11 @@ class LoopStep(Step):
     ) -> Program:
         predicate_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.IN.PREDICATE", graph)
         has_predicate: bool = len(predicate_node_ids) > 0
+
+        if has_predicate is False:
+            logger.warning(
+                f"[Step {self.id}] No predicate found for LoopStep. Loop will run indefinitely."
+            )
 
         body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.BODY", graph)
 
