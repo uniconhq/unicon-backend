@@ -59,7 +59,7 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
 
-    def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[dict[int, SubmissionId]]:
+    def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[SubmissionId]:
         # Check if all required inputs are provided
         for required_input in self.required_inputs:
             if not any(required_input.id == user_input.id for user_input in user_inputs):
