@@ -41,14 +41,14 @@ class RunnerPackage(BaseModel):
 
 class RunnerRequest(BaseModel):
     submission_id: SubmissionId
-    package: RunnerPackage
-
+    programs: list[RunnerPackage]
     environment: RunnerEnvironment
 
     @classmethod
     def create(
-        cls, entrypoint: str, files: list[File], environment: RunnerEnvironment
+        cls, programs: list[RunnerPackage], environment: RunnerEnvironment
     ) -> "RunnerRequest":
-        package = RunnerPackage(entrypoint=entrypoint, files=files)
         submission_id = SubmissionId(uuid4())
-        return RunnerRequest(submission_id=submission_id, package=package, environment=environment)
+        return RunnerRequest(
+            submission_id=submission_id, programs=programs, environment=environment
+        )

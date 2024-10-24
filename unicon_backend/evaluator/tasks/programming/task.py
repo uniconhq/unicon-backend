@@ -8,6 +8,7 @@ from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
 from unicon_backend.evaluator.tasks.programming.runner import (
     RunnerEnvironment,
+    RunnerPackage,
     RunnerRequest,
     SubmissionId,
 )
@@ -51,13 +52,13 @@ class ExpectedAnswer(BaseModel):
     expected_answer: Any
 
 
-class ProgrammingTask(Task[list[RequiredInput], dict[int, SubmissionId], list[ExpectedAnswer]]):
+class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswer]]):
     question: str
     environment: RunnerEnvironment
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
 
-    def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[dict[int, SubmissionId]]:
+    def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[SubmissionId]:
         # Check if all required inputs are provided
         for required_input in self.required_inputs:
             if not any(required_input.id == user_input.id for user_input in user_inputs):
@@ -80,29 +81,36 @@ class ProgrammingTask(Task[list[RequiredInput], dict[int, SubmissionId], list[Ex
             user_input.data for user_input in user_inputs if isinstance(user_input.data, File)
         ]
 
-        job_submissions: dict[int, SubmissionId] = {}
+        runner_packages: list[RunnerPackage] = []
         for testcase in self.testcases:
             assembled_program = assemble_program(testcase.run(user_input_step))
 
             # TEMP: For debugging purposes
             print(assembled_program)
 
-            runner_request = RunnerRequest.create(
+            graph_files: list[File] = []
+            for node in testcase.nodes:
+                for output in node.outputs:
+                    if isinstance(output.data, File):
+                        graph_files.append(output.data)
+
+            runner_package = RunnerPackage(
                 entrypoint="__entrypoint.py",
                 # TODO: instead of always passing in user_input, we can refactor in the future
                 # to let ComputeGraph derive all the files needed to run the testcase
                 files=[
                     *user_input_files,
+                    *graph_files,
                     File(file_name="__entrypoint.py", content=assembled_program),
                 ],
-                environment=self.environment,
             )
-            task_publisher.publish(runner_request.model_dump_json(serialize_as_any=True))
+            runner_packages.append(runner_package)
 
-            job_submissions[testcase.id] = runner_request.submission_id
+        runner_request = RunnerRequest.create(runner_packages, self.environment)
+        task_publisher.publish(runner_request.model_dump_json(serialize_as_any=True))
 
         return TaskEvalResult(
-            task_id=self.id, status=TaskEvalStatus.PENDING, result=job_submissions
+            task_id=self.id, status=TaskEvalStatus.PENDING, result=runner_request.submission_id
         )
 
     def validate_user_input(self, user_input: Any) -> list[RequiredInput]:
