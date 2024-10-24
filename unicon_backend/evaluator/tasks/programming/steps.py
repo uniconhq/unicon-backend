@@ -8,7 +8,7 @@ from typing import ClassVar, Optional, Self, Union
 from pydantic import model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
-from unicon_backend.lib.common import CustomBaseModel, flatten_list
+from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,9 @@ type ProgramFragment = str
 
 # A program can be made up of sub programs, especially with subgraphs
 Program = list[Union["Program", ProgramFragment]]
+
+# A separator that is used to separate different parts of the program
+FRAGMENT_SEPARATOR: ProgramFragment = ""
 
 
 class StepType(str, Enum):
@@ -228,7 +231,11 @@ class ComputeGraph(Graph[Step]):
                             in_node, in_node_socket.id
                         )
 
-            program.append(node.run(input_variables, file_inputs, self, debug))
+            if len(program) > 0:
+                # Separate the programs of different nodes
+                program.append(FRAGMENT_SEPARATOR)
+
+            program.extend(node.run(input_variables, file_inputs, self, debug))
 
         return program
 
@@ -351,15 +358,14 @@ class LoopStep(Step):
 
         body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.BODY", graph)
 
-        predicate_program: Program = graph.run(debug=debug, node_ids=predicate_node_ids)
-        body_program: Program = graph.run(debug=debug, node_ids=body_node_ids)
+        predicate: Program = graph.run(debug=debug, node_ids=predicate_node_ids)
+        guard: Program = (
+            [f"if {var_inputs['CONTROL.IN.PREDICATE']}:", ["break"]] if has_predicate else []
+        )
+        body: Program = graph.run(debug=debug, node_ids=body_node_ids)
 
         return [
             self.debug_stmt() if debug else "",
             "while True:",
-            [
-                *flatten_list(predicate_program, 1, ""),
-                *([f"if {var_inputs['CONTROL.IN.PREDICATE']}: break"] if has_predicate else []),
-                *flatten_list(body_program, 1, ""),
-            ],
+            [*predicate, FRAGMENT_SEPARATOR, *guard, FRAGMENT_SEPARATOR, *body],
         ]
