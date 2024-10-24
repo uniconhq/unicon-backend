@@ -26,13 +26,12 @@ USER_INPUT_STEP_ID: int = 0
 
 
 def assemble_program(program: Program, indent_symbol: str = " " * 2) -> str:
-    def flatten(xs, indent_level=-1):
+    def flatten(xs, indent: int = 0):
         for x in xs:
             if isinstance(x, Iterable) and not isinstance(x, str):
-                yield ""  # Add a blank line between different parts of the program
-                yield from flatten(x, indent_level + 1)
+                yield from flatten(x, indent + 1)
             else:
-                yield f"{indent_symbol * indent_level}{x}"
+                yield f"{indent_symbol * indent}{x}"
 
     return "\n".join(flatten(program))
 
