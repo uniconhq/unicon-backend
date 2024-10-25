@@ -221,16 +221,17 @@ class ComputeGraph(Graph[Step]):
 
                 # Find the socket that the link is connected to
                 for socket in filter(lambda socket: socket.id == in_edge.to_socket_id, node.inputs):
-                    # If no sockets are connected to this input socket, skip.
-                    if not list(
+                    in_node_sockets = list(
                         filter(lambda socket: socket.id == in_edge.from_socket_id, in_node.outputs)
-                    ):
+                    )
+                    assert len(in_node_sockets) in (0, 1)
+
+                    # If no sockets are connected to this input socket, skip.
+                    if not in_node_sockets:
                         continue
 
                     # Get origining node socket from in_node
-                    in_node_socket: StepSocket = next(
-                        filter(lambda socket: socket.id == in_edge.from_socket_id, in_node.outputs)
-                    )
+                    in_node_socket: StepSocket = in_node_sockets[0]
 
                     if in_node_socket.data is not None and isinstance(in_node_socket.data, File):
                         # NOTE: File objects are passed directly to the next step and not serialized as a variable
