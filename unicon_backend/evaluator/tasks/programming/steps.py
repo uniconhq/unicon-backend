@@ -253,7 +253,7 @@ class InputStep(Step):
             raise ValueError("Input step must have at least one output")
 
         for output in self.outputs:
-            if output.data is None:
+            if output.data is None and not output.id.startswith("CONTROL"):
                 raise ValueError(f"Output socket {output.id} must have data")
 
         return self
