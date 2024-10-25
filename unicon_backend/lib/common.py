@@ -45,13 +45,3 @@ class RootModelList(RootModel[list[T]]):
 
     def __getitem__(self, item):
         return self.root[item]
-
-
-def flatten_list(xs, level: int, spacer: str | None = None):
-    for x in xs:
-        if isinstance(x, list) and level > 0:
-            if spacer is not None:
-                yield spacer
-            yield from flatten_list(x, level - 1)
-        else:
-            yield x

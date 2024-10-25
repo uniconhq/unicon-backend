@@ -1,4 +1,5 @@
 import abc
+import logging
 from collections import deque
 from enum import Enum
 from functools import cached_property
@@ -7,8 +8,10 @@ from typing import ClassVar, Optional, Self, Union
 from pydantic import model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
-from unicon_backend.lib.common import CustomBaseModel, flatten_list
+from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
+
+logger = logging.getLogger(__name__)
 
 type SocketName = str
 type ProgramVariable = str
@@ -16,6 +19,9 @@ type ProgramFragment = str
 
 # A program can be made up of sub programs, especially with subgraphs
 Program = list[Union["Program", ProgramFragment]]
+
+# A separator that is used to separate different parts of the program
+FRAGMENT_SEPARATOR: ProgramFragment = ""
 
 
 class StepType(str, Enum):
@@ -28,6 +34,7 @@ class StepType(str, Enum):
 
     # Control Flow Operations
     LOOP = "LOOP_STEP"
+    IF_ELSE = "IF_ELSE_STEP"
 
     # Comparison Operations
     STRING_MATCH = "STRING_MATCH_STEP"
@@ -68,6 +75,8 @@ class StepSocket(NodeSocket):
 class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
     id: int
     type: StepType
+
+    _debug: bool = False
 
     @property
     @abc.abstractmethod
@@ -134,8 +143,8 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
 
         return subgraph_node_ids
 
-    def debug_stmt(self) -> str:
-        return f"# Step {self.id}: {self.type.value}"
+    def debug_stmts(self) -> list[str]:
+        return [f"# Step {self.id}: {self.type.value}"] if self._debug else []
 
     def get_output_variable(self, output: SocketName) -> str:
         return f"var_{self.id}_{output}".replace(".", "_")
@@ -146,7 +155,6 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
         var_inputs: dict[SocketName, ProgramVariable],
         file_inputs: dict[SocketName, File],
         graph: "ComputeGraph",
-        debug: bool,
     ) -> Program: ...
 
 
@@ -226,7 +234,12 @@ class ComputeGraph(Graph[Step]):
                             in_node, in_node_socket.id
                         )
 
-            program.append(node.run(input_variables, file_inputs, self, debug))
+            if len(program) > 0:
+                # Separate the programs of different nodes
+                program.append(FRAGMENT_SEPARATOR)
+
+            node._debug = debug
+            program.extend(node.run(input_variables, file_inputs, self))
 
         return program
 
@@ -245,14 +258,14 @@ class InputStep(Step):
 
         return self
 
-    def run(self, _, __, ___, debug: bool) -> Program:
+    def run(self, *_) -> Program:
         def _serialize_data(data: str | int | float | bool) -> str:
             # TODO: Better handle of variables vs strings
             if isinstance(data, str):
                 return f'"{data}"' if not data.startswith("var_") else data
             return str(data)
 
-        program: Program = [self.debug_stmt() if debug else ""]
+        program: Program = [*self.debug_stmts()]
         for output in self.outputs:
             assert output.data is not None
             if isinstance(output.data, File):
@@ -270,11 +283,11 @@ class InputStep(Step):
 class StringMatchStep(Step):
     subgraph_socket_ids: ClassVar[set[str]] = set()
 
-    def run(self, var_inputs: dict[SocketName, ProgramVariable], _, __, debug: bool) -> Program:
+    def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
         output_socket_name: str = self.outputs[0].id
 
         return [
-            self.debug_stmt() if debug else "",
+            *self.debug_stmts(),
             f"{self.get_output_variable(output_socket_name)} = str({var_inputs[self.inputs[0].id]}) == str({var_inputs[self.inputs[1].id]})",
         ]
 
@@ -310,11 +323,7 @@ class PyRunFunctionStep(Step):
     function_identifier: str
 
     def run(
-        self,
-        var_inputs: dict[SocketName, ProgramVariable],
-        file_inputs: dict[SocketName, File],
-        _,
-        debug: bool,
+        self, var_inputs: dict[SocketName, ProgramVariable], file_inputs: dict[SocketName, File], *_
     ) -> Program:
         # Get the input file that we are running the function from
         program_file: File | None = file_inputs.get("DATA.IN.FILE")
@@ -336,7 +345,7 @@ class PyRunFunctionStep(Step):
         )
 
         return [
-            self.debug_stmt() if debug else "",
+            *self.debug_stmts(),
             # Import statement for the function
             f"from {program_file.file_name.split('.py')[0]} import {self.function_identifier}",
             # Function invocation
@@ -347,25 +356,53 @@ class PyRunFunctionStep(Step):
 class LoopStep(Step):
     subgraph_socket_ids: ClassVar[set[str]] = {"CONTROL.IN.PREDICATE", "CONTROL.OUT.BODY"}
 
-    def run(
-        self,
-        var_inputs: dict[SocketName, ProgramVariable],
-        _: dict[SocketName, File],
-        graph: ComputeGraph,
-        debug: bool,
-    ) -> Program:
+    def run(self, var_inputs: dict[SocketName, ProgramVariable], _, graph: ComputeGraph) -> Program:
         predicate_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.IN.PREDICATE", graph)
-        body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.BODY", graph)
+        has_predicate: bool = len(predicate_node_ids) > 0
 
-        predicate_program: Program = graph.run(debug=debug, node_ids=predicate_node_ids)
-        body_program: Program = graph.run(debug=debug, node_ids=body_node_ids)
+        predicate: Program = []
+        if has_predicate is False:
+            logger.warning(
+                f"[Step {self.id}] No predicate found for LoopStep. Loop will run indefinitely."
+            )
+        else:
+            predicate = graph.run(debug=self._debug, node_ids=predicate_node_ids)
+
+        guard: Program = (
+            [f"if {var_inputs['CONTROL.IN.PREDICATE']}:", ["break"]] if has_predicate else []
+        )
+
+        body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.BODY", graph)
+        body: Program = graph.run(debug=self._debug, node_ids=body_node_ids)
 
         return [
-            self.debug_stmt() if debug else "",
+            *self.debug_stmts(),
             "while True:",
-            [
-                *flatten_list(predicate_program, 1, ""),
-                f"if {var_inputs['CONTROL.IN.PREDICATE']}: break",
-                *flatten_list(body_program, 1, ""),
-            ],
+            [*predicate, FRAGMENT_SEPARATOR, *guard, FRAGMENT_SEPARATOR, *body],
+        ]
+
+
+class IfElseStep(Step):
+    subgraph_socket_ids: ClassVar[set[str]] = {
+        "CONTROL.IN.PREDICATE",
+        "CONTROL.OUT.IF",
+        "CONTROL.OUT.ELSE",
+    }
+
+    def run(self, var_inputs: dict[SocketName, ProgramVariable], _, graph: ComputeGraph) -> Program:
+        predicate_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.IN.PREDICATE", graph)
+        if_body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.IF", graph)
+        else_body_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.OUT.ELSE", graph)
+
+        predicate: Program = graph.run(debug=self._debug, node_ids=predicate_node_ids)
+        if_body: Program = graph.run(debug=self._debug, node_ids=if_body_node_ids)
+        else_body: Program = graph.run(debug=self._debug, node_ids=else_body_node_ids)
+
+        return [
+            *self.debug_stmts(),
+            *predicate,
+            f"if {var_inputs['CONTROL.IN.PREDICATE']}:",
+            if_body,
+            "else:",
+            else_body,
         ]
