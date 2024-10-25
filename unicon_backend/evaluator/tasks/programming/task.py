@@ -89,10 +89,11 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
             print(assembled_program)
 
             graph_files: list[File] = []
-            for node in testcase.nodes:
-                for output in node.outputs:
-                    if isinstance(output.data, File):
-                        graph_files.append(output.data)
+
+            for node in filter(lambda node: node.type == StepType.INPUT, testcase.nodes):
+                graph_files.extend(
+                    output.data for output in node.outputs if isinstance(output.data, File)
+                )
 
             runner_package = RunnerPackage(
                 entrypoint="__entrypoint.py",
