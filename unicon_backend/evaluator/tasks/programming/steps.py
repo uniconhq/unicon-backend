@@ -20,6 +20,7 @@ Program = list[Union["Program", ProgramFragment]]
 
 class StepType(str, Enum):
     PY_RUN_FUNCTION = "PY_RUN_FUNCTION_STEP"
+    OBJECT_ACCESS = "OBJECT_ACCESS_STEP"
 
     # I/O Operations
     INPUT = "INPUT_STEP"
@@ -275,6 +276,21 @@ class StringMatchStep(Step):
         return [
             self.debug_stmt() if debug else "",
             f"{self.get_output_variable(output_socket_name)} = str({var_inputs[self.inputs[0].id]}) == str({var_inputs[self.inputs[1].id]})",
+        ]
+
+
+class ObjectAccessStep(Step):
+    subgraph_socket_ids: ClassVar[set[str]] = set()
+    key: str
+
+    def run(self, var_inputs: dict[SocketName, ProgramVariable], _, __, debug: bool) -> Program:
+        output_socket_name: str = self.outputs[0].id
+
+        # Assumption: input socket id is DATA
+        input_value = var_inputs["DATA"]
+        return [
+            self.debug_stmt() if debug else "",
+            f"{self.get_output_variable(output_socket_name)} = {input_value}['{self.key}']",
         ]
 
 
