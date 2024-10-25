@@ -299,9 +299,16 @@ class OutputStep(Step):
     def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
         program: Program = [*self.debug_stmts()]
 
+        program.append("import json")
         result = (
             "{"
-            + ", ".join((f'"{key}": {variable_name}' for key, variable_name in var_inputs.items()))
+            + ", ".join(
+                (
+                    f'"{key}": {variable_name}'
+                    for key, variable_name in var_inputs.items()
+                    if not key.startswith("CONTROL")
+                )
+            )
             + "}"
         )
         program.append(f"print(json.dumps({result}))")
