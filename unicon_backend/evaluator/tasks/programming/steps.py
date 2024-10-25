@@ -280,6 +280,29 @@ class InputStep(Step):
         return program
 
 
+class OutputStep(Step):
+    subgraph_socket_ids: ClassVar[set[str]] = set()
+
+    @model_validator(mode="after")
+    def check_non_empty_outputs(self) -> Self:
+        if len(self.inputs) == 0:
+            raise ValueError("Output step must have at least one input")
+
+        return self
+
+    def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
+        program: Program = [*self.debug_stmts()]
+
+        result = (
+            "{"
+            + ", ".join((f'"{key}": {variable_name}' for key, variable_name in var_inputs.items()))
+            + "}"
+        )
+        program.append(f"print(json.dumps({result}))")
+
+        return program
+
+
 class StringMatchStep(Step):
     subgraph_socket_ids: ClassVar[set[str]] = set()
 
