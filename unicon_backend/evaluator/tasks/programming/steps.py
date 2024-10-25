@@ -221,6 +221,12 @@ class ComputeGraph(Graph[Step]):
 
                 # Find the socket that the link is connected to
                 for socket in filter(lambda socket: socket.id == in_edge.to_socket_id, node.inputs):
+                    # If no sockets are connected to this input socket, skip.
+                    if not list(
+                        filter(lambda socket: socket.id == in_edge.from_socket_id, in_node.outputs)
+                    ):
+                        continue
+
                     # Get origining node socket from in_node
                     in_node_socket: StepSocket = next(
                         filter(lambda socket: socket.id == in_edge.from_socket_id, in_node.outputs)
@@ -267,7 +273,7 @@ class InputStep(Step):
 
         program: Program = [*self.debug_stmts()]
         for output in self.outputs:
-            assert output.data is not None
+            assert output.id.startswith("CONTROL") or output.data is not None
             if isinstance(output.data, File):
                 # If the input is a `File`, we skip the serialization and just pass the file object
                 # directly to the next step. This is handled by the `ComputeGraph` class
