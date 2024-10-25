@@ -293,16 +293,24 @@ class StringMatchStep(Step):
 
 
 class ObjectAccessStep(Step):
+    """
+    A step to retrieve a value from a dictionary.
+    To use this step, the user must provide the key value to access the dictionary.
+
+    Socket Name Format:
+    - DATA: for the dictionary
+    """
+
     subgraph_socket_ids: ClassVar[set[str]] = set()
     key: str
 
-    def run(self, var_inputs: dict[SocketName, ProgramVariable], _, __, debug: bool) -> Program:
+    def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
         output_socket_name: str = self.outputs[0].id
 
         # Assumption: input socket id is DATA
         input_value = var_inputs["DATA"]
         return [
-            self.debug_stmt() if debug else "",
+            *self.debug_stmts(),
             f"{self.get_output_variable(output_socket_name)} = {input_value}['{self.key}']",
         ]
 
