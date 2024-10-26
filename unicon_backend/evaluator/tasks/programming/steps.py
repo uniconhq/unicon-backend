@@ -334,17 +334,30 @@ class ObjectAccessStep(Step):
     To use this step, the user must provide the key value to access the dictionary.
 
     Socket Name Format:
-    - DATA: for the dictionary
+    - DATA.IN*: for the dictionary
     """
 
     subgraph_socket_ids: ClassVar[set[str]] = set()
     key: str
 
+    @model_validator(mode="after")
+    def check_has_one_input(self) -> Self:
+        if len(self.inputs) == 1:
+            raise ValueError(
+                f"Object access step ({self.id}) must have exactly one input, found {len(self.inputs)}"
+            )
+        input_socket = self.inputs[0]
+        if not input_socket.id.startswith("DATA.IN"):
+            raise ValueError(
+                f"Object access step ({self.id})'s input socket must start with DATA.IN, found {input_socket.id}"
+            )
+
+        return self
+
     def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
         output_socket_name: str = self.outputs[0].id
 
-        # Assumption: input socket id is DATA
-        input_value = var_inputs["DATA"]
+        input_value = var_inputs[self.inputs[0].id]
         return [
             *self.debug_stmts(),
             f"{self.get_output_variable(output_socket_name)} = {input_value}['{self.key}']",

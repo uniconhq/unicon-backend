@@ -32,7 +32,7 @@
               "from_node_id": 2,
               "from_socket_id": "DATA.OUT",
               "to_node_id": 3,
-              "to_socket_id": "DATA"
+              "to_socket_id": "DATA.IN"
             },
             {
               "id": 3,
@@ -297,7 +297,7 @@
                   "id": "CONTROL.IN"
                 },
                 {
-                  "id": "DATA"
+                  "id": "DATA.IN"
                 }
               ],
               "outputs": [
