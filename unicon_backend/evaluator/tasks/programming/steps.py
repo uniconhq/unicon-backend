@@ -221,9 +221,9 @@ class ComputeGraph(Graph[Step]):
 
                 # Find the socket that the link is connected to
                 for socket in filter(lambda socket: socket.id == in_edge.to_socket_id, node.inputs):
-                    in_node_sockets = list(
-                        filter(lambda socket: socket.id == in_edge.from_socket_id, in_node.outputs)
-                    )
+                    in_node_sockets = [
+                        socket for socket in in_node.outputs if socket.id == in_edge.from_socket_id
+                    ]
                     assert len(in_node_sockets) in (0, 1)
 
                     # If no sockets are connected to this input socket, skip.
