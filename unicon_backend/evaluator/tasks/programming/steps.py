@@ -274,7 +274,6 @@ class InputStep(Step):
 
         program: Program = [*self.debug_stmts()]
         for output in self.outputs:
-            assert output.id.startswith("CONTROL") or output.data is not None
             if isinstance(output.data, File):
                 # If the input is a `File`, we skip the serialization and just pass the file object
                 # directly to the next step. This is handled by the `ComputeGraph` class
