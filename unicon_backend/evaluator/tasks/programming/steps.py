@@ -291,7 +291,7 @@ class OutputStep(Step):
     subgraph_socket_ids: ClassVar[set[str]] = set()
 
     @model_validator(mode="after")
-    def check_non_empty_outputs(self) -> Self:
+    def check_non_empty_inputs(self) -> Self:
         if len(self.inputs) == 0:
             raise ValueError("Output step must have at least one input")
 
