@@ -26,6 +26,7 @@ FRAGMENT_SEPARATOR: ProgramFragment = ""
 
 class StepType(str, Enum):
     PY_RUN_FUNCTION = "PY_RUN_FUNCTION_STEP"
+    OBJECT_ACCESS = "OBJECT_ACCESS_STEP"
 
     # I/O Operations
     INPUT = "INPUT_STEP"
@@ -220,10 +221,17 @@ class ComputeGraph(Graph[Step]):
 
                 # Find the socket that the link is connected to
                 for socket in filter(lambda socket: socket.id == in_edge.to_socket_id, node.inputs):
+                    in_node_sockets = [
+                        socket for socket in in_node.outputs if socket.id == in_edge.from_socket_id
+                    ]
+                    assert len(in_node_sockets) <= 1
+
+                    # If no sockets are connected to this input socket, skip.
+                    if not in_node_sockets:
+                        continue
+
                     # Get origining node socket from in_node
-                    in_node_socket: StepSocket = next(
-                        filter(lambda socket: socket.id == in_edge.from_socket_id, in_node.outputs)
-                    )
+                    in_node_socket: StepSocket = in_node_sockets[0]
 
                     if in_node_socket.data is not None and isinstance(in_node_socket.data, File):
                         # NOTE: File objects are passed directly to the next step and not serialized as a variable
@@ -252,7 +260,7 @@ class InputStep(Step):
             raise ValueError("Input step must have at least one output")
 
         for output in self.outputs:
-            if output.data is None:
+            if output.data is None and not output.type == "CONTROL":
                 raise ValueError(f"Output socket {output.id} must have data")
 
         return self
@@ -266,7 +274,6 @@ class InputStep(Step):
 
         program: Program = [*self.debug_stmts()]
         for output in self.outputs:
-            assert output.data is not None
             if isinstance(output.data, File):
                 # If the input is a `File`, we skip the serialization and just pass the file object
                 # directly to the next step. This is handled by the `ComputeGraph` class
@@ -275,6 +282,36 @@ class InputStep(Step):
                 program.append(
                     f"{self.get_output_variable(output.id)} = {_serialize_data(output.data)}"
                 )
+
+        return program
+
+
+class OutputStep(Step):
+    subgraph_socket_ids: ClassVar[set[str]] = set()
+
+    @model_validator(mode="after")
+    def check_non_empty_inputs(self) -> Self:
+        if len(self.inputs) == 0:
+            raise ValueError("Output step must have at least one input")
+
+        return self
+
+    def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
+        program: Program = [*self.debug_stmts()]
+
+        program.append("import json")
+        result = (
+            "{"
+            + ", ".join(
+                (
+                    f'"{key}": {variable_name}'
+                    for key, variable_name in var_inputs.items()
+                    if not key.startswith("CONTROL")
+                )
+            )
+            + "}"
+        )
+        program.append(f"print(json.dumps({result}))")
 
         return program
 
@@ -288,6 +325,42 @@ class StringMatchStep(Step):
         return [
             *self.debug_stmts(),
             f"{self.get_output_variable(output_socket_name)} = str({var_inputs[self.inputs[0].id]}) == str({var_inputs[self.inputs[1].id]})",
+        ]
+
+
+class ObjectAccessStep(Step):
+    """
+    A step to retrieve a value from a dictionary.
+    To use this step, the user must provide the key value to access the dictionary.
+
+    Socket Name Format:
+    - DATA.IN*: for the dictionary
+    """
+
+    subgraph_socket_ids: ClassVar[set[str]] = set()
+    key: str
+
+    @model_validator(mode="after")
+    def check_has_one_input(self) -> Self:
+        if len(self.inputs) == 1:
+            raise ValueError(
+                f"Object access step ({self.id}) must have exactly one input, found {len(self.inputs)}"
+            )
+        input_socket = self.inputs[0]
+        if not input_socket.id.startswith("DATA.IN"):
+            raise ValueError(
+                f"Object access step ({self.id})'s input socket must start with DATA.IN, found {input_socket.id}"
+            )
+
+        return self
+
+    def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
+        output_socket_name: str = self.outputs[0].id
+
+        input_value = var_inputs[self.inputs[0].id]
+        return [
+            *self.debug_stmts(),
+            f"{self.get_output_variable(output_socket_name)} = {input_value}['{self.key}']",
         ]
 
 
