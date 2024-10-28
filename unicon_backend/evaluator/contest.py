@@ -58,14 +58,15 @@ class Definition(BaseModel):
 
             if (task_expected_answer := expected_answer_index.get(task.id)) is None:
                 logger.warning(f"Task {task.id} has no answer")
-                continue
 
             logger.info(f"Running task {task.id}")
 
             result.append(
                 task.run(
                     task.validate_user_input(task_user_input.user_input),
-                    task.validate_expected_answer(task_expected_answer.expected_answer),
+                    None
+                    if task_expected_answer is None
+                    else task.validate_expected_answer(task_expected_answer.expected_answer),
                 )
             )
 

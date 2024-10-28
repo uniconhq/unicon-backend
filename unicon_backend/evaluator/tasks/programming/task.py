@@ -85,8 +85,7 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
         for testcase in self.testcases:
             assembled_program = assemble_program(testcase.run(user_input_step))
 
-            # TEMP: For debugging purposes
-            print(assembled_program)
+            logger.debug(f"Assembled Program:\n{assembled_program}")
 
             graph_files: list[File] = []
 
@@ -118,4 +117,5 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
         return RootModel[list[RequiredInput]].model_validate(user_input).root
 
     def validate_expected_answer(self, expected_answer: Any) -> list[ExpectedAnswer]:
-        return RootModel[list[ExpectedAnswer]].model_validate(expected_answer).root
+        # TEMP: Ignore expected answer for now
+        return []
