@@ -86,6 +86,14 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
         """
         ...
 
+    @cached_property
+    def in_socket_index(self) -> dict[str, StepSocket]:
+        return {socket.id: socket for socket in self.inputs}
+
+    @cached_property
+    def out_socket_index(self) -> dict[str, StepSocket]:
+        return {socket.id: socket for socket in self.outputs}
+
     def get_subgraph_node_ids(self, subgraph_socket_id: str, graph: "ComputeGraph") -> set[int]:
         subgraph_socket: StepSocket | None = self.get_socket(subgraph_socket_id)
         if subgraph_socket is None:
@@ -341,15 +349,19 @@ class ObjectAccessStep(Step):
     key: str
 
     @model_validator(mode="after")
-    def check_has_one_input(self) -> Self:
-        if len(self.inputs) == 1:
-            raise ValueError(
-                f"Object access step ({self.id}) must have exactly one input, found {len(self.inputs)}"
+    def check_has_exactly_one_data_input(self) -> Self:
+        if (
+            num_data_inputs := len(
+                [in_socket for in_socket in self.inputs if in_socket.type == "DATA"]
             )
-        input_socket = self.inputs[0]
-        if not input_socket.id.startswith("DATA.IN"):
+        ) != 1:
             raise ValueError(
-                f"Object access step ({self.id})'s input socket must start with DATA.IN, found {input_socket.id}"
+                f"Object access step ({self.id}) must have exactly one data input, found {num_data_inputs}"
+            )
+
+        if "DATA.IN" not in self.in_socket_index:
+            raise ValueError(
+                f"Object access step ({self.id}) must have a data input socket with the id DATA.IN"
             )
 
         return self
