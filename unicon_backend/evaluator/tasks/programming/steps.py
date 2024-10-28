@@ -367,12 +367,9 @@ class ObjectAccessStep(Step):
         return self
 
     def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
-        output_socket_name: str = self.outputs[0].id
-
-        input_value = var_inputs[self.inputs[0].id]
         return [
             *self.debug_stmts(),
-            f"{self.get_output_variable(output_socket_name)} = {input_value}['{self.key}']",
+            f"{self.get_output_variable(self.outputs[0].id)} = {var_inputs["DATA.IN"]}['{self.key}']",
         ]
 
 
