@@ -10,7 +10,7 @@ logger = getLogger(__name__)
 
 
 class ExpectedAnswer(BaseModel):
-    id: int
+    task_id: int
     expected_answer: Any
 
 
@@ -42,7 +42,7 @@ class Definition(BaseModel):
             user_input.task_id: user_input for user_input in user_inputs
         }
         expected_answer_index: dict[int, ExpectedAnswer] = {
-            task_answer.id: task_answer for task_answer in expected_answers
+            task_answer.task_id: task_answer for task_answer in expected_answers
         }
 
         tasks_to_run = (
