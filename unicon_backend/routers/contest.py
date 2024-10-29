@@ -40,6 +40,37 @@ def submit_definition(
     return definition_orm
 
 
+@router.patch("/definition/{id}", summary="Update a contest definition")
+def update_definition(
+    id: int, definition: Definition, db_session: Annotated[Session, Depends(get_db_session)]
+):
+    definition_orm = db_session.scalar(
+        sa.select(DefinitionORM)
+        .where(DefinitionORM.id == id)
+        .options(selectinload(DefinitionORM.tasks))
+    )
+
+    if definition_orm is None:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Contest definition not found")
+
+    # Delete existing tasks and add new ones
+    for task_orm in definition_orm.tasks:
+        db_session.delete(task_orm)
+
+    def convert_task_to_orm(id, type, autograde, **other_fields):
+        return TaskORM(id=id, type=type, autograde=autograde, other_fields=other_fields)
+
+    for task in definition.tasks:
+        task_orm = convert_task_to_orm(**task.model_dump(serialize_as_any=True))
+        definition_orm.tasks.append(task_orm)
+
+    db_session.add(definition_orm)
+    db_session.commit()
+    db_session.refresh(definition_orm)
+
+    return definition_orm
+
+
 class ContestSubmission(BaseModel):
     expected_answers: ExpectedAnswers
     user_inputs: UserInputs
