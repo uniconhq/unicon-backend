@@ -10,7 +10,7 @@ logger = getLogger(__name__)
 
 
 class ExpectedAnswer(BaseModel):
-    id: int
+    task_id: int
     expected_answer: Any
 
 
@@ -42,7 +42,7 @@ class Definition(BaseModel):
             user_input.task_id: user_input for user_input in user_inputs
         }
         expected_answer_index: dict[int, ExpectedAnswer] = {
-            task_answer.id: task_answer for task_answer in expected_answers
+            task_answer.task_id: task_answer for task_answer in expected_answers
         }
 
         tasks_to_run = (
@@ -58,14 +58,15 @@ class Definition(BaseModel):
 
             if (task_expected_answer := expected_answer_index.get(task.id)) is None:
                 logger.warning(f"Task {task.id} has no answer")
-                continue
 
             logger.info(f"Running task {task.id}")
 
             result.append(
                 task.run(
                     task.validate_user_input(task_user_input.user_input),
-                    task.validate_expected_answer(task_expected_answer.expected_answer),
+                    None
+                    if task_expected_answer is None
+                    else task.validate_expected_answer(task_expected_answer.expected_answer),
                 )
             )
 

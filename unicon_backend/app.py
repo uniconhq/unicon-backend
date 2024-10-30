@@ -25,8 +25,8 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    task_results_consumer.stop()
     task_publisher.stop()
+    task_results_consumer.stop()
 
 
 app = FastAPI(title="Unicon 🦄 Backend", lifespan=lifespan)
