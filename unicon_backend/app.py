@@ -21,7 +21,7 @@ setup_rich_logger()
 async def lifespan(app: FastAPI):
     _event_loop = asyncio.get_event_loop()
     task_results_consumer.run(event_loop=_event_loop)
-    task_publisher.run()
+    task_publisher.run(event_loop=_event_loop)
 
     yield
 
