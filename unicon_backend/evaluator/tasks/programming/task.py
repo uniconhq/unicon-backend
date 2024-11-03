@@ -12,6 +12,7 @@ from unicon_backend.evaluator.tasks.programming.runner import (
     RunnerRequest,
     SubmissionId,
 )
+from unicon_backend.evaluator.tasks.programming.security import TEMPLATE
 from unicon_backend.evaluator.tasks.programming.steps import (
     ComputeGraph,
     InputStep,
@@ -34,7 +35,7 @@ def assemble_program(program: Program, indent_symbol: str = " " * 2) -> str:
             else:
                 yield f"{indent_symbol * indent}{x}"
 
-    return "\n".join(flatten(program))
+    return TEMPLATE.format("\n".join(flatten([program])))
 
 
 class Testcase(ComputeGraph):
