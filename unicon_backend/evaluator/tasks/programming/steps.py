@@ -1,6 +1,7 @@
 import abc
 import logging
 from collections import deque
+from collections.abc import Sequence
 from enum import Enum
 from functools import cached_property
 from typing import ClassVar, Optional, Self, Union
@@ -18,7 +19,7 @@ type ProgramVariable = str
 type ProgramFragment = str
 
 # A program can be made up of sub programs, especially with subgraphs
-Program = list[Union["Program", ProgramFragment]]
+Program = Sequence[Union["Program", ProgramFragment]]
 
 # A separator that is used to separate different parts of the program
 FRAGMENT_SEPARATOR: ProgramFragment = ""
@@ -215,7 +216,7 @@ class ComputeGraph(Graph[Step]):
             subgraph_node_ids | node_ids_to_exclude
         )
 
-        program: Program = []
+        program: list[Program | str] = []
         for node in topological_order:
             # Output of a step will be stored in a variable in the format `var_{step_id}_{socket_id}`
             # It is assumed that every step will always output the same number of values as the number of output sockets
@@ -280,7 +281,7 @@ class InputStep(Step):
                 return f'"{data}"' if not data.startswith("var_") else data
             return str(data)
 
-        program: Program = [*self.debug_stmts()]
+        program: list[Program | str] = [*self.debug_stmts()]
         for output in self.outputs:
             if isinstance(output.data, File):
                 # If the input is a `File`, we skip the serialization and just pass the file object
@@ -305,7 +306,7 @@ class OutputStep(Step):
         return self
 
     def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
-        program: Program = [*self.debug_stmts()]
+        program: list[Program | str] = [*self.debug_stmts()]
 
         program.append("import json")
         result = (
@@ -420,7 +421,7 @@ class PyRunFunctionStep(Step):
             f"**{keyword_args}" if keyword_args else ""
         )
 
-        code_lines: list[Program | str] = [*self.debug_stmts()] + (
+        code_lines: Sequence[Program | str] = [*self.debug_stmts()] + (
             [
                 f"{self.get_output_variable(self.outputs[0].id)} = call_function_safe('{program_file.file_name.split(".py")[0]}', '{self.function_identifier}', {function_args_str})"
             ]
