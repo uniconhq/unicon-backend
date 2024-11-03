@@ -1,6 +1,7 @@
 import abc
 from asyncio import AbstractEventLoop
 from logging import getLogger
+from typing import Literal
 
 import pika  # type: ignore
 from pika.adapters.asyncio_connection import AsyncioConnection  # type: ignore
@@ -148,3 +149,125 @@ class AsyncConsumer(abc.ABC):
         if not self._closing:
             self._closing = True
             self._consuming and self.stop_consuming()
+
+
+class AsyncPublisher(abc.ABC):
+    def __init__(
+        self,
+        amqp_url: str,
+        exchange_name: str,
+        exchange_type: ExchangeType,
+        queue_name: str,
+        routing_key: str | None = None,
+    ):
+        self.exchange_name = exchange_name
+        self.exchange_type = exchange_type
+
+        self.queue_name = queue_name
+        # NOTE: If routing_key is not provided, it will default to the queue_name
+        self.routing_key = routing_key or queue_name
+
+        self._url = amqp_url
+
+        self._connection: AsyncioConnection | None = None
+        self._channel: Channel | None = None
+
+        self._deliveries: dict[int, Literal[True]] = {}
+        self._acked: int = 0  # Number of messages acknowledged
+        self._nacked: int = 0  # Number of messages rejected
+        self._message_number: int = 0  # Number of messages published
+
+        self._closing = False
+
+    def on_connection_open(self, _connection: AsyncioConnection):
+        assert self._connection is not None
+        self._connection.channel(on_open_callback=self.on_channel_open)
+
+    def on_connection_open_error(self, _connection: AsyncioConnection, err: Exception):
+        logger.error(f"Connection open error: {err}")
+
+    def on_connection_closed(self, _unused_connection, reason):
+        self._channel = None
+        if not self._closing:
+            logger.warning(f"Connection closed unexpectedly: {reason}")
+
+    def on_channel_open(self, channel: Channel):
+        self._channel = channel
+        self._channel.add_on_close_callback(self.on_channel_closed)
+        self.setup_exchange(self.exchange_name)
+
+    def on_channel_closed(self, channel: Channel, reason):
+        self._channel = None
+        if not self._closing:
+            assert self._connection is not None
+            self._connection.close()
+
+    def setup_exchange(self, exchange_name):
+        self._channel.exchange_declare(
+            exchange=exchange_name,
+            exchange_type=self.exchange_type,
+            callback=self.on_exchange_declareok,
+        )
+
+    def on_exchange_declareok(self, _frame: Method):
+        assert self._channel is not None
+        # TODO: Hardcoded for the queue to be durable. This should be configurable
+        self._channel.queue_declare(
+            queue=self.queue_name, callback=self.on_queue_declareok, durable=True
+        )
+
+    def on_queue_declareok(self, _frame: Method):
+        assert self._channel is not None
+        self._channel.queue_bind(
+            self.queue_name,
+            self.exchange_name,
+            routing_key=self.routing_key,
+            callback=self.start_publishing,
+        )
+
+    def start_publishing(self, _frame: Method):
+        assert self._channel is not None
+        self._channel.confirm_delivery(self.on_delivery_confirmation)
+
+    def on_delivery_confirmation(self, frame: Method):
+        confirmation_type = frame.method.NAME.split(".")[1].lower()
+        ack_multiple = frame.method.multiple
+        delivery_tag = frame.method.delivery_tag
+
+        self._acked += confirmation_type == "ack"
+        self._nacked += confirmation_type == "nack"
+
+        del self._deliveries[delivery_tag]
+
+        if ack_multiple:
+            for tmp_tag in filter(lambda tmp_tag: tmp_tag <= delivery_tag, self._deliveries):
+                self._acked += 1
+                del self._deliveries[tmp_tag]
+
+    @abc.abstractmethod
+    def publish(self, payload: str, content_type: str): ...
+
+    def run(self, event_loop: AbstractEventLoop | None = None):
+        self._connection = None
+
+        self._deliveries.clear()
+        self._acked = 0
+        self._nacked = 0
+        self._message_number = 0
+
+        self._connection = AsyncioConnection(
+            pika.URLParameters(self._url),
+            on_open_callback=self.on_connection_open,
+            on_open_error_callback=self.on_connection_open_error,
+            on_close_callback=self.on_connection_closed,
+            custom_ioloop=event_loop,
+        )
+
+    def stop(self):
+        self._closing = True
+
+        if self._channel is not None:
+            self._channel.close()
+
+        if self._connection is not None:
+            self._connection.close()
