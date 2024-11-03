@@ -396,12 +396,10 @@ class PyRunFunctionStep(Step):
     ) -> Program:
         # Figure out if this is a untrusted function
         user_input_edges = graph.in_edges_index[self.id]
-        print(user_input_edges)
         untrusted = any(
             edge.from_node_id == 0 and edge.to_socket_id == "DATA.IN.FILE"
             for edge in user_input_edges
         )
-        print(untrusted)
 
         # Get the input file that we are running the function from
         program_file: File | None = file_inputs.get("DATA.IN.FILE")
@@ -422,9 +420,8 @@ class PyRunFunctionStep(Step):
             f"**{keyword_args}" if keyword_args else ""
         )
 
-        return (
-            [*self.debug_stmts()]
-            + [
+        code_lines: list[Program | str] = [*self.debug_stmts()] + (
+            [
                 f"{self.get_output_variable(self.outputs[0].id)} = call_function_safe('{program_file.file_name.split(".py")[0]}', '{self.function_identifier}', {function_args_str})"
             ]
             if untrusted
@@ -435,6 +432,8 @@ class PyRunFunctionStep(Step):
                 f"{self.get_output_variable(self.outputs[0].id)} = {self.function_identifier}({function_args_str})",
             ]
         )
+
+        return code_lines
 
 
 class LoopStep(Step):
