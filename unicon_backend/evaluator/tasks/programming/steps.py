@@ -1,7 +1,6 @@
 import abc
 import logging
 from collections import deque
-from collections.abc import Sequence
 from enum import Enum
 from functools import cached_property
 from typing import ClassVar, Optional, Self, Union
@@ -19,7 +18,7 @@ type ProgramVariable = str
 type ProgramFragment = str
 
 # A program can be made up of sub programs, especially with subgraphs
-Program = Sequence[Union["Program", ProgramFragment]]
+Program = list[Union["Program", ProgramFragment]]
 
 # A separator that is used to separate different parts of the program
 FRAGMENT_SEPARATOR: ProgramFragment = ""
@@ -216,7 +215,7 @@ class ComputeGraph(Graph[Step]):
             subgraph_node_ids | node_ids_to_exclude
         )
 
-        program: list[Program | str] = []
+        program: Program = []
         for node in topological_order:
             # Output of a step will be stored in a variable in the format `var_{step_id}_{socket_id}`
             # It is assumed that every step will always output the same number of values as the number of output sockets
@@ -281,7 +280,7 @@ class InputStep(Step):
                 return f'"{data}"' if not data.startswith("var_") else data
             return str(data)
 
-        program: list[Program | str] = [*self.debug_stmts()]
+        program: Program = [*self.debug_stmts()]
         for output in self.outputs:
             if isinstance(output.data, File):
                 # If the input is a `File`, we skip the serialization and just pass the file object
@@ -407,6 +406,8 @@ class PyRunFunctionStep(Step):
         if program_file is None:
             raise ValueError("No program file provided")
 
+        module_name: str = program_file.file_name.split(".py")[0]
+
         # Gather all function arguments
         positional_args: list[str] = [
             var_inputs[socket.id] for socket in self.inputs if socket.id.startswith("DATA.IN.ARG")
@@ -421,20 +422,21 @@ class PyRunFunctionStep(Step):
             f"**{keyword_args}" if keyword_args else ""
         )
 
-        code_lines: Sequence[Program | str] = [*self.debug_stmts()] + (
-            [
-                f"{self.get_output_variable(self.outputs[0].id)} = call_function_safe('{program_file.file_name.split(".py")[0]}', '{self.function_identifier}', {function_args_str})"
-            ]
-            if untrusted
-            else [
-                # Import statement for the function
-                f"from {program_file.file_name.split('.py')[0]} import {self.function_identifier}",
-                # Function invocation
-                f"{self.get_output_variable(self.outputs[0].id)} = {self.function_identifier}({function_args_str})",
-            ]
-        )
-
-        return code_lines
+        return [
+            *self.debug_stmts(),
+            *(
+                [
+                    f"{self.get_output_variable(self.outputs[0].id)} = call_function_safe('{module_name}', '{self.function_identifier}', {function_args_str})"
+                ]
+                if untrusted
+                else [
+                    # Import statement for the function
+                    f"from {module_name} import {self.function_identifier}",
+                    # Function invocation
+                    f"{self.get_output_variable(self.outputs[0].id)} = {self.function_identifier}({function_args_str})",
+                ]
+            ),
+        ]
 
 
 class LoopStep(Step):
