@@ -305,7 +305,7 @@ class OutputStep(Step):
         return self
 
     def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
-        program: Program = [*self.debug_stmts()]
+        program: list[Program | str] = [*self.debug_stmts()]
 
         program.append("import json")
         result = (
@@ -389,12 +389,24 @@ class PyRunFunctionStep(Step):
     function_identifier: str
 
     def run(
-        self, var_inputs: dict[SocketName, ProgramVariable], file_inputs: dict[SocketName, File], *_
+        self,
+        var_inputs: dict[SocketName, ProgramVariable],
+        file_inputs: dict[SocketName, File],
+        graph: ComputeGraph,
     ) -> Program:
+        # Figure out if this is a untrusted function
+        user_input_edges = graph.in_edges_index[self.id]
+        untrusted = any(
+            edge.from_node_id == 0 and edge.to_socket_id == "DATA.IN.FILE"
+            for edge in user_input_edges
+        )
+
         # Get the input file that we are running the function from
         program_file: File | None = file_inputs.get("DATA.IN.FILE")
         if program_file is None:
             raise ValueError("No program file provided")
+
+        module_name: str = program_file.file_name.split(".py")[0]
 
         # Gather all function arguments
         positional_args: list[str] = [
@@ -412,10 +424,18 @@ class PyRunFunctionStep(Step):
 
         return [
             *self.debug_stmts(),
-            # Import statement for the function
-            f"from {program_file.file_name.split('.py')[0]} import {self.function_identifier}",
-            # Function invocation
-            f"{self.get_output_variable(self.outputs[0].id)} = {self.function_identifier}({function_args_str})",
+            *(
+                [
+                    f"{self.get_output_variable(self.outputs[0].id)} = call_function_safe('{module_name}', '{self.function_identifier}', {function_args_str})"
+                ]
+                if untrusted
+                else [
+                    # Import statement for the function
+                    f"from {module_name} import {self.function_identifier}",
+                    # Function invocation
+                    f"{self.get_output_variable(self.outputs[0].id)} = {self.function_identifier}({function_args_str})",
+                ]
+            ),
         ]
 
 
