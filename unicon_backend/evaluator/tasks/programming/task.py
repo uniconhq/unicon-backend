@@ -28,14 +28,15 @@ USER_INPUT_STEP_ID: int = 0
 
 
 def assemble_program(program: Program, indent_symbol: str = " " * 2) -> str:
-    def flatten(xs, indent: int = 0):
+    def flatten(xs, indent: int):
         for x in xs:
             if isinstance(x, Iterable) and not isinstance(x, str):
                 yield from flatten(x, indent + 1)
             else:
                 yield f"{indent_symbol * indent}{x}"
 
-    return TEMPLATE.format("\n".join(flatten([program])))
+    # NOTE: We set indent level to 1 to match the indentation of the template
+    return TEMPLATE.format("\n".join(flatten(program, indent=1)))
 
 
 class Testcase(ComputeGraph):
