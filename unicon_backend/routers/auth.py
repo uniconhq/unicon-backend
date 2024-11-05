@@ -40,7 +40,7 @@ def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db_session: Annotated[Session, Depends(get_db_session)],
     response: Response,
-):
+) -> Token:
     # NOTE: `password` is hashed
     username, password = form_data.username, form_data.password
 
@@ -57,6 +57,12 @@ def login(
     response.set_cookie(key="session", value=access_token)
 
     return Token(access_token=access_token, token_type="bearer", user=user_public)
+
+
+@router.get("/logout")
+def logout(response: Response):
+    response.delete_cookie(key="session")
+    return ""
 
 
 @router.get("/session")
