@@ -16,11 +16,20 @@ from unicon_backend.models import (
     TaskORM,
     TaskResultORM,
 )
+from unicon_backend.schemas.contest import BaseDefinitionDTO
 
-router = APIRouter(prefix="/contest", tags=["contest"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/contests", tags=["contest"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("/definition", summary="Submit a contest definition")
+@router.get("/definitions", summary="Get all definitions")
+def get_definitions(
+    db_session: Annotated[Session, Depends(get_db_session)],
+) -> list[BaseDefinitionDTO]:
+    definitions = db_session.scalars(sa.select(DefinitionORM))
+    return definitions
+
+
+@router.post("/definitions", summary="Submit a contest definition")
 def submit_definition(
     definition: Definition,
     db_session: Annotated[Session, Depends(get_db_session)],
@@ -40,7 +49,7 @@ def submit_definition(
     return definition_orm
 
 
-@router.patch("/definition/{id}", summary="Update a contest definition")
+@router.patch("/definitions/{id}", summary="Update a contest definition")
 def update_definition(
     id: int, definition: Definition, db_session: Annotated[Session, Depends(get_db_session)]
 ):
@@ -76,7 +85,9 @@ class ContestSubmission(BaseModel):
     user_inputs: UserInputs
 
 
-@router.post("/definition/{id}/submission", summary="Upload a submission for a contest definition")
+@router.post(
+    "/definitions/{id}/submissions", summary="Upload a submission for a contest definition"
+)
 def submit_contest_submission(
     id: int,
     submission: ContestSubmission,
@@ -144,7 +155,7 @@ def submit_contest_submission(
     return submission_orm.task_results
 
 
-@router.get("/submission/{submission_id}", summary="Get results of a submission")
+@router.get("/submissions/{submission_id}", summary="Get results of a submission")
 def get_submission(
     submission_id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
