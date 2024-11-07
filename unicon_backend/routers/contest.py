@@ -41,7 +41,7 @@ class PydanticDefinitionORM(BaseModel):
 def submit_definition(
     definition: Definition,
     db_session: Annotated[Session, Depends(get_db_session)],
-) -> PydanticDefinitionORM:
+) -> DefinitionORM:
     definition_orm = DefinitionORM(name=definition.name, description=definition.description)
 
     def convert_task_to_orm(id, type, autograde, **other_fields):

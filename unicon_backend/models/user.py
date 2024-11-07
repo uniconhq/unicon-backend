@@ -1,11 +1,9 @@
-from sqlalchemy.orm import Mapped, mapped_column
-
-from unicon_backend.models.base import Base
+from sqlmodel import Field, SQLModel
 
 
-class User(Base):
+class UserORM(SQLModel, table=True):
     __tablename__ = "user"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    username: Mapped[str] = mapped_column()
-    password: Mapped[str] = mapped_column()
+    id: int = Field(primary_key=True)
+    username: str
+    password: str

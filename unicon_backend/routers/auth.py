@@ -15,7 +15,7 @@ from unicon_backend.dependencies import (
     get_current_user,
     get_db_session,
 )
-from unicon_backend.models import User
+from unicon_backend.models import UserORM
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -44,7 +44,9 @@ def login(
     # NOTE: `password` is hashed
     username, password = form_data.username, form_data.password
 
-    user: User | None = db_session.scalars(select(User).where(User.username == username)).first()
+    user: UserORM | None = db_session.scalars(
+        select(UserORM).where(UserORM.username == username)
+    ).first()
     if user is None or not AUTH_PWD_CONTEXT.verify(password, user.password):
         raise HTTPException(status_code=400, detail="Incorrect username or password.")
 
@@ -66,5 +68,5 @@ def logout(response: Response):
 
 
 @router.get("/session")
-def get_user(user: Annotated[User, Depends(get_current_user)]) -> UserPublic:
+def get_user(user: Annotated[UserORM, Depends(get_current_user)]) -> UserPublic:
     return UserPublic.model_validate(user)
