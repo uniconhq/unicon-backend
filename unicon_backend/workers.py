@@ -1,11 +1,11 @@
 import json
 import logging
 
-import pika  # type: ignore
+import pika
 import sqlalchemy as sa
-from pika import BasicProperties, DeliveryMode  # type: ignore
-from pika.exchange_type import ExchangeType  # type: ignore
-from pika.spec import Basic  # type: ignore
+from pika import BasicProperties, DeliveryMode
+from pika.exchange_type import ExchangeType
+from pika.spec import Basic
 
 from unicon_backend.constants import EXCHANGE_NAME, RABBITMQ_URL, RESULT_QUEUE_NAME, TASK_QUEUE_NAME
 from unicon_backend.database import SessionLocal

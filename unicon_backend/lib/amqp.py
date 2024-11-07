@@ -3,12 +3,12 @@ from asyncio import AbstractEventLoop
 from logging import getLogger
 from typing import Literal
 
-import pika  # type: ignore
-from pika.adapters.asyncio_connection import AsyncioConnection  # type: ignore
-from pika.channel import Channel  # type: ignore
-from pika.exchange_type import ExchangeType  # type: ignore
-from pika.frame import Method  # type: ignore
-from pika.spec import Basic, BasicProperties  # type: ignore
+import pika
+from pika.adapters.asyncio_connection import AsyncioConnection
+from pika.channel import Channel
+from pika.exchange_type import ExchangeType
+from pika.frame import Method
+from pika.spec import Basic, BasicProperties
 
 logger = getLogger(__name__)
 
@@ -48,10 +48,10 @@ class AsyncConsumer(abc.ABC):
     def on_connection_open(self, _connection: AsyncioConnection):
         self.open_channel()
 
-    def on_connection_open_error(self, _connection: AsyncioConnection, error: Exception):
+    def on_connection_open_error(self, _connection: AsyncioConnection, error: BaseException):
         logger.error(f"Connection open error: {error}")
 
-    def on_connection_closed(self, _connection: AsyncioConnection, reason: Exception):
+    def on_connection_closed(self, _connection: AsyncioConnection, reason: BaseException):
         self._channel = None
         if not self._closing:
             # If connection was closed unexpectedly
@@ -109,7 +109,8 @@ class AsyncConsumer(abc.ABC):
         self._consuming = True
 
     def on_consumer_cancelled(self, _frame: Method):
-        self._channel and self._channel.close()
+        assert self._channel
+        self._channel.close()
 
     def on_message(
         self,
@@ -183,7 +184,7 @@ class AsyncPublisher(abc.ABC):
         assert self._connection is not None
         self._connection.channel(on_open_callback=self.on_channel_open)
 
-    def on_connection_open_error(self, _connection: AsyncioConnection, err: Exception):
+    def on_connection_open_error(self, _connection: AsyncioConnection, err: BaseException) -> None:
         logger.error(f"Connection open error: {err}")
 
     def on_connection_closed(self, _unused_connection, reason):
