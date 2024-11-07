@@ -29,11 +29,19 @@ def get_definitions(
     return definitions
 
 
+# TEMPORARY
+# TODO: Remove this once we have a proper way of converting ORM to Pydantic models
+class PydanticDefinitionORM(BaseModel):
+    id: int
+    name: str
+    description: str
+
+
 @router.post("/definitions", summary="Submit a contest definition")
 def submit_definition(
     definition: Definition,
     db_session: Annotated[Session, Depends(get_db_session)],
-):
+) -> PydanticDefinitionORM:
     definition_orm = DefinitionORM(name=definition.name, description=definition.description)
 
     def convert_task_to_orm(id, type, autograde, **other_fields):
