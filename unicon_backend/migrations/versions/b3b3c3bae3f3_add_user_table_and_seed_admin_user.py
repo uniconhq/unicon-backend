@@ -1,8 +1,8 @@
-"""Add user table and seed admin
+"""Add User table and seed admin user
 
-Revision ID: a3e28e9d0b43
+Revision ID: b3b3c3bae3f3
 Revises:
-Create Date: 2024-10-01 01:55:36.446876
+Create Date: 2024-11-08 00:17:10.664967
 
 """
 
@@ -10,22 +10,23 @@ import logging
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+import sqlmodel
 from alembic import op
 from sqlalchemy import orm
 
 from unicon_backend.dependencies import AUTH_PWD_CONTEXT
-from unicon_backend.models.user import User
+from unicon_backend.models import UserORM
+
+# revision identifiers, used by Alembic.
+revision: str = "b3b3c3bae3f3"
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 # `passlib` has a known issue with one of its dependencies which causes it to log a non-consequential warning.
 # We suppress this warning to avoid confusion
 # Reference: https://github.com/pyca/bcrypt/issues/684
 logging.getLogger("passlib.handlers.bcrypt").setLevel(logging.ERROR)
-
-# revision identifiers, used by Alembic.
-revision: str = "a3e28e9d0b43"
-down_revision: str | None = None
-branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -33,15 +34,15 @@ def upgrade() -> None:
     op.create_table(
         "user",
         sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("username", sa.String(), nullable=False),
-        sa.Column("password", sa.String(), nullable=False),
+        sa.Column("username", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("password", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
+    # ### end Alembic commands ###
 
     session = orm.Session(bind=op.get_bind())
-    session.add(User(username="admin", password=AUTH_PWD_CONTEXT.hash("admin")))
+    session.add(UserORM(username="admin", password=AUTH_PWD_CONTEXT.hash("admin")))
     session.commit()
-    # ### end Alembic commands ###
 
 
 def downgrade() -> None:
