@@ -4,7 +4,6 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, SerializeAsAny
 
 from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult
-from unicon_backend.lib.common import RootModelList
 
 logger = getLogger(__name__)
 
@@ -14,15 +13,9 @@ class ExpectedAnswer(BaseModel):
     expected_answer: Any
 
 
-ExpectedAnswers = RootModelList[ExpectedAnswer]
-
-
 class UserInput(BaseModel):
     task_id: int
     user_input: Any
-
-
-UserInputs = RootModelList[UserInput]
 
 
 class Definition(BaseModel):
@@ -34,8 +27,8 @@ class Definition(BaseModel):
 
     def run(
         self,
-        user_inputs: UserInputs,
-        expected_answers: ExpectedAnswers,
+        user_inputs: list[UserInput],
+        expected_answers: list[ExpectedAnswer],
         task_id: int | None = None,
     ) -> list[TaskEvalResult]:
         user_input_index: dict[int, UserInput] = {

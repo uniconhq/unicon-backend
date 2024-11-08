@@ -5,8 +5,7 @@ import jwt
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlmodel import Session, select
 
 from unicon_backend.constants import SECRET_KEY
 from unicon_backend.dependencies import (

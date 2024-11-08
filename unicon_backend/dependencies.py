@@ -5,7 +5,7 @@ from fastapi import Cookie, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 from unicon_backend.constants import SECRET_KEY
 from unicon_backend.database import SessionLocal

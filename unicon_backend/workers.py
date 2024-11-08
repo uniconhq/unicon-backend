@@ -9,9 +9,8 @@ from pika.spec import Basic
 
 from unicon_backend.constants import EXCHANGE_NAME, RABBITMQ_URL, RESULT_QUEUE_NAME, TASK_QUEUE_NAME
 from unicon_backend.database import SessionLocal
-from unicon_backend.evaluator.tasks import TaskEvalStatus
 from unicon_backend.lib.amqp import AsyncConsumer, AsyncPublisher
-from unicon_backend.models import TaskResultORM
+from unicon_backend.models.contest import TaskEvalStatus, TaskResultORM
 
 logging.getLogger("pika").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -31,7 +30,6 @@ class TaskResultsConsumer(AsyncConsumer):
             )
             if task_result is not None:
                 task_result.status = TaskEvalStatus.SUCCESS
-                task_result.completed_at = sa.func.now()
                 task_result.result = body_json["result"]
 
                 session.add(task_result)
