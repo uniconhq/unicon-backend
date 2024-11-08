@@ -36,4 +36,4 @@ dev-dependencies = [
 
 [tool.ruff]
 line-length = 100
-lint.select = ["I", "F", "UP", "B", "SIM"]
+lint.select = ["I", "F", "UP", "B", "SIM", "TCH"]
