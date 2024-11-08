@@ -21,7 +21,7 @@ from unicon_backend.models import (
 router = APIRouter(prefix="/contests", tags=["contest"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("/definitions", summary="Get all definitions")
+@router.get("/definitions", summary="Get all contest definitions")
 def get_definitions(
     db_session: Annotated[Session, Depends(get_db_session)],
 ) -> Sequence[DefinitionORM]:
@@ -40,6 +40,39 @@ def submit_definition(
     db_session.refresh(definition_orm)
 
     return definition_orm
+
+
+@router.get("/definitions/{id}", summary="Get a contest definition")
+def get_definition(
+    id: int,
+    db_session: Annotated[Session, Depends(get_db_session)],
+) -> Definition:
+    definition_orm = db_session.scalar(
+        select(DefinitionORM)
+        .where(DefinitionORM.id == id)
+        .options(selectinload(DefinitionORM.tasks))
+    )
+
+    if definition_orm is None:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Contest definition not found")
+
+    definition: Definition = Definition.model_validate(
+        {
+            "name": definition_orm.name,
+            "description": definition_orm.description,
+            "tasks": [
+                {
+                    "id": task_orm.id,
+                    "type": task_orm.type,
+                    "autograde": task_orm.autograde,
+                    **task_orm.other_fields,
+                }
+                for task_orm in definition_orm.tasks
+            ],
+        }
+    )
+
+    return definition
 
 
 @router.patch("/definitions/{id}", summary="Update a contest definition")
