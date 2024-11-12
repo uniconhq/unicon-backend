@@ -4,6 +4,9 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, SerializeAsAny
 
 from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult
+from unicon_backend.evaluator.tasks.multiple_choice import MultipleChoiceTask
+from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
+from unicon_backend.evaluator.tasks.short_answer import ShortAnswerTask
 
 logger = getLogger(__name__)
 
@@ -16,6 +19,12 @@ class ExpectedAnswer(BaseModel):
 class UserInput(BaseModel):
     task_id: int
     user_input: Any
+
+
+class DefinitionDTO(BaseModel):
+    name: str
+    description: str
+    tasks: list[ProgrammingTask | MultipleChoiceTask | ShortAnswerTask]
 
 
 class Definition(BaseModel):
