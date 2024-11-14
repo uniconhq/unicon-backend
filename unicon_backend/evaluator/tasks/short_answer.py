@@ -1,11 +1,12 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import RootModel
 
-from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus
+from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus, TaskType
 
 
 class ShortAnswerTask(Task[str, RootModel[bool], str]):
+    type: Literal[TaskType.SHORT_ANSWER]
     question: str
     autograde: bool = False
 

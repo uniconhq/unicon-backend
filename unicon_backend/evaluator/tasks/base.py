@@ -3,7 +3,6 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
-from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.models.contest import TaskEvalStatus, TaskType
 
 TaskUserInput = TypeVar("TaskUserInput")
@@ -18,12 +17,7 @@ class TaskEvalResult(BaseModel, Generic[TaskResult]):
     error: str | None = None
 
 
-class Task(
-    CustomBaseModel,
-    abc.ABC,
-    Generic[TaskUserInput, TaskResult, TaskExpectedAnswer],
-    polymorphic=True,
-):
+class Task(BaseModel, abc.ABC, Generic[TaskUserInput, TaskResult, TaskExpectedAnswer]):
     id: int
     type: TaskType
     autograde: bool = True

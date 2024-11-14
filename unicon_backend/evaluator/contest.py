@@ -1,10 +1,10 @@
 from logging import getLogger
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, SerializeAsAny
+from pydantic import BaseModel, ConfigDict, Field
 
-from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult
-from unicon_backend.evaluator.tasks.multiple_choice import MultipleChoiceTask
+from unicon_backend.evaluator.tasks.base import TaskEvalResult
+from unicon_backend.evaluator.tasks.multiple_choice import MultipleChoiceTask, MultipleResponseTask
 from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
 from unicon_backend.evaluator.tasks.short_answer import ShortAnswerTask
 
@@ -21,18 +21,17 @@ class UserInput(BaseModel):
     user_input: Any
 
 
-class DefinitionDTO(BaseModel):
-    name: str
-    description: str
-    tasks: list[ProgrammingTask | MultipleChoiceTask | ShortAnswerTask]
-
-
 class Definition(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     name: str
     description: str
-    tasks: list[SerializeAsAny[Task]]
+    tasks: list[
+        Annotated[
+            ProgrammingTask | MultipleChoiceTask | MultipleResponseTask | ShortAnswerTask,
+            Field(discriminator="type"),  # The "type" field is used to determine the type of task
+        ]
+    ]
 
     def run(
         self,
@@ -64,11 +63,13 @@ class Definition(BaseModel):
             logger.info(f"Running task {task.id}")
 
             result.append(
+                # NOTE: It is safe to ignore type checking here because the type of task is determined by the "type" field
+                # As long as the "type" field is set correctly, the type of task will be inferred correctly
                 task.run(
-                    task.validate_user_input(task_user_input.user_input),
+                    task.validate_user_input(task_user_input.user_input),  # type: ignore
                     None
                     if task_expected_answer is None
-                    else task.validate_expected_answer(task_expected_answer.expected_answer),
+                    else task.validate_expected_answer(task_expected_answer.expected_answer),  # type: ignore
                 )
             )
 

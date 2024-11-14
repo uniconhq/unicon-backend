@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from unicon_backend.dependencies import get_current_user, get_db_session
-from unicon_backend.evaluator.contest import Definition, DefinitionDTO, ExpectedAnswer, UserInput
+from unicon_backend.evaluator.contest import Definition, ExpectedAnswer, UserInput
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus
 from unicon_backend.models import (
     DefinitionORM,
@@ -46,7 +46,7 @@ def submit_definition(
 def get_definition(
     id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
-) -> DefinitionDTO:
+) -> Definition:
     definition_orm = db_session.scalar(
         select(DefinitionORM)
         .where(DefinitionORM.id == id)

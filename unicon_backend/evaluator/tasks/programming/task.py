@@ -1,10 +1,10 @@
 from collections.abc import Iterable
 from logging import getLogger
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, RootModel
 
-from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus
+from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus, TaskType
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
 from unicon_backend.evaluator.tasks.programming.runner import (
     RunnerEnvironment,
@@ -55,6 +55,7 @@ class ExpectedAnswer(BaseModel):
 
 
 class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswer]]):
+    type: Literal[TaskType.PROGRAMMING]
     question: str
     environment: RunnerEnvironment
     required_inputs: list[RequiredInput]
