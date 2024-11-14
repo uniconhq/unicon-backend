@@ -115,7 +115,7 @@ def submit_contest_submission(
     submission: ContestSubmission,
     db_session: Annotated[Session, Depends(get_db_session)],
     task_id: int | None = None,
-) -> list[TaskResultORM]:
+) -> SubmissionORM:
     definition_orm = db_session.scalar(
         select(DefinitionORM)
         .where(DefinitionORM.id == id)
@@ -174,7 +174,14 @@ def submit_contest_submission(
     db_session.commit()
     db_session.refresh(submission_orm)
 
-    return submission_orm.task_results
+    return submission_orm
+
+
+@router.get("/submissions", summary="Get all submissions")
+def get_submissions(
+    db_session: Annotated[Session, Depends(get_db_session)],
+) -> Sequence[SubmissionORM]:
+    return db_session.exec(select(SubmissionORM)).all()
 
 
 @router.get("/submissions/{submission_id}", summary="Get results of a submission")
