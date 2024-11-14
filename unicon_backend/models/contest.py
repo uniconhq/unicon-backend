@@ -115,6 +115,7 @@ class TaskResultORM(SQLModel, table=True):
     job_id: str | None = Field(nullable=True, unique=True)
 
     status: TaskEvalStatus = Field(sa_column=sa.Column(pg.ENUM(TaskEvalStatus), nullable=False))
+    # TODO: Handle non-JSON result types for non-programming tasks
     result: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
     error: str | None = Field(nullable=True)
 
