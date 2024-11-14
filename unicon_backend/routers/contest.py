@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from http import HTTPStatus
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,8 +17,12 @@ from unicon_backend.models import (
     SubmissionStatus,
     TaskResultORM,
 )
+from unicon_backend.models.contest import TaskType
 
 router = APIRouter(prefix="/contests", tags=["contest"], dependencies=[Depends(get_current_user)])
+
+if TYPE_CHECKING:
+    from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
 
 
 @router.get("/definitions", summary="Get all contest definitions")
@@ -71,6 +75,12 @@ def get_definition(
             ],
         }
     )
+
+    for task in definition.tasks:
+        if task.type == TaskType.PROGRAMMING:
+            programming_task: ProgrammingTask = task
+            for testcase in programming_task.testcases:
+                testcase.nodes.insert(0, programming_task.get_implicit_input_step())
 
     return definition
 
