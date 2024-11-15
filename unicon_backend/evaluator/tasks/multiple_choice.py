@@ -1,11 +1,12 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, RootModel
 
-from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus
+from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus, TaskType
 
 
 class MultipleChoiceTask(Task[int, RootModel[bool], int]):
+    type: Literal[TaskType.MULTIPLE_CHOICE]
     question: str
     choices: list[str]
 
@@ -36,6 +37,7 @@ class MultipleResponseTaskResult(BaseModel):
 
 
 class MultipleResponseTask(Task[set[int], MultipleResponseTaskResult, set[int]]):
+    type: Literal[TaskType.MULTIPLE_RESPONSE]
     question: str
     choices: list[str]
 

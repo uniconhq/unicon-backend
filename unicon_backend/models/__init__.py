@@ -1,4 +1,3 @@
-from unicon_backend.models.base import Base
 from unicon_backend.models.contest import (
     DefinitionORM,
     SubmissionORM,
@@ -6,14 +5,13 @@ from unicon_backend.models.contest import (
     TaskORM,
     TaskResultORM,
 )
-from unicon_backend.models.user import User
+from unicon_backend.models.user import UserORM
 
 __all__ = [
-    "User",
-    "Base",
+    "UserORM",
     "DefinitionORM",
     "SubmissionORM",
-    "SubmissionStatus",
     "TaskORM",
     "TaskResultORM",
+    "SubmissionStatus",
 ]

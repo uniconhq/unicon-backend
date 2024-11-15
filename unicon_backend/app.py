@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRoute
 
 from unicon_backend.constants import FRONTEND_URL
 from unicon_backend.logger import setup_rich_logger
@@ -29,7 +30,7 @@ async def lifespan(app: FastAPI):
     task_results_consumer.stop()
 
 
-app = FastAPI(title="Unicon 🦄 Backend", lifespan=lifespan)
+app = FastAPI(title="Unicon 🦄 Backend", lifespan=lifespan, separate_input_output_schemas=False)
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,3 +42,9 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(contest.router)
+
+# Set `operation_id` for all routes to the same as the `name`
+# This is done to make the generated OpenAPI documentation more readable
+for route in app.routes:
+    if isinstance(route, APIRoute):
+        route.operation_id = route.name

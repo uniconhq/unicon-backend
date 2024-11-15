@@ -5,11 +5,11 @@ from fastapi import Cookie, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 from unicon_backend.constants import SECRET_KEY
 from unicon_backend.database import SessionLocal
-from unicon_backend.models import User
+from unicon_backend.models import UserORM
 
 AUTH_ALGORITHM = "HS256"
 AUTH_PWD_CONTEXT = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -37,14 +37,14 @@ async def get_current_user(
     token: Annotated[str | None, Depends(OAUTH2_SCHEME)],
     db_session: Annotated[Session, Depends(get_db_session)],
     session: Annotated[str | None, Cookie()] = None,
-) -> User:
+) -> UserORM:
     if (token := token or session) is None:
         raise HTTPException(401, "No authentication token provided")
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[AUTH_ALGORITHM])
         id = payload.get("sub")
-        if (user := db_session.get(User, id)) is None:
+        if (user := db_session.get(UserORM, id)) is None:
             raise InvalidTokenError()
         return user
 

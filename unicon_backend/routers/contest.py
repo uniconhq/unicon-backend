@@ -1,51 +1,96 @@
+from collections.abc import Sequence
 from http import HTTPStatus
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import selectinload
+from sqlmodel import Session, select
 
 from unicon_backend.dependencies import get_current_user, get_db_session
-from unicon_backend.evaluator.contest import Definition, ExpectedAnswers, UserInputs
+from unicon_backend.evaluator.contest import Definition, ExpectedAnswer, UserInput
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus
 from unicon_backend.models import (
     DefinitionORM,
     SubmissionORM,
     SubmissionStatus,
-    TaskORM,
     TaskResultORM,
 )
+from unicon_backend.models.contest import TaskType
 
-router = APIRouter(prefix="/contest", tags=["contest"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/contests", tags=["contest"], dependencies=[Depends(get_current_user)])
+
+if TYPE_CHECKING:
+    from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
 
 
-@router.post("/definition", summary="Submit a contest definition")
+@router.get("/definitions", summary="Get all contest definitions")
+def get_definitions(
+    db_session: Annotated[Session, Depends(get_db_session)],
+) -> Sequence[DefinitionORM]:
+    return db_session.exec(select(DefinitionORM)).all()
+
+
+@router.post("/definitions", summary="Submit a contest definition")
 def submit_definition(
     definition: Definition,
     db_session: Annotated[Session, Depends(get_db_session)],
-):
-    definition_orm = DefinitionORM(name=definition.name, description=definition.description)
-
-    def convert_task_to_orm(id, type, autograde, **other_fields):
-        return TaskORM(id=id, type=type, autograde=autograde, other_fields=other_fields)
-
-    for task in definition.tasks:
-        task_orm = convert_task_to_orm(**task.model_dump(serialize_as_any=True))
-        definition_orm.tasks.append(task_orm)
+) -> DefinitionORM:
+    definition_orm = DefinitionORM.from_definition(definition)
 
     db_session.add(definition_orm)
     db_session.commit()
     db_session.refresh(definition_orm)
+
     return definition_orm
 
 
-@router.patch("/definition/{id}", summary="Update a contest definition")
+@router.get("/definitions/{id}", summary="Get a contest definition")
+def get_definition(
+    id: int,
+    db_session: Annotated[Session, Depends(get_db_session)],
+) -> Definition:
+    definition_orm = db_session.scalar(
+        select(DefinitionORM)
+        .where(DefinitionORM.id == id)
+        .options(selectinload(DefinitionORM.tasks))
+    )
+
+    if definition_orm is None:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Contest definition not found")
+
+    definition: Definition = Definition.model_validate(
+        {
+            "name": definition_orm.name,
+            "description": definition_orm.description,
+            "tasks": [
+                {
+                    "id": task_orm.id,
+                    "type": task_orm.type,
+                    "autograde": task_orm.autograde,
+                    **task_orm.other_fields,
+                }
+                for task_orm in definition_orm.tasks
+            ],
+        }
+    )
+
+    for task in definition.tasks:
+        if task.type == TaskType.PROGRAMMING:
+            programming_task: ProgrammingTask = task
+            for testcase in programming_task.testcases:
+                testcase.nodes.insert(0, programming_task.get_implicit_input_step())
+
+    return definition
+
+
+@router.patch("/definitions/{id}", summary="Update a contest definition")
 def update_definition(
     id: int, definition: Definition, db_session: Annotated[Session, Depends(get_db_session)]
-):
+) -> DefinitionORM:
     definition_orm = db_session.scalar(
-        sa.select(DefinitionORM)
+        select(DefinitionORM)
         .where(DefinitionORM.id == id)
         .options(selectinload(DefinitionORM.tasks))
     )
@@ -57,12 +102,8 @@ def update_definition(
     for task_orm in definition_orm.tasks:
         db_session.delete(task_orm)
 
-    def convert_task_to_orm(id, type, autograde, **other_fields):
-        return TaskORM(id=id, type=type, autograde=autograde, other_fields=other_fields)
-
-    for task in definition.tasks:
-        task_orm = convert_task_to_orm(**task.model_dump(serialize_as_any=True))
-        definition_orm.tasks.append(task_orm)
+    # Update definition
+    definition_orm.update(definition)
 
     db_session.add(definition_orm)
     db_session.commit()
@@ -72,19 +113,21 @@ def update_definition(
 
 
 class ContestSubmission(BaseModel):
-    expected_answers: ExpectedAnswers
-    user_inputs: UserInputs
+    expected_answers: list[ExpectedAnswer]
+    user_inputs: list[UserInput]
 
 
-@router.post("/definition/{id}/submission", summary="Upload a submission for a contest definition")
+@router.post(
+    "/definitions/{id}/submissions", summary="Upload a submission for a contest definition"
+)
 def submit_contest_submission(
     id: int,
     submission: ContestSubmission,
     db_session: Annotated[Session, Depends(get_db_session)],
     task_id: int | None = None,
-):
+) -> SubmissionORM:
     definition_orm = db_session.scalar(
-        sa.select(DefinitionORM)
+        select(DefinitionORM)
         .where(DefinitionORM.id == id)
         .options(selectinload(DefinitionORM.tasks))
     )
@@ -141,16 +184,24 @@ def submit_contest_submission(
     db_session.commit()
     db_session.refresh(submission_orm)
 
-    return submission_orm.task_results
+    return submission_orm
 
 
-@router.get("/submission/{submission_id}", summary="Get results of a submission")
+@router.get("/submissions", summary="Get all submissions")
+def get_submissions(
+    db_session: Annotated[Session, Depends(get_db_session)],
+) -> Sequence[SubmissionORM]:
+    return db_session.exec(select(SubmissionORM)).all()
+
+
+@router.get("/submissions/{submission_id}", summary="Get results of a submission")
 def get_submission(
     submission_id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
     task_id: int | None = None,
-):
-    query = sa.select(TaskResultORM).join(SubmissionORM).where(SubmissionORM.id == submission_id)
+) -> Sequence[TaskResultORM]:
+    query = select(TaskResultORM).join(SubmissionORM).where(SubmissionORM.id == submission_id)
     if task_id is not None:
         query = query.where(TaskResultORM.task_id == task_id)
-    return db_session.execute(query).scalars().all()
+
+    return db_session.exec(query).all()

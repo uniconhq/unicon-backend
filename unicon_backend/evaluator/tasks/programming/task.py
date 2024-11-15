@@ -1,10 +1,10 @@
 from collections.abc import Iterable
 from logging import getLogger
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, RootModel
 
-from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus
+from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus, TaskType
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
 from unicon_backend.evaluator.tasks.programming.runner import (
     RunnerEnvironment,
@@ -55,10 +55,22 @@ class ExpectedAnswer(BaseModel):
 
 
 class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswer]]):
+    type: Literal[TaskType.PROGRAMMING]
     question: str
     environment: RunnerEnvironment
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
+
+    def get_implicit_input_step(self):
+        return InputStep(
+            id=USER_INPUT_STEP_ID,
+            inputs=[],
+            outputs=[
+                StepSocket(id=str(required_input.id), data="")
+                for required_input in self.required_inputs
+            ],
+            type=StepType.INPUT,
+        )
 
     def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[SubmissionId]:
         # Check if all required inputs are provided
