@@ -1,10 +1,4 @@
-FROM python:3.11.9
-
-# Install astral/uv
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
-ADD https://astral.sh/uv/install.sh /uv-installer.sh
-RUN sh /uv-installer.sh && rm /uv-installer.sh
-ENV PATH="/root/.cargo/bin/:$PATH"
+FROM ghcr.io/astral-sh/uv:0.5.2-python3.12-alpine
 
 ADD . /unicon-backend
 WORKDIR /unicon-backend
