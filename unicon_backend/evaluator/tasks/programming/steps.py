@@ -399,11 +399,6 @@ class PyRunFunctionStep(Step):
                 f"Py run function step ({self.id}) must have exactly one data output, found {num_data_outputs}"
             )
 
-        if "DATA.OUT" not in self.out_socket_index:
-            raise ValueError(
-                f"Py run function step ({self.id}) must have a data output socket with the id DATA.OUT"
-            )
-
         return self
 
     def run(
@@ -440,18 +435,20 @@ class PyRunFunctionStep(Step):
             f"**{keyword_args}" if keyword_args else ""
         )
 
+        output_data_socket = [socket for socket in self.outputs if socket.type == "DATA"][0]
+
         return [
             *self.debug_stmts(),
             *(
                 [
-                    f"{self.get_output_variable(self.out_socket_index["DATA.OUT"].id)} = call_function_safe('{module_name}', '{self.function_identifier}', {function_args_str})"
+                    f"{self.get_output_variable(output_data_socket.id)} = call_function_safe('{module_name}', '{self.function_identifier}', {function_args_str})"
                 ]
                 if untrusted
                 else [
                     # Import statement for the function
                     f"from {module_name} import {self.function_identifier}",
                     # Function invocation
-                    f"{self.get_output_variable(self.out_socket_index["DATA.OUT"].id)} = {self.function_identifier}({function_args_str})",
+                    f"{self.get_output_variable(output_data_socket.id)} = {self.function_identifier}({function_args_str})",
                 ]
             ),
         ]
