@@ -391,12 +391,12 @@ class PyRunFunctionStep(Step):
     @model_validator(mode="after")
     def check_has_exactly_one_data_output(self) -> Self:
         if (
-            num_data_inputs := len(
+            num_data_outputs := len(
                 [out_socket for out_socket in self.outputs if out_socket.type == "DATA"]
             )
         ) != 1:
             raise ValueError(
-                f"Py run function step ({self.id}) must have exactly one data output, found {num_data_inputs}"
+                f"Py run function step ({self.id}) must have exactly one data output, found {num_data_outputs}"
             )
 
         if "DATA.OUT" not in self.out_socket_index:
