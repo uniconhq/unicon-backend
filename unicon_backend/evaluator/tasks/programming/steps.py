@@ -388,6 +388,19 @@ class PyRunFunctionStep(Step):
 
     function_identifier: str
 
+    @model_validator(mode="after")
+    def check_has_exactly_one_data_output(self) -> Self:
+        if (
+            num_data_outputs := len(
+                [out_socket for out_socket in self.outputs if out_socket.type == "DATA"]
+            )
+        ) != 1:
+            raise ValueError(
+                f"Py run function step ({self.id}) must have exactly one data output, found {num_data_outputs}"
+            )
+
+        return self
+
     def run(
         self,
         var_inputs: dict[SocketName, ProgramVariable],
@@ -422,18 +435,20 @@ class PyRunFunctionStep(Step):
             f"**{keyword_args}" if keyword_args else ""
         )
 
+        output_data_socket = [socket for socket in self.outputs if socket.type == "DATA"][0]
+
         return [
             *self.debug_stmts(),
             *(
                 [
-                    f"{self.get_output_variable(self.outputs[0].id)} = call_function_safe('{module_name}', '{self.function_identifier}', {function_args_str})"
+                    f"{self.get_output_variable(output_data_socket.id)} = call_function_safe('{module_name}', '{self.function_identifier}', {function_args_str})"
                 ]
                 if untrusted
                 else [
                     # Import statement for the function
                     f"from {module_name} import {self.function_identifier}",
                     # Function invocation
-                    f"{self.get_output_variable(self.outputs[0].id)} = {self.function_identifier}({function_args_str})",
+                    f"{self.get_output_variable(output_data_socket.id)} = {self.function_identifier}({function_args_str})",
                 ]
             ),
         ]
