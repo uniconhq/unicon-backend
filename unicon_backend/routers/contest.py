@@ -201,15 +201,16 @@ def get_submission(
     db_session: Annotated[Session, Depends(get_db_session)],
     task_id: int | None = None,
 ) -> SubmissionPublic:
-    # query = select(TaskResultORM).join(SubmissionORM).where(SubmissionORM.id == submission_id)
-    # if task_id is not None:
-    #     query = query.where(TaskResultORM.task_id == task_id)
-
-    # return db_session.exec(query).options().all()
     query = (
         select(SubmissionORM)
         .where(SubmissionORM.id == submission_id)
-        .options(selectinload(SubmissionORM.task_results).selectinload(TaskResultORM.task))
+        .options(
+            selectinload(SubmissionORM.task_results).selectinload(
+                TaskResultORM.task.and_(TaskResultORM.task_id == task_id)
+                if task_id
+                else TaskResultORM.task
+            )
+        )
     )
     submission = db_session.exec(query).first()
     if submission is None:
