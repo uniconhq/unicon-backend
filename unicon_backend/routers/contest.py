@@ -205,15 +205,15 @@ def get_submission(
         select(SubmissionORM)
         .where(SubmissionORM.id == submission_id)
         .options(
-            selectinload(SubmissionORM.task_results).selectinload(
-                TaskResultORM.task.and_(TaskResultORM.task_id == task_id)
+            selectinload(
+                SubmissionORM.task_results.and_(TaskResultORM.task_id == task_id)  # type: ignore
                 if task_id
-                else TaskResultORM.task
-            )
+                else SubmissionORM.task_results
+            ).selectinload(TaskResultORM.task)
         )
     )
     submission = db_session.exec(query).first()
     if submission is None:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Submission not found")
     else:
-        return submission
+        return SubmissionPublic.model_validate(submission)
