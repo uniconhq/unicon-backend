@@ -1,10 +1,11 @@
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Self
 
 import sqlalchemy as sa
 import sqlalchemy.dialects.postgresql as pg
 import sqlalchemy.orm as sa_orm
+from pydantic import model_validator
 from sqlmodel import Field, ForeignKeyConstraint, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -65,6 +66,8 @@ class TaskORM(SQLModel, table=True):
 
     definition: sa_orm.Mapped[DefinitionORM] = Relationship(back_populates="tasks")
 
+    task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task")
+
     @classmethod
     def from_task(cls, task: "Task") -> "TaskORM":
         def _convert_task_to_orm(id: int, type: TaskType, autograde: bool, **other_fields):
@@ -73,7 +76,7 @@ class TaskORM(SQLModel, table=True):
         return _convert_task_to_orm(**task.model_dump(serialize_as_any=True))
 
 
-class SubmissionORM(SQLModel, table=True):
+class SubmissionBase(SQLModel):
     __tablename__ = "submission"
 
     id: int = Field(primary_key=True)
@@ -88,19 +91,22 @@ class SubmissionORM(SQLModel, table=True):
     # TODO: split this to one more table
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
 
+
+class SubmissionORM(SubmissionBase, table=True):
     task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="submission")
 
 
-class TaskResultORM(SQLModel, table=True):
-    __tablename__ = "task_result"
-    __table_args__ = (
-        ForeignKeyConstraint(["definition_id", "task_id"], ["task.definition_id", "task.id"]),
-    )
+class SubmissionPublic(SubmissionBase):
+    task_results: list["TaskResult"]
 
+
+class TaskResultBase(SQLModel):
     id: int = Field(primary_key=True)
     submission_id: int = Field(foreign_key="submission.id")
-    definition_id: int
+    definition_id: int  # TODO: we dont need this field
+
     task_id: int
+    task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 
     started_at: datetime = Field(
         sa_column=sa.Column(
@@ -116,7 +122,73 @@ class TaskResultORM(SQLModel, table=True):
 
     status: TaskEvalStatus = Field(sa_column=sa.Column(pg.ENUM(TaskEvalStatus), nullable=False))
     # TODO: Handle non-JSON result types for non-programming tasks
-    result: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
+    result: Any = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
     error: str | None = Field(nullable=True)
 
+
+class TaskResultPublic(TaskResultBase):
+    task: "TaskORM"
+
+
+class MultipleChoiceTaskResult(TaskResultPublic):
+    result: bool
+
+    @model_validator(mode="after")
+    def validate_task_type(self) -> Self:
+        if not self.task_type == TaskType.MULTIPLE_CHOICE:
+            raise ValueError(f"Task type must be {TaskType.MULTIPLE_CHOICE}")
+        return self
+
+
+class MultipleResponseTaskResultType(SQLModel):
+    correct_choices: list[int]
+    incorrect_choices: list[int]
+    num_choices: int
+
+
+class MultipleResponseTaskResult(TaskResultPublic):
+    result: MultipleResponseTaskResultType | None
+
+    @model_validator(mode="after")
+    def validate_task_type(self) -> Self:
+        if not self.task_type == TaskType.MULTIPLE_RESPONSE:
+            raise ValueError(f"Task type must be {TaskType.MULTIPLE_RESPONSE}")
+        return self
+
+
+class ProgrammingTaskResult(TaskResultPublic):
+    result: list[dict]  # TODO: handle this one properly
+
+    @model_validator(mode="after")
+    def validate_task_type(self) -> Self:
+        if not self.task_type == TaskType.PROGRAMMING:
+            raise ValueError(f"Task type must be {TaskType.PROGRAMMING}")
+        return self
+
+
+class ShortAnswerTaskResult(TaskResultPublic):
+    result: str | None  # TODO: check this one
+
+    @model_validator(mode="after")
+    def validate_task_type(self) -> Self:
+        if not self.task_type == TaskType.SHORT_ANSWER:
+            raise ValueError(f"Task type must be {TaskType.SHORT_ANSWER}")
+        return self
+
+
+type TaskResult = (
+    MultipleChoiceTaskResult
+    | MultipleResponseTaskResult
+    | ProgrammingTaskResult
+    | ShortAnswerTaskResult
+)
+
+
+class TaskResultORM(TaskResultBase, table=True):
+    __tablename__ = "task_result"
+    __table_args__ = (
+        ForeignKeyConstraint(["definition_id", "task_id"], ["task.definition_id", "task.id"]),
+    )
+
     submission: sa_orm.Mapped[SubmissionORM] = Relationship(back_populates="task_results")
+    task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_results")

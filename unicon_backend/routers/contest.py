@@ -17,7 +17,7 @@ from unicon_backend.models import (
     SubmissionStatus,
     TaskResultORM,
 )
-from unicon_backend.models.contest import TaskType
+from unicon_backend.models.contest import SubmissionPublic, TaskType
 
 router = APIRouter(prefix="/contests", tags=["contest"], dependencies=[Depends(get_current_user)])
 
@@ -174,6 +174,7 @@ def submit_contest_submission(
                 if task_result.status != TaskEvalStatus.PENDING and task_result.result
                 else None,
                 error=task_result.error,
+                task_type=definition.tasks[task_result.task_id].type,
             )
             for task_result in task_results
         ],
@@ -199,9 +200,20 @@ def get_submission(
     submission_id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
     task_id: int | None = None,
-) -> Sequence[TaskResultORM]:
-    query = select(TaskResultORM).join(SubmissionORM).where(SubmissionORM.id == submission_id)
-    if task_id is not None:
-        query = query.where(TaskResultORM.task_id == task_id)
-
-    return db_session.exec(query).all()
+) -> SubmissionPublic:
+    query = (
+        select(SubmissionORM)
+        .where(SubmissionORM.id == submission_id)
+        .options(
+            selectinload(
+                SubmissionORM.task_results.and_(TaskResultORM.task_id == task_id)  # type: ignore
+                if task_id
+                else SubmissionORM.task_results
+            ).selectinload(TaskResultORM.task)
+        )
+    )
+    submission = db_session.exec(query).first()
+    if submission is None:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Submission not found")
+    else:
+        return SubmissionPublic.model_validate(submission)
