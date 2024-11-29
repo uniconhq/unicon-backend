@@ -2,7 +2,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 
 class Organisation(SQLModel, table=True):
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
     description: str
     owner_id: int = Field(foreign_key="user.id")
@@ -11,7 +11,7 @@ class Organisation(SQLModel, table=True):
 
 
 class Project(SQLModel, table=True):
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
     organisation_id: int = Field(foreign_key="organisation.id")
 
@@ -20,7 +20,7 @@ class Project(SQLModel, table=True):
 
 
 class Role(SQLModel, table=True):
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
     project_id: int = Field(foreign_key="project.id")
 
@@ -29,7 +29,7 @@ class Role(SQLModel, table=True):
 
 
 class InvitationKey(SQLModel, table=True):
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     key: str
     role_id: int = Field(foreign_key="role.id")
 
