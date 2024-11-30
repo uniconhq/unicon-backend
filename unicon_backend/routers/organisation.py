@@ -46,12 +46,12 @@ def create_organisation(
     return organisation
 
 
-@router.put("/{id}", summary="Update an organisation")
+@router.put("/{id}", summary="Update an organisation", response_model=OrganisationPublic)
 def update_organisation(
     update_data: OrganisationUpdate,
     db_session: Annotated[Session, Depends(get_db_session)],
     organisation: Annotated[Organisation, Depends(get_organisation_by_id)],
-) -> OrganisationPublic:
+):
     organisation.sqlmodel_update(update_data)
     db_session.commit()
     db_session.refresh(organisation)
@@ -68,20 +68,23 @@ def delete_organisation(
     return
 
 
-@router.get("/{id}", summary="Get an organisation by ID")
+@router.get(
+    "/{id}", summary="Get an organisation by ID", response_model=OrganisationPublicWithProjects
+)
 def get_organisation(
     organisation: Annotated[Organisation, Depends(get_organisation_by_id)],
-) -> OrganisationPublicWithProjects:
+):
     return organisation
 
 
-@router.post("/{id}/projects", summary="Create a new project")
+@router.post("/{id}/projects", summary="Create a new project", response_model=ProjectPublic)
 def create_project(
     user: Annotated[UserORM, Depends(get_current_user)],
     create_data: ProjectCreate,
     db_session: Annotated[Session, Depends(get_db_session)],
     organisation: Annotated[Organisation, Depends(get_organisation_by_id)],
 ) -> ProjectPublic:
+    assert organisation.id is not None
     project = create_project_with_defaults(create_data, organisation.id, user)
     db_session.add(project)
     db_session.commit()
