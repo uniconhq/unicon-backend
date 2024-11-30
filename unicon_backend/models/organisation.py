@@ -1,19 +1,21 @@
 from sqlmodel import Field, Relationship, SQLModel
 
 
-class Organisation(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
+class OrganisationBase(SQLModel):
     name: str
     description: str
-    owner_id: int = Field(foreign_key="user.id")
 
+
+class Organisation(OrganisationBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    owner_id: int | None = Field(foreign_key="user.id")
     projects: list["Project"] = Relationship(back_populates="organisation")
 
 
 class Project(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
-    organisation_id: int = Field(foreign_key="organisation.id")
+    organisation_id: int | None = Field(foreign_key="organisation.id")
 
     organisation: Organisation = Relationship(back_populates="projects")
     roles: list["Role"] = Relationship(back_populates="project")
