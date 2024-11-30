@@ -5,6 +5,7 @@ from unicon_backend.models.contest import (
     TaskORM,
     TaskResultORM,
 )
+from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import (
     InvitationKey,
     Organisation,
@@ -27,4 +28,5 @@ __all__ = [
     "Project",
     "Role",
     "InvitationKey",
+    "UserRole",
 ]

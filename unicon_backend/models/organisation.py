@@ -2,6 +2,8 @@ from typing import TYPE_CHECKING
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from unicon_backend.models.links import UserRole
+
 if TYPE_CHECKING:
     from .user import UserORM
 
@@ -37,7 +39,7 @@ class Role(SQLModel, table=True):
     project: Project = Relationship(back_populates="roles")
     invitation_keys: list["InvitationKey"] = Relationship(back_populates="role")
 
-    users: list["UserORM"] = Relationship(back_populates="roles")
+    users: list["UserORM"] = Relationship(back_populates="roles", link_model=UserRole)
 
 
 class InvitationKey(SQLModel, table=True):

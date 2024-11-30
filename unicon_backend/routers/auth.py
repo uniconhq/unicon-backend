@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from unicon_backend.constants import SECRET_KEY
-from unicon_backend.dependencies import (
+from unicon_backend.dependencies.auth import (
     AUTH_ALGORITHM,
     AUTH_PWD_CONTEXT,
     get_current_user,

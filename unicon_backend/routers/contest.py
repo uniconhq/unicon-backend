@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
-from unicon_backend.dependencies import get_current_user, get_db_session
+from unicon_backend.dependencies.auth import get_current_user
+from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.evaluator.contest import Definition, ExpectedAnswer, UserInput
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus
 from unicon_backend.models import (
