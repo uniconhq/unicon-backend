@@ -8,7 +8,7 @@ from fastapi.routing import APIRoute
 
 from unicon_backend.constants import FRONTEND_URL
 from unicon_backend.logger import setup_rich_logger
-from unicon_backend.routers import auth, contest, organisation
+from unicon_backend.routers import auth, contest, organisation, project
 from unicon_backend.workers import task_publisher, task_results_consumer
 
 # `passlib` has a known issue with one of its dependencies which causes it to log a non-consequential warning.
@@ -43,6 +43,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(contest.router)
 app.include_router(organisation.router)
+app.include_router(project.router)
 
 # Set `operation_id` for all routes to the same as the `name`
 # This is done to make the generated OpenAPI documentation more readable

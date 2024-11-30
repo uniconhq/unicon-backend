@@ -1,4 +1,4 @@
-from unicon_backend.models.organisation import OrganisationBase, ProjectBase
+from unicon_backend.models.organisation import OrganisationBase, ProjectBase, RoleBase
 
 
 class OrganisationCreate(OrganisationBase):
@@ -27,3 +27,8 @@ class ProjectUpdate(ProjectBase):
 
 class ProjectPublic(ProjectBase):
     id: int
+    roles: list["RolePublic"]
+
+
+class RolePublic(RoleBase):
+    pass

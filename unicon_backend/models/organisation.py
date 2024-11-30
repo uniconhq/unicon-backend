@@ -31,9 +31,12 @@ class Project(ProjectBase, table=True):
     roles: list["Role"] = Relationship(back_populates="project")
 
 
-class Role(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
+class RoleBase(SQLModel):
     name: str
+
+
+class Role(RoleBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
     project_id: int = Field(foreign_key="project.id")
 
     project: Project = Relationship(back_populates="roles")

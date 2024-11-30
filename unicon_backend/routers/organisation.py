@@ -83,7 +83,7 @@ def create_project(
     create_data: ProjectCreate,
     db_session: Annotated[Session, Depends(get_db_session)],
     organisation: Annotated[Organisation, Depends(get_organisation_by_id)],
-) -> ProjectPublic:
+):
     assert organisation.id is not None
     project = create_project_with_defaults(create_data, organisation.id, user)
     db_session.add(project)
