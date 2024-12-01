@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from http import HTTPStatus
 from typing import Annotated
 
 import jwt
@@ -15,6 +16,7 @@ from unicon_backend.dependencies.auth import (
     get_db_session,
 )
 from unicon_backend.models import UserORM
+from unicon_backend.schemas.auth import UserCreate
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
@@ -34,6 +36,18 @@ class Token(BaseModel):
     user: UserPublic
 
 
+def create_token(user: UserORM, response: Response):
+    user_public = UserPublic.model_validate(user)
+    access_token: str = jwt.encode(
+        {"sub": user.id, "exp": datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)},
+        SECRET_KEY,
+        algorithm=AUTH_ALGORITHM,
+    )
+    response.set_cookie(key="session", value=access_token)
+
+    return Token(access_token=access_token, token_type="bearer", user=user_public)
+
+
 @router.post("/token")
 def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
@@ -49,15 +63,27 @@ def login(
     if user is None or not AUTH_PWD_CONTEXT.verify(password, user.password):
         raise HTTPException(status_code=400, detail="Incorrect username or password.")
 
-    user_public = UserPublic.model_validate(user)
-    access_token: str = jwt.encode(
-        {"sub": user.id, "exp": datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)},
-        SECRET_KEY,
-        algorithm=AUTH_ALGORITHM,
-    )
-    response.set_cookie(key="session", value=access_token)
+    return create_token(user, response)
 
-    return Token(access_token=access_token, token_type="bearer", user=user_public)
+
+@router.post("/signup")
+def signup(
+    create_data: UserCreate,
+    db_session: Annotated[Session, Depends(get_db_session)],
+    response: Response,
+):
+    username, password = create_data.username, create_data.password
+    if db_session.exec(select(UserORM).where(UserORM.username == username)).first():
+        raise HTTPException(HTTPStatus.BAD_REQUEST, "Username already exists")
+
+    hashed_password = AUTH_PWD_CONTEXT.hash(password)
+
+    new_user = UserORM(username=username, password=hashed_password)
+    db_session.add(new_user)
+    db_session.commit()
+    db_session.refresh(new_user)
+
+    return create_token(new_user, response)
 
 
 @router.get("/logout")
