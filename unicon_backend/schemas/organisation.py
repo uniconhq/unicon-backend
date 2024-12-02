@@ -1,4 +1,9 @@
-from unicon_backend.models.organisation import OrganisationBase, ProjectBase, RoleBase
+from unicon_backend.models.organisation import (
+    InvitationKeyBase,
+    OrganisationBase,
+    ProjectBase,
+    RoleBase,
+)
 
 
 class OrganisationCreate(OrganisationBase):
@@ -31,4 +36,16 @@ class ProjectPublic(ProjectBase):
 
 
 class RolePublic(RoleBase):
+    id: int
+
+
+class RoleCreate(RoleBase):
+    name: str
+
+
+class RolePublicWithInvitationKeys(RolePublic):
+    invitation_keys: list["InvitationKeyPublic"]
+
+
+class InvitationKeyPublic(InvitationKeyBase):
     pass

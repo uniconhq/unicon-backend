@@ -1,3 +1,4 @@
+import uuid
 from typing import TYPE_CHECKING
 
 from sqlmodel import Field, Relationship, SQLModel
@@ -45,10 +46,13 @@ class Role(RoleBase, table=True):
     users: list["UserORM"] = Relationship(back_populates="roles", link_model=UserRole)
 
 
-class InvitationKey(SQLModel, table=True):
+class InvitationKeyBase(SQLModel):
+    key: uuid.UUID = Field(default_factory=uuid.uuid4, unique=True)
+    enabled: bool = Field(default=True)
+
+
+class InvitationKey(InvitationKeyBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    key: str
     role_id: int = Field(foreign_key="role.id")
 
     role: Role = Relationship(back_populates="invitation_keys")
-    enabled: bool

@@ -5,7 +5,6 @@ from typing import Annotated
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
 from unicon_backend.constants import SECRET_KEY
@@ -16,24 +15,11 @@ from unicon_backend.dependencies.auth import (
     get_db_session,
 )
 from unicon_backend.models import UserORM
-from unicon_backend.schemas.auth import UserCreate
+from unicon_backend.schemas.auth import Token, UserCreate, UserPublic
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-class UserPublic(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    username: str
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    user: UserPublic
 
 
 def create_token(user: UserORM, response: Response):
