@@ -1,10 +1,7 @@
-from typing import TYPE_CHECKING
-
 from pydantic import BaseModel, ConfigDict, model_validator
 from sqlmodel import Field, SQLModel
 
-if TYPE_CHECKING:
-    from unicon_backend.schemas.organisation import RolePublic
+from unicon_backend.schemas.organisation import RolePublic
 
 
 class UserCreate(SQLModel):
@@ -35,4 +32,4 @@ class Token(BaseModel):
 class UserPublicWithRoles(SQLModel):
     id: int
     username: str
-    roles: list["RolePublic"]
+    roles: list[RolePublic]
