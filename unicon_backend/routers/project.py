@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated
 
+import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, and_, col, select
@@ -34,7 +35,7 @@ def get_all_projects(
         .join(UserRole)
         .where(UserRole.user_id == user.id)
         .where(UserRole.role_id == Role.id)
-        .options(selectinload(col(Project.roles).and_(col(Role.users).contains(user))))
+        .options(selectinload(col(Project.roles).and_(col(Role.users).any(UserORM.id == user.id))))
     ).all()
 
     return projects
@@ -116,24 +117,28 @@ def create_role(
     return role
 
 
-@router.post("/{key}/join", summary="Join project by invitation key")
+@router.post("/{key}/join", summary="Join project by invitation key", response_model=ProjectPublic)
 def join_project(
     key: str,
     db_session: Annotated[Session, Depends(get_db_session)],
     user: Annotated[UserORM, Depends(get_current_user)],
 ):
-    role = db_session.exec(
-        select(Role)
-        .join(Role.invitation_keys)
-        .where(
-            col(Role.invitation_keys).any(
-                and_(
-                    InvitationKey.key == key,
-                    InvitationKey.enabled == True,
+    try:
+        role = db_session.exec(
+            select(Role)
+            .join(Role.invitation_keys)
+            .where(
+                col(Role.invitation_keys).any(
+                    and_(
+                        InvitationKey.key == key,
+                        InvitationKey.enabled == True,
+                    )
                 )
             )
-        )
-    ).first()
+        ).first()
+    except sqlalchemy.exc.DataError:
+        # invitation key is an invalid uuid
+        role = None
 
     if role is None:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Invitation key not found")
@@ -156,4 +161,4 @@ def join_project(
     db_session.add(UserRole(user_id=user.id, role_id=role.id))
     db_session.commit()
 
-    return
+    return role.project

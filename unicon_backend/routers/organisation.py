@@ -33,7 +33,7 @@ def get_all_organisations(
     return organisations
 
 
-@router.post("/", summary="Create a new organisation")
+@router.post("/", summary="Create a new organisation", response_model=OrganisationPublic)
 def create_organisation(
     create_data: OrganisationCreate,
     db_session: Annotated[Session, Depends(get_db_session)],
