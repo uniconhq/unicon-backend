@@ -4,8 +4,9 @@ from collections import deque
 from collections.abc import Sequence
 from enum import Enum
 from functools import cached_property
-from typing import TYPE_CHECKING, ClassVar, Optional, Self, Union
+from typing import TYPE_CHECKING, ClassVar, Optional, Self
 
+import libcst as cst
 from pydantic import model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
@@ -19,14 +20,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 type SocketId = str
-type ProgramVariable = str
-type ProgramFragment = str
+type ProgramVariable = cst.Name
+type ProgramFragment = Sequence[
+    cst.SimpleStatementLine | cst.BaseCompoundStatement | cst.BaseSmallStatement
+]
 
 # A program can be made up of sub programs, especially with subgraphs
-Program = list[Union["Program", ProgramFragment]]
-
-# A separator that is used to separate different parts of the program
-FRAGMENT_SEPARATOR: ProgramFragment = ""
+Program = cst.Module
 
 
 class StepType(str, Enum):
@@ -199,8 +199,8 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
     def debug_stmts(self) -> list[str]:
         return [f"# Step {self.id}: {self.type.value}"] if self._debug else []
 
-    def get_output_variable(self, output: SocketId) -> str:
-        return f"var_{self.id}_{output}".replace(".", "_")
+    def get_output_variable(self, output: SocketId) -> ProgramVariable:
+        return cst.Name(f"var_{self.id}_{output}".replace(".", "_"))
 
     @abc.abstractmethod
     def run(
@@ -208,11 +208,11 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
         var_inputs: dict[SocketId, ProgramVariable],
         file_inputs: dict[SocketId, File],
         graph: "ComputeGraph",
-    ) -> Program: ...
+    ) -> ProgramFragment: ...
 
 
 class ComputeGraph(Graph[Step]):
-    def _create_link_variable(self, from_node: Step, from_socket: str) -> str:
+    def _create_link_variable(self, from_node: Step, from_socket: str) -> ProgramVariable:
         """
         Create a variable name for the output of a node. The variable name must be unique across all nodes and sockets.
 
@@ -260,7 +260,7 @@ class ComputeGraph(Graph[Step]):
             subgraph_node_ids | node_ids_to_exclude
         )
 
-        program: Program = []
+        program: Program = cst.Module([])
         for node in topological_order:
             # Output of a step will be stored in a variable in the format `var_{step_id}_{socket_id}`
             # It is assumed that every step will always output the same number of values as the number of output sockets
@@ -294,12 +294,8 @@ class ComputeGraph(Graph[Step]):
                             in_node, in_node_socket.id
                         )
 
-            if len(program) > 0:
-                # Separate the programs of different nodes
-                program.append(FRAGMENT_SEPARATOR)
-
             node._debug = debug
-            program.extend(node.run(input_variables, file_inputs, self))
+            program.body.extend(node.run(input_variables, file_inputs, self))  # type: ignore
 
         return program
 
@@ -314,14 +310,17 @@ class InputStep(Step):
                 raise ValueError(f"Missing data for output socket {socket.id}")
         return self
 
-    def run(self, *_) -> Program:
-        def _serialize_data(data: str | int | float | bool) -> str:
+    def run(self, *_) -> ProgramFragment:
+        def _parse(data: str | int | float | bool) -> cst.BaseExpression:
             # TODO: Better handle of variables vs strings
-            if isinstance(data, str):
-                return f'"{data}"' if not data.startswith("var_") else data
-            return str(data)
+            data_repr: str = (
+                repr(data)
+                if not isinstance(data, str)
+                else (f'"{data}"' if not data.startswith("var_") else data)
+            )
+            return cst.parse_expression(data_repr)
 
-        program: Program = [*self.debug_stmts()]
+        program = []
         for socket in self.data_out:
             if isinstance(socket.data, File):
                 # If the input is a `File`, we skip the serialization and just pass the file object
@@ -329,7 +328,10 @@ class InputStep(Step):
                 continue
             elif isinstance(socket.data, PrimitiveData):
                 program.append(
-                    f"{self.get_output_variable(socket.id)} = {_serialize_data(socket.data)}"
+                    cst.Assign(
+                        targets=[cst.AssignTarget(self.get_output_variable(socket.id))],
+                        value=_parse(socket.data),
+                    )
                 )
 
         return program
@@ -338,29 +340,51 @@ class InputStep(Step):
 class OutputStep(Step):
     required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (0, 0))
 
-    def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> Program:
-        program: list[Program | str] = [*self.debug_stmts()]
-
-        program.append("import json")
-        result = (
-            "{"
-            + ", ".join(f'"{socket.id}": {var_inputs[socket.id]}' for socket in self.data_in)
-            + "}"
+    def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> ProgramFragment:
+        result_dict = cst.Dict(
+            [
+                cst.DictElement(key=cst.SimpleString(repr(socket.id)), value=var_inputs[socket.id])
+                for socket in self.data_in
+            ]
         )
-        program.append(f"print(json.dumps({result}))")
 
-        return program
+        return [
+            cst.parse_statement("import json"),
+            cst.Expr(
+                cst.Call(
+                    func=cst.Name("print"),
+                    args=[
+                        cst.Arg(
+                            cst.Call(
+                                func=cst.Attribute(value=cst.Name("json"), attr=cst.Name("dumps")),
+                                args=[cst.Arg(result_dict)],
+                            )
+                        )
+                    ],
+                )
+            ),
+        ]
 
 
 class StringMatchStep(Step):
     required_data_io: ClassVar[tuple[Range, Range]] = ((2, 2), (1, 1))
 
-    def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> Program:
-        output_socket_name: str = self.outputs[0].id
-
+    def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> ProgramFragment:
         return [
-            *self.debug_stmts(),
-            f"{self.get_output_variable(output_socket_name)} = str({var_inputs[self.data_in[0].id]}) == str({var_inputs[self.data_in[1].id]})",
+            cst.Assign(
+                targets=[cst.AssignTarget(self.get_output_variable(self.outputs[0].id))],
+                value=cst.Comparison(
+                    left=cst.Call(cst.Name("str"), args=[cst.Arg(var_inputs[self.data_in[0].id])]),
+                    comparisons=[
+                        cst.ComparisonTarget(
+                            cst.Equal(),
+                            cst.Call(
+                                cst.Name("str"), args=[cst.Arg(var_inputs[self.data_in[1].id])]
+                            ),
+                        )
+                    ],
+                ),
+            )
         ]
 
 
@@ -374,10 +398,15 @@ class ObjectAccessStep(Step):
 
     key: str
 
-    def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> Program:
+    def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> ProgramFragment:
         return [
-            *self.debug_stmts(),
-            f"{self.get_output_variable(self.data_out[0].id)} = {var_inputs[self.data_in[0].id]}['{self.key}']",
+            cst.Assign(
+                targets=[cst.AssignTarget(self.get_output_variable(self.data_out[0].id))],
+                value=cst.Subscript(
+                    value=var_inputs[self.data_in[0].id],
+                    slice=[cst.SubscriptElement(cst.Index(cst.SimpleString(repr(self.key))))],
+                ),
+            )
         ]
 
 
@@ -489,7 +518,7 @@ class LoopStep(Step):
         return [
             *self.debug_stmts(),
             "while True:",
-            [*predicate, FRAGMENT_SEPARATOR, *guard, FRAGMENT_SEPARATOR, *body],
+            [*predicate, *guard, *body],
         ]
 
 
