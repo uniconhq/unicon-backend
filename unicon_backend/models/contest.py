@@ -97,7 +97,8 @@ class SubmissionBase(SQLModel):
 
 
 class SubmissionORM(SubmissionBase, table=True):
-    task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="submission")
+    # task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="submission")
+    pass
 
 
 class SubmissionPublic(SubmissionBase):
@@ -144,14 +145,15 @@ class TaskResultBase(SQLModel):
 
 
 class TaskResultPublic(TaskResultBase):
-    task: "TaskORM"
+    # task: "TaskORM"
+    pass
 
 
 class TaskResultORM(TaskResultBase, table=True):
     __tablename__ = "task_result"
 
-    submission: sa_orm.Mapped[SubmissionORM] = Relationship(back_populates="task_results")
-    task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_results")
+    # task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_results")
+    pass
 
 
 """

@@ -13,7 +13,7 @@ from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.evaluator.contest import Definition, ExpectedAnswer, UserInput
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus
 from unicon_backend.models import (
-    DefinitionORM,
+    ProblemORM,
     SubmissionORM,
     SubmissionStatus,
     TaskResultORM,
@@ -29,16 +29,16 @@ if TYPE_CHECKING:
 @router.get("/definitions", summary="Get all contest definitions")
 def get_definitions(
     db_session: Annotated[Session, Depends(get_db_session)],
-) -> Sequence[DefinitionORM]:
-    return db_session.exec(select(DefinitionORM)).all()
+) -> Sequence[ProblemORM]:
+    return db_session.exec(select(ProblemORM)).all()
 
 
 @router.post("/definitions", summary="Submit a contest definition")
 def submit_definition(
     definition: Definition,
     db_session: Annotated[Session, Depends(get_db_session)],
-) -> DefinitionORM:
-    definition_orm = DefinitionORM.from_definition(definition)
+) -> ProblemORM:
+    definition_orm = ProblemORM.from_definition(definition)
 
     db_session.add(definition_orm)
     db_session.commit()
@@ -53,9 +53,7 @@ def get_definition(
     db_session: Annotated[Session, Depends(get_db_session)],
 ) -> Definition:
     definition_orm = db_session.scalar(
-        select(DefinitionORM)
-        .where(DefinitionORM.id == id)
-        .options(selectinload(DefinitionORM.tasks))
+        select(ProblemORM).where(ProblemORM.id == id).options(selectinload(ProblemORM.tasks))
     )
 
     if definition_orm is None:
@@ -89,11 +87,9 @@ def get_definition(
 @router.patch("/definitions/{id}", summary="Update a contest definition")
 def update_definition(
     id: int, definition: Definition, db_session: Annotated[Session, Depends(get_db_session)]
-) -> DefinitionORM:
+) -> ProblemORM:
     definition_orm = db_session.scalar(
-        select(DefinitionORM)
-        .where(DefinitionORM.id == id)
-        .options(selectinload(DefinitionORM.tasks))
+        select(ProblemORM).where(ProblemORM.id == id).options(selectinload(ProblemORM.tasks))
     )
 
     if definition_orm is None:
@@ -128,9 +124,7 @@ def submit_contest_submission(
     task_id: int | None = None,
 ) -> SubmissionORM:
     definition_orm = db_session.scalar(
-        select(DefinitionORM)
-        .where(DefinitionORM.id == id)
-        .options(selectinload(DefinitionORM.tasks))
+        select(ProblemORM).where(ProblemORM.id == id).options(selectinload(ProblemORM.tasks))
     )
 
     if definition_orm is None:
