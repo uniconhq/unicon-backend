@@ -85,8 +85,13 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
 
     _debug: bool = False
 
-    required_control_io: ClassVar[tuple[Range, Range]]
-    required_data_io: ClassVar[tuple[Range, Range]]
+    # Socket IDs that are used to connect to the subgraph of a `Step`
+    subgraph_socket_ids: ClassVar[set[str]] = set()
+    # The required number of data sockets
+    required_control_io: ClassVar[tuple[Range, Range]] = ((-1, 1), (-1, 1))
+    # The required number of control sockets
+    # The maximum number by default is 1 for both input and output control sockets (CONTROL.IN and CONTROL.OUT)
+    required_data_io: ClassVar[tuple[Range, Range]] = ((-1, -1), (-1, -1))
 
     @model_validator(mode="after")
     def check_required_inputs_and_outputs(self) -> Self:
@@ -122,14 +127,6 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
                 raise ValueError(f"Step {self.id} requires {expected} {label} sockets, found {got}")
 
         return self
-
-    @property
-    @abc.abstractmethod
-    def subgraph_socket_ids(self) -> set[str]:
-        """
-        Socket IDs that are used to connect to the subgraph of a Step.
-        """
-        ...
 
     @cached_property
     def in_socket_index(self) -> dict[str, StepSocket]:
@@ -305,7 +302,7 @@ class ComputeGraph(Graph[Step]):
 
 
 class InputStep(Step):
-    subgraph_socket_ids: ClassVar[set[str]] = set()
+    required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (1, -1))
 
     @model_validator(mode="after")
     def check_non_empty_outputs(self) -> Self:
@@ -340,7 +337,7 @@ class InputStep(Step):
 
 
 class OutputStep(Step):
-    subgraph_socket_ids: ClassVar[set[str]] = set()
+    required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (0, 0))
 
     @model_validator(mode="after")
     def check_non_empty_inputs(self) -> Self:
@@ -370,7 +367,7 @@ class OutputStep(Step):
 
 
 class StringMatchStep(Step):
-    subgraph_socket_ids: ClassVar[set[str]] = set()
+    required_data_io: ClassVar[tuple[Range, Range]] = ((2, 2), (1, 1))
 
     def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
         output_socket_name: str = self.outputs[0].id
@@ -390,7 +387,8 @@ class ObjectAccessStep(Step):
     - DATA.IN*: for the dictionary
     """
 
-    subgraph_socket_ids: ClassVar[set[str]] = set()
+    required_data_io: ClassVar[tuple[Range, Range]] = ((1, 1), (1, 1))
+
     key: str
 
     @model_validator(mode="after")
@@ -429,7 +427,7 @@ class PyRunFunctionStep(Step):
     - DATA.IN.FILE: For the `File` object that contains the Python function
     """
 
-    subgraph_socket_ids: ClassVar[set[str]] = set()
+    required_data_io: ClassVar[tuple[Range, Range]] = ((0, -1), (1, 1))
 
     function_identifier: str
 
@@ -501,6 +499,8 @@ class PyRunFunctionStep(Step):
 
 class LoopStep(Step):
     subgraph_socket_ids: ClassVar[set[str]] = {"CONTROL.IN.PREDICATE", "CONTROL.OUT.BODY"}
+    required_control_io: ClassVar[tuple[Range, Range]] = ((1, 2), (1, 2))
+    required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (0, 0))
 
     def run(self, var_inputs: dict[SocketName, ProgramVariable], _, graph: ComputeGraph) -> Program:
         predicate_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.IN.PREDICATE", graph)
@@ -534,6 +534,8 @@ class IfElseStep(Step):
         "CONTROL.OUT.IF",
         "CONTROL.OUT.ELSE",
     }
+    required_control_io: ClassVar[tuple[Range, Range]] = ((1, 2), (2, 3))
+    required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (0, 0))
 
     def run(self, var_inputs: dict[SocketName, ProgramVariable], _, graph: ComputeGraph) -> Program:
         predicate_node_ids: set[int] = self.get_subgraph_node_ids("CONTROL.IN.PREDICATE", graph)
