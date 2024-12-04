@@ -3,13 +3,17 @@ import logging
 from collections import deque
 from enum import Enum
 from functools import cached_property
-from typing import ClassVar, Optional, Self, Union
+from typing import TYPE_CHECKING, ClassVar, Optional, Self, Union
 
 from pydantic import model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
 from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
+from unicon_backend.lib.helpers import partition
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +76,52 @@ class StepSocket(NodeSocket):
         return self.id.split(".", 2)[-1]
 
 
+Range = tuple[int, int]
+
+
 class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
     id: int
     type: StepType
 
     _debug: bool = False
+
+    required_control_io: ClassVar[tuple[Range, Range]]
+    required_data_io: ClassVar[tuple[Range, Range]]
+
+    @model_validator(mode="after")
+    def check_required_inputs_and_outputs(self) -> Self:
+        def satisfies_required(expected: Range, got: int) -> bool:
+            # NOTE: -1 indicates that there is no limit
+            match expected:
+                case (-1, -1):
+                    return True
+                case (-1, upper_bound):
+                    return got <= upper_bound
+                case (lower_bound, -1):
+                    return got >= lower_bound
+                case (lower_bound, upper_bound):
+                    return lower_bound <= got <= upper_bound
+                case _:
+                    # This should never happen
+                    return False
+
+        is_data_socket: Callable[[StepSocket], bool] = lambda socket: socket.type == "DATA"
+        is_in_socket: Callable[[StepSocket], bool] = lambda socket: socket.direction == "IN"
+
+        data_io, control_io = partition(is_data_socket, self.inputs + self.outputs)
+        num_data_in, num_data_out = list(map(len, partition(is_in_socket, data_io)))
+        num_control_in, num_control_out = list(map(len, partition(is_in_socket, control_io)))
+
+        for got, expected, label in zip(
+            (num_data_in, num_data_out, num_control_in, num_control_out),
+            self.required_data_io + self.required_control_io,
+            ("data input", "data output", "control input", "control output"),
+            strict=True,
+        ):
+            if not satisfies_required(expected, got):
+                raise ValueError(f"Step {self.id} requires {expected} {label} sockets, found {got}")
+
+        return self
 
     @property
     @abc.abstractmethod
