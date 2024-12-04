@@ -1,5 +1,5 @@
 from unicon_backend.models.contest import (
-    DefinitionORM,
+    ProblemORM,
     SubmissionORM,
     SubmissionStatus,
     TaskORM,
@@ -18,7 +18,7 @@ __all__ = [
     # user
     "UserORM",
     # contest
-    "DefinitionORM",
+    "ProblemORM",
     "SubmissionORM",
     "TaskORM",
     "TaskResultORM",

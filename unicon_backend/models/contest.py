@@ -6,7 +6,7 @@ import sqlalchemy as sa
 import sqlalchemy.dialects.postgresql as pg
 import sqlalchemy.orm as sa_orm
 from pydantic import model_validator
-from sqlmodel import Field, ForeignKeyConstraint, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.contest import Definition
@@ -32,14 +32,16 @@ class SubmissionStatus(str, Enum):
     Ok = "OK"
 
 
-class DefinitionORM(SQLModel, table=True):
-    __tablename__ = "definition"
+class ProblemORM(SQLModel, table=True):
+    __tablename__ = "problem"
 
     id: int = Field(primary_key=True)
     name: str
     description: str
 
-    tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(back_populates="definition")
+    project_id: int = Field(foreign_key="project.id")
+
+    tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(back_populates="problem")
 
     def update(self, definition: "Definition") -> None:
         self.name = definition.name
@@ -50,7 +52,7 @@ class DefinitionORM(SQLModel, table=True):
         self.tasks.extend([TaskORM.from_task(task) for task in definition.tasks])
 
     @classmethod
-    def from_definition(cls, definition: "Definition") -> "DefinitionORM":
+    def from_definition(cls, definition: "Definition") -> "ProblemORM":
         tasks_orm: list[TaskORM] = [TaskORM.from_task(task) for task in definition.tasks]
         return cls(name=definition.name, description=definition.description, tasks=tasks_orm)
 
@@ -62,11 +64,11 @@ class TaskORM(SQLModel, table=True):
     type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
     autograde: bool
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
-    definition_id: int = Field(foreign_key="definition.id", primary_key=True)
+    problem_id: int = Field(foreign_key="problem.id")
 
-    definition: sa_orm.Mapped[DefinitionORM] = Relationship(back_populates="tasks")
+    problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="tasks")
 
-    task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task")
+    # task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task")
 
     @classmethod
     def from_task(cls, task: "Task") -> "TaskORM":
@@ -80,7 +82,9 @@ class SubmissionBase(SQLModel):
     __tablename__ = "submission"
 
     id: int = Field(primary_key=True)
-    definition_id: int = Field(foreign_key="definition.id")
+    problem_id: int = Field(foreign_key="problem.id")
+    user_id: int = Field(foreign_key="user.id")
+
     status: SubmissionStatus = Field(sa_column=sa.Column(pg.ENUM(SubmissionStatus), nullable=False))
     submitted_at: datetime = Field(
         sa_column=sa.Column(
@@ -100,12 +104,25 @@ class SubmissionPublic(SubmissionBase):
     task_results: list["TaskResult"]
 
 
-class TaskResultBase(SQLModel):
+class TaskAttemptORM(SQLModel, table=True):
+    __tablename__ = "task_attempt"
+
     id: int = Field(primary_key=True)
     submission_id: int = Field(foreign_key="submission.id")
-    definition_id: int  # TODO: we dont need this field
+    task_id: int = Field(foreign_key="task.id")
 
-    task_id: int
+    task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
+
+    # TODO: figure out polymorphism to stop abusing JSONB
+    other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
+
+
+class TaskResultBase(SQLModel):
+    __tablename__ = "task_result"
+
+    id: int = Field(primary_key=True)
+
+    task_attempt_id: int = Field(foreign_key="task_attempt.id")
     task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 
     started_at: datetime = Field(
@@ -128,6 +145,18 @@ class TaskResultBase(SQLModel):
 
 class TaskResultPublic(TaskResultBase):
     task: "TaskORM"
+
+
+class TaskResultORM(TaskResultBase, table=True):
+    __tablename__ = "task_result"
+
+    submission: sa_orm.Mapped[SubmissionORM] = Relationship(back_populates="task_results")
+    task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_results")
+
+
+"""
+Below classes are for parsing/validating task results with pydantic
+"""
 
 
 class MultipleChoiceTaskResult(TaskResultPublic):
@@ -182,13 +211,3 @@ type TaskResult = (
     | ProgrammingTaskResult
     | ShortAnswerTaskResult
 )
-
-
-class TaskResultORM(TaskResultBase, table=True):
-    __tablename__ = "task_result"
-    __table_args__ = (
-        ForeignKeyConstraint(["definition_id", "task_id"], ["task.definition_id", "task.id"]),
-    )
-
-    submission: sa_orm.Mapped[SubmissionORM] = Relationship(back_populates="task_results")
-    task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_results")
