@@ -363,6 +363,33 @@ wheels = [
 ]
 
 [[package]]
+name = "libcst"
+version = "1.5.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/27/a6/a19b587108b15d3e0bfa8d0944265809581c8b8e161e22c9c9060afbbf4a/libcst-1.5.1.tar.gz", hash = "sha256:71cb294db84df9e410208009c732628e920111683c2f2b2e0c5b71b98464f365", size = 773387 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8f/0c/eac92358d05e75516f15654fb1550c9af165ce5a19f2b8adf44916ebebc4/libcst-1.5.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:666813950b8637af0c0e96b1ca46f5d5f183d2fe50bbac2186f5b283a99f3529", size = 2122234 },
+    { url = "https://files.pythonhosted.org/packages/b3/26/6925af831f039e27eb380ba64448f33aea255ab6ecae6b5deec6ec637197/libcst-1.5.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:b7b58b36022ae77a5a00002854043ae95c03e92f6062ad08473eff326f32efa0", size = 2031324 },
+    { url = "https://files.pythonhosted.org/packages/e0/87/1b593bdddcb0d38d2232dab96b1f92deb2481c72063394f0394f680ff5b3/libcst-1.5.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:eeb13d7c598fe9a798a1d22eae56ab3d3d599b38b83436039bd6ae229fc854d7", size = 2172432 },
+    { url = "https://files.pythonhosted.org/packages/88/27/966f9fe2652aa496a85503333559937e58979eef674f9803c995d6704c44/libcst-1.5.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5987daff8389b0df60b5c20499ff4fb73fc03cb3ae1f6a746eefd204ed08df85", size = 2263445 },
+    { url = "https://files.pythonhosted.org/packages/ff/79/f172226edbdd5b3a31d3c270e4407b35e3f5b0c6e404967e42314f1b434e/libcst-1.5.1-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:00f3d2f32ee081bad3394546b0b9ac5e31686d3b5cfe4892d716d2ba65f9ec08", size = 2343044 },
+    { url = "https://files.pythonhosted.org/packages/91/f2/664ae80583c66bcc3a2debcc8bab04e6843c3a6ac02e94050dddb5e5909c/libcst-1.5.1-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:1ff21005c33b634957a98db438e882522febf1cacc62fa716f29e163a3f5871a", size = 2217129 },
+    { url = "https://files.pythonhosted.org/packages/8b/df/b6b506d50f0a00a49d4e6217fd521c208cbf8693687cd0ac5880507ca6d1/libcst-1.5.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:15697ea9f1edbb9a263364d966c72abda07195d1c1a6838eb79af057f1040770", size = 2322129 },
+    { url = "https://files.pythonhosted.org/packages/eb/84/9c79a0aa5334f39a86844d32ef474491a817e9eefaa8f23fc81e7ad07d8b/libcst-1.5.1-cp312-cp312-win_amd64.whl", hash = "sha256:cedd4c8336e01c51913113fbf5566b8f61a86d90f3d5cc5b1cb5049575622c5f", size = 2032278 },
+    { url = "https://files.pythonhosted.org/packages/ff/68/89e1f0aa5697d9d7c9a78f630ffb65c43d5820008e5141504206836b86ce/libcst-1.5.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:06a9b4c9b76da4a7399e6f1f3a325196fb5febd3ea59fac1f68e2116f3517cd8", size = 2122230 },
+    { url = "https://files.pythonhosted.org/packages/0f/1a/c23ab5bccd26f08c7faf982a3a2ab7a78d39502c4304585d107a160d9aa4/libcst-1.5.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:940ec4c8db4c2d620a7268d6c83e64ff646e4afd74ae5183d0f0ef3b80e05be0", size = 2031325 },
+    { url = "https://files.pythonhosted.org/packages/d6/5b/a0f1bbd74054ef592c32ec0956ba083585af9b835c19a8d4b78ba536ec55/libcst-1.5.1-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:fbccb016b1ac6d892344300dcccc8a16887b71bb7f875ba56c0ed6c1a7ade8be", size = 2172432 },
+    { url = "https://files.pythonhosted.org/packages/42/d4/ad8af53181fbcd44913925498bdd05d2a76f170253883c0183cf237c5173/libcst-1.5.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c615af2117320e9a218083c83ec61227d3547e38a0de80329376971765f27a9e", size = 2263442 },
+    { url = "https://files.pythonhosted.org/packages/c5/ed/a152f3b0b34c833a09c424336fd464b5b053b1e07e012a95887a7292c55a/libcst-1.5.1-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:02b38fa4d9f13e79fe69e9b5407b9e173557bcfb5960f7866cf4145af9c7ae09", size = 2343045 },
+    { url = "https://files.pythonhosted.org/packages/d1/43/d84090dc9b560ee1586e8ec8e3af34488695c52df244a0d9c3a473401e01/libcst-1.5.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:3334afe9e7270e175de01198f816b0dc78dda94d9d72152b61851c323e4e741e", size = 2217130 },
+    { url = "https://files.pythonhosted.org/packages/7a/95/c82b3f9fde6d5476837111e05d563542b5922ebe929c849e67c2a4ef2638/libcst-1.5.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:26c804fa8091747128579013df0b5f8e6b0c7904d9c4ee83841f136f53e18684", size = 2322130 },
+    { url = "https://files.pythonhosted.org/packages/53/54/3bf26fc2cd9f3b5a1ce4f574ddd1238b96d6e4a9c1c0fccd0c10f7e84e59/libcst-1.5.1-cp313-cp313-win_amd64.whl", hash = "sha256:b5a0d3c632aa2b21c5fa145e4e8dbf86f45c9b37a64c0b7221a5a45caf58915a", size = 2032277 },
+]
+
+[[package]]
 name = "mako"
 version = "1.3.7"
 source = { registry = "https://pypi.org/simple" }
@@ -854,6 +881,7 @@ dependencies = [
     { name = "alembic" },
     { name = "alembic-postgresql-enum" },
     { name = "fastapi", extra = ["standard"] },
+    { name = "libcst" },
     { name = "passlib", extra = ["bcrypt"] },
     { name = "pika" },
     { name = "psycopg2-binary" },
@@ -881,6 +909,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.13.3" },
     { name = "alembic-postgresql-enum", specifier = ">=1.3.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.114.1" },
+    { name = "libcst", specifier = ">=1.5.1" },
     { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7.4" },
     { name = "pika", specifier = ">=1.3.2" },
     { name = "psycopg2-binary", specifier = ">=2.9.9" },
