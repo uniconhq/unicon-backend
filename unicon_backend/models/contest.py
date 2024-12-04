@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Optional, Self
 
 import sqlalchemy as sa
 import sqlalchemy.dialects.postgresql as pg
@@ -11,6 +11,7 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from unicon_backend.evaluator.contest import Definition
     from unicon_backend.evaluator.tasks.base import Task
+    from unicon_backend.models.organisation import Project
 
 
 class TaskType(str, Enum):
@@ -42,6 +43,7 @@ class ProblemORM(SQLModel, table=True):
     project_id: int = Field(foreign_key="project.id")
 
     tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(back_populates="problem")
+    project: Optional["Project"] = Relationship(back_populates="problems")
 
     def update(self, definition: "Definition") -> None:
         self.name = definition.name

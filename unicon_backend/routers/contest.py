@@ -33,20 +33,6 @@ def get_definitions(
     return db_session.exec(select(ProblemORM)).all()
 
 
-@router.post("/definitions", summary="Submit a contest definition")
-def submit_definition(
-    definition: Definition,
-    db_session: Annotated[Session, Depends(get_db_session)],
-) -> ProblemORM:
-    definition_orm = ProblemORM.from_definition(definition)
-
-    db_session.add(definition_orm)
-    db_session.commit()
-    db_session.refresh(definition_orm)
-
-    return definition_orm
-
-
 @router.get("/definitions/{id}", summary="Get a contest definition")
 def get_definition(
     id: int,

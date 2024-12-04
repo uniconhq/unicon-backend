@@ -6,6 +6,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from unicon_backend.models.links import UserRole
 
 if TYPE_CHECKING:
+    from .contest import ProblemORM
     from .user import UserORM
 
 
@@ -30,6 +31,7 @@ class Project(ProjectBase, table=True):
 
     organisation: Organisation = Relationship(back_populates="projects")
     roles: list["Role"] = Relationship(back_populates="project")
+    problems: list["ProblemORM"] = Relationship(back_populates="project")
 
 
 class RoleBase(SQLModel):

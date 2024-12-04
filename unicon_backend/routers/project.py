@@ -9,12 +9,15 @@ from sqlmodel import Session, and_, col, select
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.project import get_project_by_id
+from unicon_backend.evaluator.contest import Definition
+from unicon_backend.models.contest import ProblemORM
 from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import InvitationKey, Project, Role
 from unicon_backend.models.user import UserORM
 from unicon_backend.schemas.auth import UserPublicWithRoles
 from unicon_backend.schemas.organisation import (
     ProjectPublic,
+    ProjectPublicWithProblems,
     ProjectUpdate,
     RoleCreate,
     RolePublic,
@@ -41,7 +44,7 @@ def get_all_projects(
     return projects
 
 
-@router.get("/{id}", summary="Get a project", response_model=ProjectPublic)
+@router.get("/{id}", summary="Get a project", response_model=ProjectPublicWithProblems)
 def get_project(
     project: Annotated[Project, Depends(get_project_by_id)],
 ):
@@ -162,3 +165,21 @@ def join_project(
     db_session.commit()
 
     return role.project
+
+
+@router.post("/{id}/problems")
+def create_problem(
+    definition: Definition,
+    db_session: Annotated[Session, Depends(get_db_session)],
+    project: Annotated[Project, Depends(get_project_by_id)],
+) -> ProblemORM:
+    # TODO: Add permissions here - currently just checking if project exists
+
+    new_problem = ProblemORM.from_definition(definition)
+    project.problems.append(new_problem)
+
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(new_problem)
+
+    return new_problem
