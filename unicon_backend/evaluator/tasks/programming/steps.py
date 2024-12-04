@@ -306,9 +306,6 @@ class InputStep(Step):
 
     @model_validator(mode="after")
     def check_non_empty_outputs(self) -> Self:
-        if len(self.outputs) == 0:
-            raise ValueError("Input step must have at least one output")
-
         for output in self.outputs:
             if output.data is None and not output.type == "CONTROL":
                 raise ValueError(f"Output socket {output.id} must have data")
@@ -338,13 +335,6 @@ class InputStep(Step):
 
 class OutputStep(Step):
     required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (0, 0))
-
-    @model_validator(mode="after")
-    def check_non_empty_inputs(self) -> Self:
-        if len(self.inputs) == 0:
-            raise ValueError("Output step must have at least one input")
-
-        return self
 
     def run(self, var_inputs: dict[SocketName, ProgramVariable], *_) -> Program:
         program: list[Program | str] = [*self.debug_stmts()]
@@ -393,15 +383,6 @@ class ObjectAccessStep(Step):
 
     @model_validator(mode="after")
     def check_has_exactly_one_data_input(self) -> Self:
-        if (
-            num_data_inputs := len(
-                [in_socket for in_socket in self.inputs if in_socket.type == "DATA"]
-            )
-        ) != 1:
-            raise ValueError(
-                f"Object access step ({self.id}) must have exactly one data input, found {num_data_inputs}"
-            )
-
         if "DATA.IN" not in self.in_socket_index:
             raise ValueError(
                 f"Object access step ({self.id}) must have a data input socket with the id DATA.IN"
@@ -430,19 +411,6 @@ class PyRunFunctionStep(Step):
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, -1), (1, 1))
 
     function_identifier: str
-
-    @model_validator(mode="after")
-    def check_has_exactly_one_data_output(self) -> Self:
-        if (
-            num_data_outputs := len(
-                [out_socket for out_socket in self.outputs if out_socket.type == "DATA"]
-            )
-        ) != 1:
-            raise ValueError(
-                f"Py run function step ({self.id}) must have exactly one data output, found {num_data_outputs}"
-            )
-
-        return self
 
     def run(
         self,
