@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 from logging import getLogger
 from typing import Any, Literal
 
@@ -12,11 +11,10 @@ from unicon_backend.evaluator.tasks.programming.runner import (
     RunnerRequest,
     SubmissionId,
 )
-from unicon_backend.evaluator.tasks.programming.security import TEMPLATE
+from unicon_backend.evaluator.tasks.programming.security import mpi_sandbox
 from unicon_backend.evaluator.tasks.programming.steps import (
     ComputeGraph,
     InputStep,
-    Program,
     StepSocket,
     StepType,
 )
@@ -25,18 +23,6 @@ from unicon_backend.workers import task_publisher
 logger = getLogger(__name__)
 
 USER_INPUT_STEP_ID: int = 0
-
-
-def assemble_program(program: Program, indent_symbol: str = " " * 2) -> str:
-    def flatten(xs, indent: int):
-        for x in xs:
-            if isinstance(x, Iterable) and not isinstance(x, str):
-                yield from flatten(x, indent + 1)
-            else:
-                yield f"{indent_symbol * indent}{x}"
-
-    # NOTE: We set indent level to 1 to match the indentation of the template
-    return TEMPLATE.format("\n".join(flatten(program, indent=1)))
 
 
 class Testcase(ComputeGraph):
@@ -97,7 +83,7 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
 
         runner_packages: list[RunnerPackage] = []
         for testcase in self.testcases:
-            assembled_program = assemble_program(testcase.run(user_input_step))
+            assembled_program = mpi_sandbox(testcase.run(user_input_step))
 
             logger.debug(f"Assembled Program:\n{assembled_program}")
 
@@ -115,7 +101,7 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
                 files=[
                     *user_input_files,
                     *graph_files,
-                    File(file_name="__entrypoint.py", content=assembled_program),
+                    File(file_name="__entrypoint.py", content=assembled_program.code),
                 ],
             )
             runner_packages.append(runner_package)
