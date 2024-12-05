@@ -496,29 +496,34 @@ class LoopStep(Step):
     required_control_io: ClassVar[tuple[Range, Range]] = ((1, 2), (1, 2))
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (0, 0))
 
-    def run(self, var_inputs: dict[SocketId, ProgramVariable], _, graph: ComputeGraph) -> Program:
+    def run(
+        self, var_inputs: dict[SocketId, ProgramVariable], _, graph: ComputeGraph
+    ) -> ProgramFragment:
         predicate_node_ids: set[int] = self.get_subgraph_node_ids(self._pred_socket_id, graph)
         has_predicate: bool = len(predicate_node_ids) > 0
 
-        predicate: Program = []
+        pred_mod: Program | None = None
         if has_predicate is False:
             logger.warning(
                 f"[Step {self.id}] No predicate found for LoopStep. Loop will run indefinitely."
             )
         else:
-            predicate = graph.run(debug=self._debug, node_ids=predicate_node_ids)
+            pred_mod = graph.run(debug=self._debug, node_ids=predicate_node_ids)
 
-        guard: Program = (
-            [f"if {var_inputs[self._pred_socket_id]}:", ["break"]] if has_predicate else []
+        guard = cst.If(
+            test=var_inputs[self._pred_socket_id], body=cst.SimpleStatementSuite([cst.Break()])
         )
 
         body_node_ids: set[int] = self.get_subgraph_node_ids(self._pred_socket_id, graph)
-        body: Program = graph.run(debug=self._debug, node_ids=body_node_ids)
+        body_mod: Program = graph.run(debug=self._debug, node_ids=body_node_ids)
 
         return [
-            *self.debug_stmts(),
-            "while True:",
-            [*predicate, *guard, *body],
+            cst.While(
+                test=cst.Name("True"),
+                body=cst.IndentedBlock(
+                    [*(pred_mod.body if pred_mod else []), guard, *body_mod.body]
+                ),
+            )
         ]
 
 
