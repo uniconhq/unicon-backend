@@ -201,9 +201,6 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
             debug=self._debug, node_ids=self.get_subgraph_node_ids(subgraph_socket_id, graph)
         )
 
-    def debug_stmts(self) -> list[str]:
-        return [f"# Step {self.id}: {self.type.value}"] if self._debug else []
-
     def get_output_variable(self, output: SocketId) -> ProgramVariable:
         return cst.Name(f"var_{self.id}_{output}".replace(".", "_"))
 
@@ -438,12 +435,21 @@ class PyRunFunctionStep(Step):
             raise ValueError("No module file input provided")
         return self
 
+    @property
+    def arg_sockets(self) -> Sequence[StepSocket]:
+        sockets = [socket for socket in self.data_in if socket.label.startswith("ARG.")]
+        return sorted(sockets, key=lambda socket: int(socket.label.split(".", 2)[1]))
+
+    @property
+    def kwarg_sockets(self) -> Sequence[StepSocket]:
+        return [socket for socket in self.data_in if socket.label.startswith("KWARG.")]
+
     def run(
         self,
         var_inputs: dict[SocketId, ProgramVariable],
         file_inputs: dict[SocketId, File],
         graph: ComputeGraph,
-    ) -> Program:
+    ) -> ProgramFragment:
         # Get the input file that we are running the function from
         program_file: File | None = file_inputs.get(self._data_in_file_id)
         if program_file is None:
@@ -458,39 +464,33 @@ class PyRunFunctionStep(Step):
         ][0].from_node_id == 0
 
         # NOTE: Assume that the program file is always a Python file
-        module_name: str = program_file.file_name.split(".py")[0]
+        module_name = cst.Name(program_file.file_name.split(".py")[0])
 
-        # Gather all function arguments
-        positional_args: list[str] = [
-            var_inputs[socket.id] for socket in self.data_in if socket.label.startswith("ARG.")
+        func_name = cst.Name(self.function_identifier)
+        args = [cst.Arg(var_inputs[socket.id]) for socket in self.arg_sockets]
+        kwargs = [
+            cst.Arg(var_inputs[socket.id], keyword=cst.Name(socket.label.split(".", 1)[1]))
+            for socket in self.kwarg_sockets
         ]
-        keyword_args: dict[str, str] = {
-            socket.label.split(".", 1)[1]: var_inputs[socket.id]
-            for socket in self.data_in
-            if socket.label.startswith("KWARG.")
-        }
 
-        function_args_str: str = ", ".join(positional_args) + (
-            f"**{keyword_args}" if keyword_args else ""
+        output_var_name = self.get_output_variable(self.data_out[0].id)
+
+        return (
+            [
+                cst.Assign(
+                    [cst.AssignTarget(output_var_name)],
+                    cst.Call(
+                        cst.Name("call_function_safe"),
+                        [cst.Arg(module_name), cst.Arg(func_name), *args, *kwargs],
+                    ),
+                )
+            ]
+            if is_user_provided_file
+            else [
+                cst.ImportFrom(module_name, [cst.ImportAlias(func_name)]),
+                cst.Assign([cst.AssignTarget(output_var_name)], cst.Call(func_name, args + kwargs)),
+            ]
         )
-
-        data_out_id: str = self.data_out[0].id
-
-        return [
-            *self.debug_stmts(),
-            *(
-                [
-                    f"{self.get_output_variable(data_out_id)} = call_function_safe('{module_name}', '{self.function_identifier}', {function_args_str})"
-                ]
-                if is_user_provided_file
-                else [
-                    # Import statement for the function
-                    f"from {module_name} import {self.function_identifier}",
-                    # Function invocation
-                    f"{self.get_output_variable(data_out_id)} = {self.function_identifier}({function_args_str})",
-                ]
-            ),
-        ]
 
 
 class LoopStep(Step):
