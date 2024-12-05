@@ -196,6 +196,11 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
 
         return subgraph_node_ids
 
+    def run_subgraph(self, subgraph_socket_id: str, graph: "ComputeGraph") -> Program:
+        return graph.run(
+            debug=self._debug, node_ids=self.get_subgraph_node_ids(subgraph_socket_id, graph)
+        )
+
     def debug_stmts(self) -> list[str]:
         return [f"# Step {self.id}: {self.type.value}"] if self._debug else []
 
@@ -499,29 +504,18 @@ class LoopStep(Step):
     def run(
         self, var_inputs: dict[SocketId, ProgramVariable], _, graph: ComputeGraph
     ) -> ProgramFragment:
-        predicate_node_ids: set[int] = self.get_subgraph_node_ids(self._pred_socket_id, graph)
-        has_predicate: bool = len(predicate_node_ids) > 0
-
-        pred_mod: Program | None = None
-        if has_predicate is False:
-            logger.warning(
-                f"[Step {self.id}] No predicate found for LoopStep. Loop will run indefinitely."
-            )
-        else:
-            pred_mod = graph.run(debug=self._debug, node_ids=predicate_node_ids)
-
-        guard = cst.If(
-            test=var_inputs[self._pred_socket_id], body=cst.SimpleStatementSuite([cst.Break()])
-        )
-
-        body_node_ids: set[int] = self.get_subgraph_node_ids(self._pred_socket_id, graph)
-        body_mod: Program = graph.run(debug=self._debug, node_ids=body_node_ids)
-
         return [
             cst.While(
                 test=cst.Name("True"),
                 body=cst.IndentedBlock(
-                    [*(pred_mod.body if pred_mod else []), guard, *body_mod.body]
+                    [
+                        *self.run_subgraph(self._pred_socket_id, graph).body,
+                        cst.If(
+                            test=var_inputs[self._pred_socket_id],
+                            body=cst.SimpleStatementSuite([cst.Break()]),
+                        ),
+                        *self.run_subgraph(self._body_socket_id, graph).body,
+                    ]
                 ),
             )
         ]
@@ -536,16 +530,16 @@ class IfElseStep(Step):
     required_control_io: ClassVar[tuple[Range, Range]] = ((1, 2), (2, 3))
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (0, 0))
 
-    def run(self, var_inputs: dict[SocketId, ProgramVariable], _, graph: ComputeGraph) -> Program:
-        def run_subgraph(subgraph_socket_id: str) -> Program:
-            subgraph_node_ids: set[int] = self.get_subgraph_node_ids(subgraph_socket_id, graph)
-            return graph.run(debug=self._debug, node_ids=subgraph_node_ids)
-
+    def run(
+        self, var_inputs: dict[SocketId, ProgramVariable], _, graph: ComputeGraph
+    ) -> ProgramFragment:
         return [
-            *self.debug_stmts(),
-            *run_subgraph(self._pred_socket_id),
-            f"if {var_inputs[self._pred_socket_id]}:",
-            run_subgraph(self._if_socket_id),
-            "else:",
-            run_subgraph(self._else_socket_id),
+            *self.run_subgraph(self._pred_socket_id, graph).body,
+            cst.If(
+                test=var_inputs[self._pred_socket_id],
+                body=cst.IndentedBlock([*self.run_subgraph(self._if_socket_id, graph).body]),
+                orelse=cst.Else(
+                    cst.IndentedBlock([*self.run_subgraph(self._else_socket_id, graph).body])
+                ),
+            ),
         ]
