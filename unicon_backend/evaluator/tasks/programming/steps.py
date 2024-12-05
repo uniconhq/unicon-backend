@@ -354,7 +354,7 @@ class OutputStep(Step):
         )
 
         return [
-            cst.parse_statement("import json"),
+            cst.Import([cst.ImportAlias(name=cst.Name("json"))]),
             cst.Expr(
                 cst.Call(
                     func=cst.Name("print"),
