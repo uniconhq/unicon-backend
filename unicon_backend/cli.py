@@ -2,6 +2,7 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from rich.syntax import Syntax
 from rich.table import Table
 
 from unicon_backend.evaluator.contest import Definition, ProgrammingTask
@@ -31,7 +32,13 @@ def assemble(defn_file: Annotated[typer.FileText, typer.Option("--defn", mode="r
         user_input_step = task.create_input_step(task.required_inputs)
         for testcase in task.testcases:
             assembled_prog = testcase.run(user_input_step)
-            table.add_row(str(testcase.id), assembled_prog.code)
+            syntax_highlighted_code = Syntax(
+                assembled_prog.code,
+                "python",
+                theme="material",
+                word_wrap=True,
+            )
+            table.add_row(str(testcase.id), syntax_highlighted_code)
 
         rich_console.print(table)
 
