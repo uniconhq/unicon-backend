@@ -392,7 +392,7 @@ class PyRunFunctionStep(Step):
     - DATA.IN.FILE: For the `File` object that contains the Python function
     """
 
-    required_data_io: ClassVar[tuple[Range, Range]] = ((0, -1), (1, 1))
+    required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (1, 1))
 
     _data_in_file_id: ClassVar[str] = "DATA.IN.FILE"
 
