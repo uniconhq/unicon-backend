@@ -58,16 +58,13 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
             type=StepType.INPUT,
         )
 
-    def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[SubmissionId]:
-        # Check if all required inputs are provided
-        for required_input in self.required_inputs:
-            if not any(required_input.id == user_input.id for user_input in user_inputs):
-                raise ValueError(f"Required input {required_input.id} not provided")
-
-        # Transform user input into InputStep
-        # This is so that we simply treat it as a node in the graph
-        # NOTE: We assume that the id of user inputs is always 0
-        user_input_step: InputStep = InputStep(
+    def create_input_step(self, user_inputs: list[RequiredInput]) -> InputStep:
+        """
+        Transform user input into InputStep
+        This is so that we simply treat it as a node in the graph
+        NOTE: We assume that the id of user inputs is always 0
+        """
+        return InputStep(
             id=USER_INPUT_STEP_ID,
             inputs=[],
             outputs=[
@@ -77,13 +74,19 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
             type=StepType.INPUT,
         )
 
+    def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[SubmissionId]:
+        # Check if all required inputs are provided
+        for required_input in self.required_inputs:
+            if not any(required_input.id == user_input.id for user_input in user_inputs):
+                raise ValueError(f"Required input {required_input.id} not provided")
+
         user_input_files: list[File] = [
             user_input.data for user_input in user_inputs if isinstance(user_input.data, File)
         ]
 
         runner_packages: list[RunnerPackage] = []
         for testcase in self.testcases:
-            assembled_program = mpi_sandbox(testcase.run(user_input_step))
+            assembled_program = mpi_sandbox(testcase.run(self.create_input_step(user_inputs)))
 
             logger.debug(f"Assembled Program:\n{assembled_program}")
 
