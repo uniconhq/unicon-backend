@@ -69,8 +69,7 @@ class TaskORM(SQLModel, table=True):
     problem_id: int = Field(foreign_key="problem.id")
 
     problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="tasks")
-
-    # task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task")
+    task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(back_populates="task")
 
     @classmethod
     def from_task(cls, task: "Task") -> "TaskORM":
@@ -99,15 +98,27 @@ class SubmissionBase(SQLModel):
 
 
 class SubmissionORM(SubmissionBase, table=True):
-    # task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="submission")
-    pass
+    task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(back_populates="submission")
 
 
 class SubmissionPublic(SubmissionBase):
+    task_attempts: list["TaskAttemptPublic"]
+
+
+class TaskAttemptBase(SQLModel):
+    id: int
+    submission_id: int
+    task_id: int
+    task_type: TaskType
+    other_fields: dict
+
+
+class TaskAttemptPublic(TaskAttemptBase):
     task_results: list["TaskResult"]
+    task: "TaskORM"
 
 
-class TaskAttemptORM(SQLModel, table=True):
+class TaskAttemptORM(TaskAttemptBase, table=True):
     __tablename__ = "task_attempt"
 
     id: int = Field(primary_key=True)
@@ -118,6 +129,10 @@ class TaskAttemptORM(SQLModel, table=True):
 
     # TODO: figure out polymorphism to stop abusing JSONB
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
+
+    submission: sa_orm.Mapped[SubmissionORM] = Relationship(back_populates="task_attempts")
+    task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_attempts")
+    task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task_attempt")
 
 
 class TaskResultBase(SQLModel):
@@ -147,15 +162,13 @@ class TaskResultBase(SQLModel):
 
 
 class TaskResultPublic(TaskResultBase):
-    # task: "TaskORM"
     pass
 
 
 class TaskResultORM(TaskResultBase, table=True):
     __tablename__ = "task_result"
 
-    # task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_results")
-    pass
+    task_attempt: sa_orm.Mapped[TaskAttemptORM] = Relationship(back_populates="task_results")
 
 
 """
@@ -190,7 +203,7 @@ class MultipleResponseTaskResult(TaskResultPublic):
 
 
 class ProgrammingTaskResult(TaskResultPublic):
-    result: list[dict]  # TODO: handle this one properly
+    result: list[dict] | None  # TODO: handle this one properly
 
     @model_validator(mode="after")
     def validate_task_type(self) -> Self:

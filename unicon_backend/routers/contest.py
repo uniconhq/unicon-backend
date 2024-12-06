@@ -18,7 +18,8 @@ from unicon_backend.models import (
     SubmissionStatus,
     TaskResultORM,
 )
-from unicon_backend.models.contest import SubmissionPublic, TaskType
+from unicon_backend.models.contest import SubmissionPublic, TaskAttemptORM, TaskType
+from unicon_backend.models.user import UserORM
 
 router = APIRouter(prefix="/contests", tags=["contest"], dependencies=[Depends(get_current_user)])
 
@@ -107,6 +108,7 @@ def submit_contest_submission(
     id: int,
     submission: ContestSubmission,
     db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
     task_id: int | None = None,
 ) -> SubmissionORM:
     definition_orm = db_session.scalar(
@@ -139,26 +141,40 @@ def submit_contest_submission(
         task_result.status == TaskEvalStatus.PENDING for task_result in task_results
     )
 
+    user_input_index: dict[int, UserInput] = {
+        user_input.task_id: user_input for user_input in submission.user_inputs
+    }
+
+    task_attempts = [
+        TaskAttemptORM(
+            task_id=task_result.task_id,
+            task_type=definition.tasks[task_result.task_id].type,
+            other_fields=user_input_index.get(task_result.task_id).model_dump(),
+            task_results=[
+                TaskResultORM(
+                    completed_at=sa.func.now()
+                    if task_result.status != TaskEvalStatus.PENDING
+                    else None,
+                    job_id=task_result.result
+                    if task_result.status == TaskEvalStatus.PENDING
+                    else None,
+                    status=task_result.status,
+                    result=task_result.result.model_dump(mode="json")
+                    if task_result.status != TaskEvalStatus.PENDING and task_result.result
+                    else None,
+                    error=task_result.error,
+                    task_type=definition.tasks[task_result.task_id].type,
+                )
+            ],
+        )
+        for task_result in task_results
+    ]
+
     submission_orm = SubmissionORM(
-        definition_id=id,
+        user_id=user.id,
+        problem_id=id,
         status=SubmissionStatus.Pending if has_pending_tasks else SubmissionStatus.Ok,
-        task_results=[
-            TaskResultORM(
-                definition_id=id,
-                task_id=task_result.task_id,
-                completed_at=sa.func.now()
-                if task_result.status != TaskEvalStatus.PENDING
-                else None,
-                job_id=task_result.result if task_result.status == TaskEvalStatus.PENDING else None,
-                status=task_result.status,
-                result=task_result.result.model_dump(mode="json")
-                if task_result.status != TaskEvalStatus.PENDING and task_result.result
-                else None,
-                error=task_result.error,
-                task_type=definition.tasks[task_result.task_id].type,
-            )
-            for task_result in task_results
-        ],
+        task_attempts=task_attempts,
         other_fields={},
     )
 
@@ -182,17 +198,24 @@ def get_submission(
     db_session: Annotated[Session, Depends(get_db_session)],
     task_id: int | None = None,
 ) -> SubmissionPublic:
+    # TODO: handle case with more than one task attempt for same task
     query = (
         select(SubmissionORM)
         .where(SubmissionORM.id == submission_id)
         .options(
             selectinload(
-                SubmissionORM.task_results.and_(TaskResultORM.task_id == task_id)  # type: ignore
+                SubmissionORM.task_attempts.and_(TaskAttemptORM.task_id == task_id)
                 if task_id
-                else SubmissionORM.task_results
-            ).selectinload(TaskResultORM.task)
+                else SubmissionORM.task_attempts
+            ).selectinload(TaskAttemptORM.task_results),
+            selectinload(
+                SubmissionORM.task_attempts.and_(TaskAttemptORM.task_id == task_id)
+                if task_id
+                else SubmissionORM.task_attempts
+            ).selectinload(TaskAttemptORM.task),
         )
     )
+
     submission = db_session.exec(query).first()
     if submission is None:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Submission not found")
