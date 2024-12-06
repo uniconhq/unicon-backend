@@ -49,16 +49,16 @@ class StepSocket(NodeSocket):
     """
     A socket that is used to connect steps to each other.
 
-    Socket ID Format: <TYPE>.<DIRECTION>.<NAME>.<INDEX>
+    Socket ID Format: <TYPE>.<NAME>.<INDEX>
     - <NAME>.<INDEX> is optional and is used to differentiate between multiple sockets of the same type
         - Collectively, <NAME>.<INDEX> is referred to as the "label"
 
     There can be 2 types of sockets:
 
     1. Control Sockets: Used to control the flow of the program
-        - e.g. CONTROL.IN.<NAME>.<INDEX>
+        - e.g. CONTROL.<NAME>.<INDEX>
     2. Data Sockets: Used to pass data between steps
-        - e.g. DATA.OUT.<NAME>.<INDEX>
+        - e.g. DATA.<NAME>.<INDEX>
     """
 
     # The data that the socket holds
@@ -67,10 +67,6 @@ class StepSocket(NodeSocket):
     @cached_property
     def type(self) -> str:
         return self.id.split(".")[0]
-
-    @cached_property
-    def direction(self) -> str:
-        return self.id.split(".")[1]
 
     @cached_property
     def label(self) -> str:
@@ -112,11 +108,9 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
                     return False
 
         is_data_socket: Callable[[StepSocket], bool] = lambda socket: socket.type == "DATA"
-        is_in_socket: Callable[[StepSocket], bool] = lambda socket: socket.direction == "IN"
 
-        data_io, control_io = partition(is_data_socket, self.inputs + self.outputs)
-        num_data_in, num_data_out = list(map(len, partition(is_in_socket, data_io)))
-        num_control_in, num_control_out = list(map(len, partition(is_in_socket, control_io)))
+        num_data_in, num_control_in = list(map(len, partition(is_data_socket, self.inputs)))
+        num_data_out, num_control_out = list(map(len, partition(is_data_socket, self.outputs)))
 
         for got, expected, label in zip(
             (num_data_in, num_data_out, num_control_in, num_control_out),
@@ -131,31 +125,19 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
 
     @cached_property
     def control_in(self) -> Sequence[StepSocket]:
-        return [
-            socket
-            for socket in self.inputs
-            if socket.type == "CONTROL" and socket.direction == "IN"
-        ]
+        return [socket for socket in self.inputs if socket.type == "CONTROL"]
 
     @cached_property
     def control_out(self) -> Sequence[StepSocket]:
-        return [
-            socket
-            for socket in self.outputs
-            if socket.type == "CONTROL" and socket.direction == "OUT"
-        ]
+        return [socket for socket in self.outputs if socket.type == "CONTROL"]
 
     @cached_property
     def data_in(self) -> Sequence[StepSocket]:
-        return [
-            socket for socket in self.inputs if socket.type == "DATA" and socket.direction == "IN"
-        ]
+        return [socket for socket in self.inputs if socket.type == "DATA"]
 
     @cached_property
     def data_out(self) -> Sequence[StepSocket]:
-        return [
-            socket for socket in self.outputs if socket.type == "DATA" and socket.direction == "OUT"
-        ]
+        return [socket for socket in self.outputs if socket.type == "DATA"]
 
     def get_subgraph_node_ids(self, subgraph_socket_id: str, graph: "ComputeGraph") -> set[int]:
         subgraph_socket: StepSocket | None = self.get_socket(subgraph_socket_id)
