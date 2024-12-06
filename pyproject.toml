@@ -38,3 +38,8 @@ dev-dependencies = [
 [tool.ruff]
 line-length = 100
 lint.select = ["I", "F", "UP", "B", "SIM", "TCH"]
+
+[dependency-groups]
+cli = [
+    "typer>=0.15.1",
+]
