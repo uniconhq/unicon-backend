@@ -29,6 +29,21 @@ type ProgramFragment = Sequence[
 Program = cst.Module
 
 
+def assemble_fragment(
+    fragment: ProgramFragment,
+) -> Sequence[cst.SimpleStatementLine | cst.BaseCompoundStatement]:
+    """
+    Assemble a program fragement into a list of `cst.Module` statements.
+
+    We allow for `cst.BaseSmallStatement` to be included in the fragment for convenience during assembly,
+    however they are not valid statements in a `cst.Module`. As such, we convert them to `cst.SimpleStatementLine`.
+    """
+    return [
+        cst.SimpleStatementLine([stmt]) if isinstance(stmt, cst.BaseSmallStatement) else stmt
+        for stmt in fragment
+    ]
+
+
 class StepType(str, Enum):
     PY_RUN_FUNCTION = "PY_RUN_FUNCTION_STEP"
     OBJECT_ACCESS = "OBJECT_ACCESS_STEP"
@@ -297,7 +312,7 @@ class ComputeGraph(Graph[Step]):
                         )
 
             node._debug = debug
-            program.body.extend(node.run(input_variables, file_inputs, self))  # type: ignore
+            program.body.extend(assemble_fragment(node.run(input_variables, file_inputs, self)))  # type: ignore
 
         return program
 
