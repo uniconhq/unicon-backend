@@ -38,7 +38,7 @@ async def get_current_user(
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[AUTH_ALGORITHM])
-        id = payload.get("sub")
+        id = int(payload.get("sub"))
         if (user := db_session.get(UserORM, id)) is None:
             raise InvalidTokenError()
         return user
