@@ -1,4 +1,4 @@
-from unicon_backend.models.contest import ProblemORM
+from unicon_backend.models.contest import ProblemBase
 from unicon_backend.models.organisation import (
     InvitationKeyBase,
     OrganisationBase,
@@ -37,7 +37,7 @@ class ProjectPublic(ProjectBase):
 
 
 class ProjectPublicWithProblems(ProjectPublic):
-    problems: list[ProblemORM]
+    problems: list[ProblemBase]
 
 
 class RolePublic(RoleBase):

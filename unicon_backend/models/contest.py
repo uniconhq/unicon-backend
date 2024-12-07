@@ -33,6 +33,13 @@ class SubmissionStatus(str, Enum):
     Ok = "OK"
 
 
+class ProblemBase(SQLModel):
+    id: int
+    name: str
+    description: str
+    project_id: int
+
+
 class ProblemORM(SQLModel, table=True):
     __tablename__ = "problem"
 
@@ -119,11 +126,14 @@ class TaskAttemptPublic(TaskAttemptBase):
 
 
 class TaskAttemptORM(SQLModel, table=True):
+    class Config:
+        arbitrary_types_allowed = True
+
     __tablename__ = "task_attempt"
 
     id: int = Field(primary_key=True)
     submission_id: int = Field(foreign_key="submission.id")
-    task_id: sa_orm.Mapped[int] = Field(foreign_key="task.id")
+    task_id: int = Field(foreign_key="task.id")
 
     task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 

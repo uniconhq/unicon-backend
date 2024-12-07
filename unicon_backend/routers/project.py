@@ -4,7 +4,7 @@ from typing import Annotated
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, and_, select
+from sqlmodel import Session, and_, col, select
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
@@ -38,7 +38,7 @@ def get_all_projects(
         .join(UserRole)
         .where(UserRole.user_id == user.id)
         .where(UserRole.role_id == Role.id)
-        .options(selectinload(Project.roles.and_(Role.users.any(UserORM.id == user.id))))
+        .options(selectinload(Project.roles.and_(Role.users.any(col(UserORM.id) == user.id))))
     ).all()
 
     return projects
@@ -99,7 +99,7 @@ def get_project_users(
         .join(Role)
         .join(Project)
         .where(Project.id == id)
-        .options(selectinload(UserORM.roles.and_(Role.project_id == id)))
+        .options(selectinload(UserORM.roles.and_(col(Role.project_id) == id)))
     ).all()
 
     return users
@@ -154,7 +154,7 @@ def join_project(
     project_role_ids = [role.id for role in role.project.roles]
     user_role = db_session.exec(
         select(UserRole).where(
-            and_(UserRole.user_id == user.id, UserRole.role_id.in_(project_role_ids))
+            and_(UserRole.user_id == user.id, col(UserRole.role_id).in_(project_role_ids))
         )
     ).first()
 

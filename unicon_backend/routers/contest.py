@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Annotated
 
@@ -6,7 +5,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
@@ -27,10 +26,10 @@ if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
 
 
-@router.get("/definitions", summary="Get all contest definitions")
+@router.get("/definitions", summary="Get all contest definitions", response_model=list[ProblemORM])
 def get_definitions(
     db_session: Annotated[Session, Depends(get_db_session)],
-) -> Sequence[ProblemORM]:
+):
     return db_session.exec(select(ProblemORM)).all()
 
 
@@ -71,10 +70,10 @@ def get_definition(
     return definition
 
 
-@router.patch("/definitions/{id}", summary="Update a contest definition")
+@router.patch("/definitions/{id}", summary="Update a contest definition", response_model=Definition)
 def update_definition(
     id: int, definition: Definition, db_session: Annotated[Session, Depends(get_db_session)]
-) -> ProblemORM:
+):
     definition_orm = db_session.scalar(
         select(ProblemORM).where(ProblemORM.id == id).options(selectinload(ProblemORM.tasks))
     )
@@ -185,10 +184,10 @@ def submit_contest_submission(
     return submission_orm
 
 
-@router.get("/submissions", summary="Get all submissions")
+@router.get("/submissions", summary="Get all submissions", response_model=list[SubmissionPublic])
 def get_submissions(
     db_session: Annotated[Session, Depends(get_db_session)],
-) -> Sequence[SubmissionORM]:
+):
     return db_session.exec(select(SubmissionORM)).all()
 
 
@@ -204,12 +203,12 @@ def get_submission(
         .where(SubmissionORM.id == submission_id)
         .options(
             selectinload(
-                SubmissionORM.task_attempts.and_(TaskAttemptORM.task_id == task_id)
+                SubmissionORM.task_attempts.and_(col(TaskAttemptORM.task_id) == task_id)
                 if task_id
                 else SubmissionORM.task_attempts
             ).selectinload(TaskAttemptORM.task_results),
             selectinload(
-                SubmissionORM.task_attempts.and_(TaskAttemptORM.task_id == task_id)
+                SubmissionORM.task_attempts.and_(col(TaskAttemptORM.task_id) == task_id)
                 if task_id
                 else SubmissionORM.task_attempts
             ).selectinload(TaskAttemptORM.task),

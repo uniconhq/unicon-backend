@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 class UserORM(SQLModel, table=True):
     __tablename__ = "user"
 
-    id: sa_orm.Mapped[int] = Field(primary_key=True)
+    id: int = Field(primary_key=True)
     username: str
     password: str
 

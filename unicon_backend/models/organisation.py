@@ -41,7 +41,7 @@ class RoleBase(SQLModel):
 
 class Role(RoleBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    project_id: sa_orm.Mapped[int] = Field(foreign_key="project.id")
+    project_id: int = Field(foreign_key="project.id")
 
     project: sa_orm.Mapped[Project] = Relationship(back_populates="roles")
     invitation_keys: sa_orm.Mapped[list["InvitationKey"]] = Relationship(back_populates="role")
