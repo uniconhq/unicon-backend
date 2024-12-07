@@ -14,7 +14,7 @@ import sqlmodel
 from alembic import op
 from sqlalchemy import orm
 
-from unicon_backend.dependencies import AUTH_PWD_CONTEXT
+from unicon_backend.dependencies.auth import AUTH_PWD_CONTEXT
 from unicon_backend.models import UserORM
 
 # revision identifiers, used by Alembic.

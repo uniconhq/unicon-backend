@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 from sqlmodel import Session
 
 from unicon_backend.constants import SECRET_KEY
-from unicon_backend.database import SessionLocal
+from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.models import UserORM
 
 AUTH_ALGORITHM = "HS256"
@@ -26,11 +26,6 @@ class OAuth2IgnoreError(OAuth2PasswordBearer):
 
 
 OAUTH2_SCHEME = OAuth2IgnoreError(tokenUrl="/auth/token")
-
-
-def get_db_session():
-    with SessionLocal() as session:
-        yield session
 
 
 async def get_current_user(

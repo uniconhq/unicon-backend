@@ -6,11 +6,12 @@ import sqlalchemy as sa
 import sqlalchemy.dialects.postgresql as pg
 import sqlalchemy.orm as sa_orm
 from pydantic import model_validator
-from sqlmodel import Field, ForeignKeyConstraint, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.contest import Definition
     from unicon_backend.evaluator.tasks.base import Task
+    from unicon_backend.models.organisation import Project
 
 
 class TaskType(str, Enum):
@@ -32,14 +33,24 @@ class SubmissionStatus(str, Enum):
     Ok = "OK"
 
 
-class DefinitionORM(SQLModel, table=True):
-    __tablename__ = "definition"
+class ProblemBase(SQLModel):
+    id: int
+    name: str
+    description: str
+    project_id: int
+
+
+class ProblemORM(SQLModel, table=True):
+    __tablename__ = "problem"
 
     id: int = Field(primary_key=True)
     name: str
     description: str
 
-    tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(back_populates="definition")
+    project_id: int = Field(foreign_key="project.id")
+
+    tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(back_populates="problem")
+    project: sa_orm.Mapped["Project"] = Relationship(back_populates="problems")
 
     def update(self, definition: "Definition") -> None:
         self.name = definition.name
@@ -50,7 +61,7 @@ class DefinitionORM(SQLModel, table=True):
         self.tasks.extend([TaskORM.from_task(task) for task in definition.tasks])
 
     @classmethod
-    def from_definition(cls, definition: "Definition") -> "DefinitionORM":
+    def from_definition(cls, definition: "Definition") -> "ProblemORM":
         tasks_orm: list[TaskORM] = [TaskORM.from_task(task) for task in definition.tasks]
         return cls(name=definition.name, description=definition.description, tasks=tasks_orm)
 
@@ -62,11 +73,10 @@ class TaskORM(SQLModel, table=True):
     type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
     autograde: bool
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
-    definition_id: int = Field(foreign_key="definition.id", primary_key=True)
+    problem_id: int = Field(foreign_key="problem.id")
 
-    definition: sa_orm.Mapped[DefinitionORM] = Relationship(back_populates="tasks")
-
-    task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task")
+    problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="tasks")
+    task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(back_populates="task")
 
     @classmethod
     def from_task(cls, task: "Task") -> "TaskORM":
@@ -80,7 +90,9 @@ class SubmissionBase(SQLModel):
     __tablename__ = "submission"
 
     id: int = Field(primary_key=True)
-    definition_id: int = Field(foreign_key="definition.id")
+    problem_id: int = Field(foreign_key="problem.id")
+    user_id: int = Field(foreign_key="user.id")
+
     status: SubmissionStatus = Field(sa_column=sa.Column(pg.ENUM(SubmissionStatus), nullable=False))
     submitted_at: datetime = Field(
         sa_column=sa.Column(
@@ -93,19 +105,52 @@ class SubmissionBase(SQLModel):
 
 
 class SubmissionORM(SubmissionBase, table=True):
-    task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="submission")
+    task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(back_populates="submission")
 
 
 class SubmissionPublic(SubmissionBase):
+    task_attempts: list["TaskAttemptPublic"]
+
+
+class TaskAttemptBase(SQLModel):
+    id: int
+    submission_id: int
+    task_id: int
+    task_type: TaskType
+    other_fields: dict
+
+
+class TaskAttemptPublic(TaskAttemptBase):
     task_results: list["TaskResult"]
+    task: "TaskORM"
+
+
+class TaskAttemptORM(SQLModel, table=True):
+    class Config:
+        arbitrary_types_allowed = True
+
+    __tablename__ = "task_attempt"
+
+    id: int = Field(primary_key=True)
+    submission_id: int = Field(foreign_key="submission.id")
+    task_id: int = Field(foreign_key="task.id")
+
+    task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
+
+    # TODO: figure out polymorphism to stop abusing JSONB
+    other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
+
+    submission: sa_orm.Mapped[SubmissionORM] = Relationship(back_populates="task_attempts")
+    task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_attempts")
+    task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task_attempt")
 
 
 class TaskResultBase(SQLModel):
-    id: int = Field(primary_key=True)
-    submission_id: int = Field(foreign_key="submission.id")
-    definition_id: int  # TODO: we dont need this field
+    __tablename__ = "task_result"
 
-    task_id: int
+    id: int = Field(primary_key=True)
+
+    task_attempt_id: int = Field(foreign_key="task_attempt.id")
     task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 
     started_at: datetime = Field(
@@ -127,7 +172,18 @@ class TaskResultBase(SQLModel):
 
 
 class TaskResultPublic(TaskResultBase):
-    task: "TaskORM"
+    pass
+
+
+class TaskResultORM(TaskResultBase, table=True):
+    __tablename__ = "task_result"
+
+    task_attempt: sa_orm.Mapped[TaskAttemptORM] = Relationship(back_populates="task_results")
+
+
+"""
+Below classes are for parsing/validating task results with pydantic
+"""
 
 
 class MultipleChoiceTaskResult(TaskResultPublic):
@@ -157,7 +213,7 @@ class MultipleResponseTaskResult(TaskResultPublic):
 
 
 class ProgrammingTaskResult(TaskResultPublic):
-    result: list[dict]  # TODO: handle this one properly
+    result: list[dict] | None  # TODO: handle this one properly
 
     @model_validator(mode="after")
     def validate_task_type(self) -> Self:
@@ -182,13 +238,3 @@ type TaskResult = (
     | ProgrammingTaskResult
     | ShortAnswerTaskResult
 )
-
-
-class TaskResultORM(TaskResultBase, table=True):
-    __tablename__ = "task_result"
-    __table_args__ = (
-        ForeignKeyConstraint(["definition_id", "task_id"], ["task.definition_id", "task.id"]),
-    )
-
-    submission: sa_orm.Mapped[SubmissionORM] = Relationship(back_populates="task_results")
-    task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_results")
