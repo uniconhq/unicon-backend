@@ -25,7 +25,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def create_token(user: UserORM, response: Response):
     user_public = UserPublic.model_validate(user)
     access_token: str = jwt.encode(
-        {"sub": user.id, "exp": datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)},
+        {
+            "sub": str(user.id),
+            "exp": datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        },
         SECRET_KEY,
         algorithm=AUTH_ALGORITHM,
     )
