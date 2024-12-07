@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, col, select
+from sqlmodel import Session, select
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
@@ -48,7 +48,7 @@ def get_project_by_id(
         .where(UserRole.user_id == user.id)
         .where(Project.id == id)
         .options(
-            selectinload(col(Project.roles).and_(col(Role.users).contains(user))).selectinload(
+            selectinload(Project.roles.and_(Role.users.contains(user))).selectinload(
                 Role.invitation_keys
             )
         )

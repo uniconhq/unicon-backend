@@ -1,6 +1,7 @@
 import uuid
 from typing import TYPE_CHECKING
 
+import sqlalchemy.orm as sa_orm
 from sqlmodel import Field, Relationship, SQLModel
 
 from unicon_backend.models.links import UserRole
@@ -18,7 +19,7 @@ class OrganisationBase(SQLModel):
 class Organisation(OrganisationBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     owner_id: int | None = Field(foreign_key="user.id", nullable=False)
-    projects: list["Project"] = Relationship(back_populates="organisation")
+    projects: sa_orm.Mapped[list["Project"]] = Relationship(back_populates="organisation")
 
 
 class ProjectBase(SQLModel):
@@ -29,9 +30,9 @@ class Project(ProjectBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     organisation_id: int | None = Field(foreign_key="organisation.id", nullable=False)
 
-    organisation: Organisation = Relationship(back_populates="projects")
-    roles: list["Role"] = Relationship(back_populates="project")
-    problems: list["ProblemORM"] = Relationship(back_populates="project")
+    organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="projects")
+    roles: sa_orm.Mapped[list["Role"]] = Relationship(back_populates="project")
+    problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(back_populates="project")
 
 
 class RoleBase(SQLModel):
@@ -40,12 +41,14 @@ class RoleBase(SQLModel):
 
 class Role(RoleBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id")
+    project_id: sa_orm.Mapped[int] = Field(foreign_key="project.id")
 
-    project: Project = Relationship(back_populates="roles")
-    invitation_keys: list["InvitationKey"] = Relationship(back_populates="role")
+    project: sa_orm.Mapped[Project] = Relationship(back_populates="roles")
+    invitation_keys: sa_orm.Mapped[list["InvitationKey"]] = Relationship(back_populates="role")
 
-    users: list["UserORM"] = Relationship(back_populates="roles", link_model=UserRole)
+    users: sa_orm.Mapped[list["UserORM"]] = Relationship(
+        back_populates="roles", link_model=UserRole
+    )
 
 
 class InvitationKeyBase(SQLModel):
@@ -57,4 +60,4 @@ class InvitationKey(InvitationKeyBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     role_id: int = Field(foreign_key="role.id")
 
-    role: Role = Relationship(back_populates="invitation_keys")
+    role: sa_orm.Mapped[Role] = Relationship(back_populates="invitation_keys")

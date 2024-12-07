@@ -97,7 +97,7 @@ def delete_invitation_key(
     user: Annotated[UserORM, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_db_session)],
 ):
-    role: Role = db_session.exec(
+    role: Role | None = db_session.exec(
         select(Role)
         .where(Role.id == id)
         .options(

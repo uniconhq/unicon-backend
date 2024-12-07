@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Optional, Self
+from typing import TYPE_CHECKING, Any, Self
 
 import sqlalchemy as sa
 import sqlalchemy.dialects.postgresql as pg
@@ -43,7 +43,7 @@ class ProblemORM(SQLModel, table=True):
     project_id: int = Field(foreign_key="project.id")
 
     tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(back_populates="problem")
-    project: Optional["Project"] = Relationship(back_populates="problems")
+    project: sa_orm.Mapped["Project"] = Relationship(back_populates="problems")
 
     def update(self, definition: "Definition") -> None:
         self.name = definition.name
@@ -118,12 +118,12 @@ class TaskAttemptPublic(TaskAttemptBase):
     task: "TaskORM"
 
 
-class TaskAttemptORM(TaskAttemptBase, table=True):
+class TaskAttemptORM(SQLModel, table=True):
     __tablename__ = "task_attempt"
 
     id: int = Field(primary_key=True)
     submission_id: int = Field(foreign_key="submission.id")
-    task_id: int = Field(foreign_key="task.id")
+    task_id: sa_orm.Mapped[int] = Field(foreign_key="task.id")
 
     task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 
