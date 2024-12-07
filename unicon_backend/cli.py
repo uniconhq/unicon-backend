@@ -33,10 +33,7 @@ def assemble(defn_file: Annotated[typer.FileText, typer.Option("--defn", mode="r
         for testcase in task.testcases:
             assembled_prog = testcase.run(user_input_step)
             syntax_highlighted_code = Syntax(
-                assembled_prog.code,
-                "python",
-                theme="material",
-                word_wrap=True,
+                assembled_prog.code, "python", theme="material", line_numbers=True, word_wrap=True
             )
             table.add_row(str(testcase.id), syntax_highlighted_code)
 
