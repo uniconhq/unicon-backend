@@ -70,10 +70,12 @@ class TaskORM(SQLModel, table=True):
     __tablename__ = "task"
 
     id: int = Field(primary_key=True)
+
     type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
     autograde: bool
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
-    problem_id: int = Field(foreign_key="problem.id")
+
+    problem_id: int = Field(foreign_key="problem.id", primary_key=True)
 
     problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="tasks")
     task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(back_populates="task")
@@ -126,14 +128,18 @@ class TaskAttemptPublic(TaskAttemptBase):
 
 
 class TaskAttemptORM(SQLModel, table=True):
-    class Config:
-        arbitrary_types_allowed = True
-
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["id", "problem_id"],
+            ["task.id", "task.problem_id"],
+        ),
+    )
     __tablename__ = "task_attempt"
 
     id: int = Field(primary_key=True)
     submission_id: int = Field(foreign_key="submission.id")
-    task_id: int = Field(foreign_key="task.id")
+    task_id: int
+    problem_id: int
 
     task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 
