@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 from logging import getLogger
 from typing import Any, Literal
 
@@ -12,11 +11,10 @@ from unicon_backend.evaluator.tasks.programming.runner import (
     RunnerRequest,
     SubmissionId,
 )
-from unicon_backend.evaluator.tasks.programming.security import TEMPLATE
+from unicon_backend.evaluator.tasks.programming.security import mpi_sandbox
 from unicon_backend.evaluator.tasks.programming.steps import (
     ComputeGraph,
     InputStep,
-    Program,
     StepSocket,
     StepType,
 )
@@ -25,18 +23,6 @@ from unicon_backend.workers import task_publisher
 logger = getLogger(__name__)
 
 USER_INPUT_STEP_ID: int = 0
-
-
-def assemble_program(program: Program, indent_symbol: str = " " * 2) -> str:
-    def flatten(xs, indent: int):
-        for x in xs:
-            if isinstance(x, Iterable) and not isinstance(x, str):
-                yield from flatten(x, indent + 1)
-            else:
-                yield f"{indent_symbol * indent}{x}"
-
-    # NOTE: We set indent level to 1 to match the indentation of the template
-    return TEMPLATE.format("\n".join(flatten(program, indent=1)))
 
 
 class Testcase(ComputeGraph):
@@ -72,16 +58,13 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
             type=StepType.INPUT,
         )
 
-    def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[SubmissionId]:
-        # Check if all required inputs are provided
-        for required_input in self.required_inputs:
-            if not any(required_input.id == user_input.id for user_input in user_inputs):
-                raise ValueError(f"Required input {required_input.id} not provided")
-
-        # Transform user input into InputStep
-        # This is so that we simply treat it as a node in the graph
-        # NOTE: We assume that the id of user inputs is always 0
-        user_input_step: InputStep = InputStep(
+    def create_input_step(self, user_inputs: list[RequiredInput]) -> InputStep:
+        """
+        Transform user input into InputStep
+        This is so that we simply treat it as a node in the graph
+        NOTE: We assume that the id of user inputs is always 0
+        """
+        return InputStep(
             id=USER_INPUT_STEP_ID,
             inputs=[],
             outputs=[
@@ -91,13 +74,19 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
             type=StepType.INPUT,
         )
 
+    def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[SubmissionId]:
+        # Check if all required inputs are provided
+        for required_input in self.required_inputs:
+            if not any(required_input.id == user_input.id for user_input in user_inputs):
+                raise ValueError(f"Required input {required_input.id} not provided")
+
         user_input_files: list[File] = [
             user_input.data for user_input in user_inputs if isinstance(user_input.data, File)
         ]
 
         runner_packages: list[RunnerPackage] = []
         for testcase in self.testcases:
-            assembled_program = assemble_program(testcase.run(user_input_step))
+            assembled_program = mpi_sandbox(testcase.run(self.create_input_step(user_inputs)))
 
             logger.debug(f"Assembled Program:\n{assembled_program}")
 
@@ -115,7 +104,7 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
                 files=[
                     *user_input_files,
                     *graph_files,
-                    File(file_name="__entrypoint.py", content=assembled_program),
+                    File(file_name="__entrypoint.py", content=assembled_program.code),
                 ],
             )
             runner_packages.append(runner_package)
