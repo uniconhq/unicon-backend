@@ -149,7 +149,7 @@ def submit_contest_submission(
         TaskAttemptORM(
             task_id=task_result.task_id,
             task_type=definition.tasks[task_result.task_id].type,
-            other_fields=user_input_index.get(task_result.task_id).model_dump(),
+            other_fields=user_input_index[task_result.task_id].model_dump(),
             task_results=[
                 TaskResultORM(
                     completed_at=sa.func.now()

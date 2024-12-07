@@ -42,6 +42,7 @@ class ProjectPublicWithProblems(ProjectPublic):
 
 class RolePublic(RoleBase):
     id: int
+    project_id: int
 
 
 class RoleCreate(RoleBase):

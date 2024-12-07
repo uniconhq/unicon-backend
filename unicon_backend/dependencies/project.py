@@ -47,7 +47,11 @@ def get_project_by_id(
         .join(UserRole)
         .where(UserRole.user_id == user.id)
         .where(Project.id == id)
-        .options(selectinload(col(Project.roles).and_(col(Role.users).contains(user))))
+        .options(
+            selectinload(col(Project.roles).and_(col(Role.users).contains(user))).selectinload(
+                Role.invitation_keys
+            )
+        )
     ).first()
 
     if project is None:

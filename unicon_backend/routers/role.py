@@ -112,15 +112,8 @@ def delete_invitation_key(
     if role.project.organisation.owner_id != user.id:
         raise HTTPException(HTTPStatus.FORBIDDEN, "User is not the owner of the organisation")
 
-    enabled_keys: list[InvitationKey] = [
-        invitation_key for invitation_key in role.invitation_keys if invitation_key.enabled
-    ]
-    if not enabled_keys:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "Role does not have an active invitation key")
-
-    for invitation_key in enabled_keys:
-        invitation_key.enabled = False
-        db_session.add(invitation_key)
+    for invitation_key in role.invitation_keys:
+        db_session.delete(invitation_key)
 
     db_session.commit()
     return
