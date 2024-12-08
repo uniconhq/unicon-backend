@@ -481,7 +481,8 @@ class PyRunFunctionStep(Step):
         ][0].from_node_id == 0
 
         # NOTE: Assume that the program file is always a Python file
-        module_name = cst.Name(program_file.file_name.split(".py")[0])
+        module_name_str = program_file.file_name.split(".py")[0]
+        module_name = cst.Name(module_name_str)
 
         func_name = cst.Name(self.function_identifier)
         args = [cst.Arg(var_inputs[socket.id]) for socket in self.arg_sockets]
@@ -492,16 +493,61 @@ class PyRunFunctionStep(Step):
 
         output_var_name = self.get_output_variable(self.data_out[0].id)
 
-        return (
-            [
-                cst.Assign(
-                    [cst.AssignTarget(output_var_name)],
-                    cst.Call(
-                        cst.Name("call_function_safe"),
-                        [cst.Arg(module_name), cst.Arg(func_name), *args, *kwargs],
+        def redirect_stdout(program: ProgramFragment) -> ProgramFragment:
+            return [
+                cst.Import(names=[cst.ImportAlias(name=cst.Name("os"))]),
+                cst.ImportFrom(
+                    module=cst.Name("contextlib"),
+                    names=[cst.ImportAlias(name=cst.Name("redirect_stdout"))],
+                ),
+                cst.With(
+                    items=[
+                        cst.WithItem(
+                            cst.Call(
+                                cst.Name("open"),
+                                [
+                                    cst.Arg(cst.Attribute(cst.Name("os"), cst.Name("devnull"))),
+                                    cst.Arg(cst.SimpleString(repr("w"))),
+                                ],
+                            ),
+                            cst.AsName(cst.Name("f_null")),
+                        )
+                    ],
+                    body=cst.IndentedBlock(
+                        [
+                            cst.With(
+                                items=[
+                                    cst.WithItem(
+                                        cst.Call(
+                                            cst.Name("redirect_stdout"),
+                                            [cst.Arg(cst.Name("f_null"))],
+                                        ),
+                                    ),
+                                ],
+                                body=cst.IndentedBlock(body=program),
+                            )
+                        ]
                     ),
-                )
+                ),
             ]
+
+        return (
+            redirect_stdout(
+                [
+                    cst.Assign(
+                        [cst.AssignTarget(output_var_name)],
+                        cst.Call(
+                            cst.Name("call_function_safe"),
+                            [
+                                cst.Arg(cst.SimpleString(repr(module_name_str))),
+                                cst.Arg(cst.SimpleString(repr(self.function_identifier))),
+                                *args,
+                                *kwargs,
+                            ],
+                        ),
+                    )
+                ]
+            )
             if is_user_provided_file
             else [
                 cst.ImportFrom(module_name, [cst.ImportAlias(func_name)]),
