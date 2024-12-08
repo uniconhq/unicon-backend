@@ -482,7 +482,6 @@ class PyRunFunctionStep(Step):
 
         # NOTE: Assume that the program file is always a Python file
         module_name_str = program_file.file_name.split(".py")[0]
-        module_name = cst.Name(module_name_str)
 
         func_name = cst.Name(self.function_identifier)
         args = [cst.Arg(var_inputs[socket.id]) for socket in self.arg_sockets]
@@ -510,7 +509,7 @@ class PyRunFunctionStep(Step):
             ]
             if is_user_provided_file
             else [
-                cst.ImportFrom(module_name, [cst.ImportAlias(func_name)]),
+                cst.ImportFrom(cst.Name(module_name_str), [cst.ImportAlias(func_name)]),
                 cst.Assign([cst.AssignTarget(output_var_name)], cst.Call(func_name, args + kwargs)),
             ]
         )
