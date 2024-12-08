@@ -132,13 +132,14 @@ class TaskAttemptPublic(TaskAttemptBase):
 
 
 class TaskAttemptORM(SQLModel, table=True):
+    __tablename__ = "task_attempt"
     __table_args__ = (
         sa.ForeignKeyConstraint(
-            ["id", "problem_id"],
+            ["task_id", "problem_id"],
             ["task.id", "task.problem_id"],
+            name="task_attempt_task_id_problem_id_fkey",
         ),
     )
-    __tablename__ = "task_attempt"
 
     id: int = Field(primary_key=True)
     submission_id: int = Field(foreign_key="submission.id")
@@ -163,8 +164,8 @@ class TaskResultBase(SQLModel):
     task_attempt_id: int = Field(foreign_key="task_attempt.id")
     task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 
-    started_at: datetime = Field(_timestamp_column(nullable=False, default=True))
-    completed_at: datetime | None = Field(_timestamp_column(nullable=True, default=False))
+    started_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
+    completed_at: datetime | None = Field(sa_column=_timestamp_column(nullable=True, default=False))
 
     # NOTE: Unique identifier for a worker job that evaluates the task
     job_id: str | None = Field(nullable=True, unique=True)
