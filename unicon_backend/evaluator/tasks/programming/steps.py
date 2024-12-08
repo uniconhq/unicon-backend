@@ -481,7 +481,7 @@ class PyRunFunctionStep(Step):
         ][0].from_node_id == 0
 
         # NOTE: Assume that the program file is always a Python file
-        module_name = cst.Name(program_file.file_name.split(".py")[0])
+        module_name_str = program_file.file_name.split(".py")[0]
 
         func_name = cst.Name(self.function_identifier)
         args = [cst.Arg(var_inputs[socket.id]) for socket in self.arg_sockets]
@@ -498,13 +498,18 @@ class PyRunFunctionStep(Step):
                     [cst.AssignTarget(output_var_name)],
                     cst.Call(
                         cst.Name("call_function_safe"),
-                        [cst.Arg(module_name), cst.Arg(func_name), *args, *kwargs],
+                        [
+                            cst.Arg(cst.SimpleString(repr(module_name_str))),
+                            cst.Arg(cst.SimpleString(repr(self.function_identifier))),
+                            *args,
+                            *kwargs,
+                        ],
                     ),
                 )
             ]
             if is_user_provided_file
             else [
-                cst.ImportFrom(module_name, [cst.ImportAlias(func_name)]),
+                cst.ImportFrom(cst.Name(module_name_str), [cst.ImportAlias(func_name)]),
                 cst.Assign([cst.AssignTarget(output_var_name)], cst.Call(func_name, args + kwargs)),
             ]
         )
