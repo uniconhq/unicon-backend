@@ -3,6 +3,7 @@ import libcst as cst
 WORKER_TEMPLATE = cst.parse_module("""
 import os
 from contextlib import redirect_stdout
+
 def call_function_from_file(file_name, function_name, *args, **kwargs):
     with open(os.devnull, "w") as f:
         with redirect_stdout(f):  
