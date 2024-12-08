@@ -104,7 +104,8 @@ class SubmissionBase(SQLModel):
     user_id: int = Field(foreign_key="user.id")
 
     status: SubmissionStatus = Field(sa_column=sa.Column(pg.ENUM(SubmissionStatus), nullable=False))
-    submitted_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
+    started_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
+    submitted_at: datetime = Field(sa_column=_timestamp_column(nullable=True, default=False))
 
     # TODO: split this to one more table
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
@@ -146,6 +147,7 @@ class TaskAttemptORM(SQLModel, table=True):
     task_id: int
     problem_id: int
 
+    submitted_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
     task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 
     # TODO: figure out polymorphism to stop abusing JSONB
