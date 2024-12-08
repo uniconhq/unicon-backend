@@ -6,4 +6,4 @@ WORKDIR /unicon-backend
 # Install dependencies
 RUN uv sync --frozen --no-dev
 
-CMD ["uv", "run", "fastapi", "run", "unicon_backend/app.py", "--port", "9000"]
+ENTRYPOINT ["uv", "run", "fastapi", "run", "unicon_backend/app.py"]
