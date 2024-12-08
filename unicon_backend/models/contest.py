@@ -14,6 +14,14 @@ if TYPE_CHECKING:
     from unicon_backend.models.organisation import Project
 
 
+# Factory function for creating a timestamp column (with timezone)
+_timestamp_column = lambda nullable, default: sa.Column(
+    pg.TIMESTAMP(timezone=True),
+    nullable=nullable,
+    server_default=sa.func.now() if default else None,
+)
+
+
 class TaskType(str, Enum):
     MULTIPLE_CHOICE = "MULTIPLE_CHOICE_TASK"
     MULTIPLE_RESPONSE = "MULTIPLE_RESPONSE_TASK"
@@ -96,11 +104,8 @@ class SubmissionBase(SQLModel):
     user_id: int = Field(foreign_key="user.id")
 
     status: SubmissionStatus = Field(sa_column=sa.Column(pg.ENUM(SubmissionStatus), nullable=False))
-    submitted_at: datetime = Field(
-        sa_column=sa.Column(
-            pg.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now()
-        )
-    )
+    started_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
+    submitted_at: datetime = Field(sa_column=_timestamp_column(nullable=True, default=False))
 
     # TODO: split this to one more table
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
@@ -128,19 +133,21 @@ class TaskAttemptPublic(TaskAttemptBase):
 
 
 class TaskAttemptORM(SQLModel, table=True):
+    __tablename__ = "task_attempt"
     __table_args__ = (
         sa.ForeignKeyConstraint(
-            ["id", "problem_id"],
+            ["task_id", "problem_id"],
             ["task.id", "task.problem_id"],
+            name="task_attempt_task_id_problem_id_fkey",
         ),
     )
-    __tablename__ = "task_attempt"
 
     id: int = Field(primary_key=True)
     submission_id: int = Field(foreign_key="submission.id")
     task_id: int
     problem_id: int
 
+    submitted_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
     task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 
     # TODO: figure out polymorphism to stop abusing JSONB
@@ -159,14 +166,8 @@ class TaskResultBase(SQLModel):
     task_attempt_id: int = Field(foreign_key="task_attempt.id")
     task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 
-    started_at: datetime = Field(
-        sa_column=sa.Column(
-            pg.TIMESTAMP(timezone=True), nullable=False, server_default=sa.func.now()
-        )
-    )
-    completed_at: datetime | None = Field(
-        sa_column=sa.Column(pg.TIMESTAMP(timezone=True), nullable=True)
-    )
+    started_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
+    completed_at: datetime | None = Field(sa_column=_timestamp_column(nullable=True, default=False))
 
     # NOTE: Unique identifier for a worker job that evaluates the task
     job_id: str | None = Field(nullable=True, unique=True)
