@@ -1,11 +1,15 @@
 import libcst as cst
 
 WORKER_TEMPLATE = cst.parse_module("""
+import os
+from contextlib import redirect_stdout
 def call_function_from_file(file_name, function_name, *args, **kwargs):
-    module_name = file_name.replace(".py", "")
-    module = importlib.import_module(module_name)
-    func = getattr(module, function_name)
-    return func(*args, **kwargs)
+    with open(os.devnull, "w") as f:
+        with redirect_stdout(f):  
+            module_name = file_name.replace(".py", "")
+            module = importlib.import_module(module_name)
+            func = getattr(module, function_name)
+            return func(*args, **kwargs)
 
 
 def worker(task_queue, result_queue):
