@@ -1,7 +1,7 @@
 import abc
 import logging
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import MutableSequence, Sequence
 from enum import Enum
 from functools import cached_property
 from typing import TYPE_CHECKING, ClassVar, Optional, Self
@@ -10,6 +10,7 @@ import libcst as cst
 from pydantic import model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
+from unicon_backend.evaluator.tasks.programming.transforms import hoist_imports
 from unicon_backend.lib.common import CustomBaseModel
 from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
 from unicon_backend.lib.helpers import partition
@@ -24,6 +25,7 @@ type ProgramVariable = cst.Name
 type ProgramFragment = Sequence[
     cst.SimpleStatementLine | cst.BaseCompoundStatement | cst.BaseSmallStatement
 ]
+type ProgramBody = MutableSequence[cst.SimpleStatementLine | cst.BaseCompoundStatement]
 
 # A program can be made up of sub programs, especially with subgraphs
 Program = cst.Module
@@ -277,7 +279,7 @@ class ComputeGraph(Graph[Step]):
             subgraph_node_ids | node_ids_to_exclude
         )
 
-        program: Program = cst.Module([])
+        program_body: ProgramBody = []
         for node in topological_order:
             # Output of a step will be stored in a variable in the format `var_{step_id}_{socket_id}`
             # It is assumed that every step will always output the same number of values as the number of output sockets
@@ -312,9 +314,9 @@ class ComputeGraph(Graph[Step]):
                         )
 
             node._debug = debug
-            program.body.extend(assemble_fragment(node.run(input_variables, file_inputs, self)))  # type: ignore
+            program_body.extend(assemble_fragment(node.run(input_variables, file_inputs, self)))
 
-        return program
+        return hoist_imports(cst.Module(body=program_body))
 
 
 class InputStep(Step):
