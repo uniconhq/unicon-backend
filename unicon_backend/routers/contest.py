@@ -146,6 +146,7 @@ def submit_contest_submission(
 
     task_attempts = [
         TaskAttemptORM(
+            problem_id=id,
             task_id=task_result.task_id,
             task_type=definition.tasks[task_result.task_id].type,
             other_fields=user_input_index[task_result.task_id].model_dump(),
@@ -188,7 +189,12 @@ def submit_contest_submission(
 def get_submissions(
     db_session: Annotated[Session, Depends(get_db_session)],
 ):
-    return db_session.exec(select(SubmissionORM)).all()
+    return db_session.exec(
+        select(SubmissionORM).options(
+            selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
+            selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
+        )
+    ).all()
 
 
 @router.get("/submissions/{submission_id}", summary="Get results of a submission")

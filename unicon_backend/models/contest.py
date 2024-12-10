@@ -59,6 +59,7 @@ class ProblemORM(SQLModel, table=True):
 
     tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(back_populates="problem")
     project: sa_orm.Mapped["Project"] = Relationship(back_populates="problems")
+    submissions: sa_orm.Mapped[list["SubmissionORM"]] = Relationship(back_populates="problem")
 
     def update(self, definition: "Definition") -> None:
         self.name = definition.name
@@ -105,7 +106,7 @@ class SubmissionBase(SQLModel):
 
     status: SubmissionStatus = Field(sa_column=sa.Column(pg.ENUM(SubmissionStatus), nullable=False))
     started_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
-    submitted_at: datetime = Field(sa_column=_timestamp_column(nullable=True, default=False))
+    submitted_at: datetime | None = Field(sa_column=_timestamp_column(nullable=True, default=False))
 
     # TODO: split this to one more table
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
@@ -113,6 +114,7 @@ class SubmissionBase(SQLModel):
 
 class SubmissionORM(SubmissionBase, table=True):
     task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(back_populates="submission")
+    problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="submissions")
 
 
 class SubmissionPublic(SubmissionBase):

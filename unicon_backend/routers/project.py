@@ -10,7 +10,12 @@ from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.project import get_project_by_id
 from unicon_backend.evaluator.contest import Definition
-from unicon_backend.models.contest import ProblemORM
+from unicon_backend.models.contest import (
+    ProblemORM,
+    SubmissionORM,
+    SubmissionPublic,
+    TaskAttemptORM,
+)
 from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import InvitationKey, Project, Role
 from unicon_backend.models.user import UserORM
@@ -103,6 +108,35 @@ def get_project_users(
     ).all()
 
     return users
+
+
+@router.get(
+    "/{id}/submissions",
+    summary="Get all submissions in a project",
+    response_model=list[SubmissionPublic],
+)
+def get_project_submissions(
+    id: int,
+    db_session: Annotated[Session, Depends(get_db_session)],
+    _: Annotated[Project, Depends(get_project_by_id)],
+    all_users: bool = False,
+):
+    query = (
+        select(SubmissionORM)
+        .where(SubmissionORM.problem.has(ProblemORM.project_id == id))
+        .options(
+            selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
+            selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
+        )
+    )
+
+    # TODO: this will be useful for admin view, but we need to add access control
+    if not all_users:
+        pass
+
+    submissions = db_session.exec(query).all()
+
+    return submissions
 
 
 @router.post("/{id}/roles", summary="Create a new role", response_model=RolePublic)
