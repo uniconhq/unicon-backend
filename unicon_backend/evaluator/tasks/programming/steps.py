@@ -440,17 +440,41 @@ class PyRunFunctionStep(Step):
     - DATA.IN.FILE: For the `File` object that contains the Python function
     """
 
-    required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (1, 1))
+    required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (1, 2))
 
     _data_in_file_id: ClassVar[str] = "DATA.IN.FILE"
 
     function_identifier: str
+
     allow_error: bool = False
+    _data_out_error_id: ClassVar[str] = "DATA.OUT.ERROR"
 
     @model_validator(mode="after")
     def check_module_file_input(self) -> Self:
         if not any(socket.label == "FILE" for socket in self.data_in):
             raise ValueError("No module file input provided")
+        return self
+
+    @model_validator(mode="after")
+    def check_error_socket(self) -> Self:
+        data_out_socket_count = len(self.data_out)
+        expected_sockets = 2 if self.allow_error else 1
+
+        if data_out_socket_count != expected_sockets:
+            raise ValueError(
+                f"Expected {expected_sockets} output socket(s) when `allow_error` is {self.allow_error}"
+            )
+
+        if self.allow_error and self._data_out_error_id not in [
+            socket.id for socket in self.data_out
+        ]:
+            raise ValueError(f"Missing error output socket {self._data_out_error_id}")
+
+        if not self.allow_error and self._data_out_error_id in [
+            socket.id for socket in self.data_out
+        ]:
+            raise ValueError(f"Unexpected error output socket {self._data_out_error_id}")
+
         return self
 
     @property
@@ -491,12 +515,22 @@ class PyRunFunctionStep(Step):
             for socket in self.kwarg_sockets
         ]
 
-        output_var_name = self.get_output_variable(self.data_out[0].id)
+        non_error_sockets = [
+            socket for socket in self.data_out if socket.id != self._data_in_file_id
+        ]
+        output_var_name = self.get_output_variable(non_error_sockets[0].id)
+        error_var_name = (
+            self.get_output_variable(self._data_out_error_id) if self.allow_error else cst.Name("_")
+        )
 
         return (
             [
                 cst.Assign(
-                    [cst.AssignTarget(output_var_name)],
+                    [
+                        cst.AssignTarget(
+                            cst.Tuple([cst.Element(output_var_name), cst.Element(error_var_name)])
+                        )
+                    ],
                     cst.Call(
                         cst.Name("call_function_safe"),
                         [
