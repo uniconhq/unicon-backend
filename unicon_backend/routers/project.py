@@ -123,7 +123,7 @@ def get_project_submissions(
 ):
     query = (
         select(SubmissionORM)
-        .where(SubmissionORM.problem.has(ProblemORM.project_id == id))
+        .where(SubmissionORM.problem.has(col(ProblemORM.project_id) == id))
         .options(
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
