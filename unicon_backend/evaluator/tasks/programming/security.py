@@ -28,8 +28,13 @@ def worker(task_queue, result_queue):
 """)
 
 MPI_CLEANUP_TEMPLATE = cst.parse_module("""
-task_queue.put("STOP")
-process.join()
+import atexit
+
+def cleanup():
+    task_queue.put("STOP")
+    process.join()
+
+atexit.register(cleanup)
 """)
 
 ENTRYPOINT_TEMPLATE = cst.parse_module("""
@@ -46,8 +51,6 @@ def call_function_safe(file_name, function_name, allow_error, *args, **kwargs):
     result, err = result_queue.get()
     if not allow_error and err is not None:
         print(json.dumps({"file_name": file_name, "function_name": function_name, "error": str(err)}))
-        task_queue.put("STOP")
-        process.join()
         sys.exit(1)
     return result, err
 """)
@@ -61,7 +64,7 @@ def mpi_sandbox(program: cst.Module) -> cst.Module:
             cst.If(
                 test=cst.parse_expression("__name__ == '__main__'"),
                 body=cst.IndentedBlock(
-                    [*ENTRYPOINT_TEMPLATE.body, *program.body, *MPI_CLEANUP_TEMPLATE.body]
+                    [*ENTRYPOINT_TEMPLATE.body, *MPI_CLEANUP_TEMPLATE.body, *program.body]
                 ),
             ),
         ]
