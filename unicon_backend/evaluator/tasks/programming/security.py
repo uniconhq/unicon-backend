@@ -22,9 +22,14 @@ def worker(task_queue, result_queue):
         file_name, function_name, args, kwargs = task
         try:
             result = call_function_from_file(file_name, function_name, *args, **kwargs)
-            result_queue.put(result)
+            result_queue.put((result, None))
         except Exception as e:
-            result_queue.put(e)
+            result_queue.put((None, e))
+""")
+
+MPI_CLEANUP_TEMPLATE = cst.parse_module("""
+task_queue.put("STOP")
+process.join()
 """)
 
 ENTRYPOINT_TEMPLATE = cst.parse_module("""
@@ -36,25 +41,22 @@ result_queue = multiprocessing.Queue()
 process = multiprocessing.Process(target=worker, args=(task_queue, result_queue))
 process.start()
 
-def call_function_safe(file_name, function_name, *args, **kwargs):
+def call_function_safe(file_name, function_name, allow_error, *args, **kwargs):
     task_queue.put((file_name, function_name, args, kwargs))
-    result = result_queue.get()
-    # TODO: handle properly
-    if isinstance(result, Exception):
-        raise result
-    return result
-""")
-
-MPI_CLEANUP_TEMPLATE = cst.parse_module("""
-task_queue.put("STOP")
-process.join()
+    result, err = result_queue.get()
+    if not allow_error and err is not None:
+        print(json.dumps({"file_name": file_name, "function_name": function_name, "error": str(err)}))
+        task_queue.put("STOP")
+        process.join()
+        sys.exit(1)
+    return result, err
 """)
 
 
 def mpi_sandbox(program: cst.Module) -> cst.Module:
     return cst.Module(
         [
-            cst.parse_statement("import importlib, multiprocessing"),
+            cst.parse_statement("import importlib, multiprocessing, sys, json"),
             *WORKER_TEMPLATE.body,
             cst.If(
                 test=cst.parse_expression("__name__ == '__main__'"),

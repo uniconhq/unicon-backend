@@ -445,6 +445,7 @@ class PyRunFunctionStep(Step):
     _data_in_file_id: ClassVar[str] = "DATA.IN.FILE"
 
     function_identifier: str
+    allow_error: bool = False
 
     @model_validator(mode="after")
     def check_module_file_input(self) -> Self:
@@ -501,6 +502,7 @@ class PyRunFunctionStep(Step):
                         [
                             cst.Arg(cst.SimpleString(repr(module_name_str))),
                             cst.Arg(cst.SimpleString(repr(self.function_identifier))),
+                            cst.Arg(cst.Name(repr(self.allow_error))),
                             *args,
                             *kwargs,
                         ],
