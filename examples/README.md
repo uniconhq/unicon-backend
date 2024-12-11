@@ -10,3 +10,7 @@ A collection of tasks from [CS2109S](https://nusmods.com/courses/CS2109S/introdu
 ## [Breakthrough](breakthrough/)
 
 A implementation of a single match of [Breakthrough](<https://en.wikipedia.org/wiki/Breakthrough_(board_game)>) between two players via the our custom contest/task intermediate representation. It makes use of the control flow and branching constructs like `Loop` and `IfElse` to implement turn-based game logic.
+
+## [Addition](addition/)
+
+A trivial example (adding two numbers) to simplify testing the system for very specific cases. (error handling, malicious input)
