@@ -1,10 +1,11 @@
 from pydantic import BaseModel, ConfigDict, model_validator
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 
+from unicon_backend.lib.common import CustomSQLModel
 from unicon_backend.schemas.organisation import RolePublic
 
 
-class UserCreate(SQLModel):
+class UserCreate(CustomSQLModel):
     username: str
     password: str = Field(min_length=8)
     confirm_password: str
@@ -29,7 +30,7 @@ class Token(BaseModel):
     user: UserPublic
 
 
-class UserPublicWithRoles(SQLModel):
+class UserPublicWithRoles(CustomSQLModel):
     id: int
     username: str
     roles: list[RolePublic]

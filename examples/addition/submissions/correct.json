@@ -1,0 +1,17 @@
+{
+  "user_inputs": [
+    {
+      "task_id": 0,
+      "user_input": [
+        {
+          "id": "DATA.OUT.ADD",
+          "data": {
+            "file_name": "add.py",
+            "content": "def add(a, b):\n\treturn a + b + 10"
+          }
+        }
+      ]
+    }
+  ],
+  "expected_answers": []
+}

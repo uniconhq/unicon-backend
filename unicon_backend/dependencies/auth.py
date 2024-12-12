@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 import jwt
@@ -10,6 +11,11 @@ from sqlmodel import Session
 from unicon_backend.constants import SECRET_KEY
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.models import UserORM
+
+# `passlib` has a known issue with one of its dependencies which causes it to log a non-consequential warning.
+# We suppress this warning to avoid confusion
+# Reference: https://github.com/pyca/bcrypt/issues/684
+logging.getLogger("passlib.handlers.bcrypt").setLevel(logging.ERROR)
 
 AUTH_ALGORITHM = "HS256"
 AUTH_PWD_CONTEXT = CryptContext(schemes=["bcrypt"], deprecated="auto")

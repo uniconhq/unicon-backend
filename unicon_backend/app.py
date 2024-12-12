@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,12 +8,9 @@ from fastapi.routing import APIRoute
 from unicon_backend.constants import FRONTEND_URL
 from unicon_backend.logger import setup_rich_logger
 from unicon_backend.routers import auth, contest, organisation, project, role
-from unicon_backend.workers import task_publisher, task_results_consumer
+from unicon_backend.workers.consumer import task_results_consumer
+from unicon_backend.workers.publisher import task_publisher
 
-# `passlib` has a known issue with one of its dependencies which causes it to log a non-consequential warning.
-# We suppress this warning to avoid confusion
-# Reference: https://github.com/pyca/bcrypt/issues/684
-logging.getLogger("passlib.handlers.bcrypt").setLevel(logging.ERROR)
 setup_rich_logger()
 
 

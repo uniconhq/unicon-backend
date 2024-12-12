@@ -1,0 +1,114 @@
+{
+  "name": "Simple addition",
+  "description": "Just add two numbers. No comparison.",
+  "tasks": [
+    {
+      "id": 0,
+      "type": "PROGRAMMING_TASK",
+      "question": "Implement addition",
+      "environment": {
+        "language": "PYTHON",
+        "options": {
+          "version": "3.12"
+        },
+        "time_limit": 5,
+        "memory_limit": 500
+      },
+      "required_inputs": [
+        {
+          "id": "DATA.OUT.ADD",
+          "data": {
+            "file_name": "tree_search.py",
+            "content": "def add(a, b):\n\traise NotImplememented()"
+          }
+        }
+      ],
+      "testcases": [
+        {
+          "id": 0,
+          "nodes": [
+            {
+              "id": 1,
+              "type": "INPUT_STEP",
+              "inputs": [],
+              "outputs": [
+                {
+                  "id": "DATA.OUT.ARG.a",
+                  "data": 2
+                },
+                {
+                  "id": "DATA.OUT.ARG.b",
+                  "data": 1
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "function_identifier": "add",
+              "inputs": [
+                {
+                  "id": "DATA.IN.FILE"
+                },
+                {
+                  "id": "DATA.IN.ARG.0.a"
+                },
+                {
+                  "id": "DATA.IN.ARG.1.b"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "CONTROL.OUT"
+                },
+                {
+                  "id": "DATA.OUT"
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "type": "OUTPUT_STEP",
+              "inputs": [
+                {
+                  "id": "DATA.OUT"
+                }
+              ],
+              "outputs": []
+            }
+          ],
+          "edges": [
+            {
+              "id": 1,
+              "from_node_id": 0,
+              "from_socket_id": "DATA.OUT.ADD",
+              "to_node_id": 2,
+              "to_socket_id": "DATA.IN.FILE"
+            },
+            {
+              "id": 2,
+              "from_node_id": 1,
+              "from_socket_id": "DATA.OUT.ARG.a",
+              "to_node_id": 2,
+              "to_socket_id": "DATA.IN.ARG.0.a"
+            },
+            {
+              "id": 3,
+              "from_node_id": 1,
+              "from_socket_id": "DATA.OUT.ARG.b",
+              "to_node_id": 2,
+              "to_socket_id": "DATA.IN.ARG.1.b"
+            },
+            {
+              "id": 4,
+              "from_node_id": 2,
+              "from_socket_id": "DATA.OUT",
+              "to_node_id": 3,
+              "to_socket_id": "DATA.OUT"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
