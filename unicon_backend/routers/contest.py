@@ -78,10 +78,6 @@ def submit_problem_task_attempt(
         other_fields={"user_input": user_input.value},
     )
 
-    db_session.add(task_attempt_orm)
-    db_session.flush()
-    db_session.refresh(task_attempt_orm)
-
     task_result: TaskEvalResult = problem.run_task(task_id, user_input.value, None)
     task_result_orm: TaskResultORM = TaskResultORM.from_task_eval_result(
         task_result, attempt_id=task_attempt_orm.id, task_type=task_type
@@ -95,16 +91,29 @@ def submit_problem_task_attempt(
     return task_attempt_orm
 
 
-@router.get("/submissions", summary="Get all submissions", response_model=list[SubmissionPublic])
-def get_submissions(
+@router.post("/{id}/submit", summary="Make a problem submission")
+def make_submission(
+    attempt_ids: list[int],
+    problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_db_session)],
 ):
-    return db_session.exec(
-        select(SubmissionORM).options(
-            selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
-            selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
-        )
-    ).all()
+    submission_orm = SubmissionORM(problem_id=problem_orm.id, user_id=user.id)
+    task_attempts = db_session.scalars(
+        select(TaskAttemptORM)
+        .where(col(TaskAttemptORM.id).in_(attempt_ids))
+        .where(TaskAttemptORM.user_id == user.id)
+    )
+
+    for task_attempt in task_attempts:
+        task_attempt.submissions.append(submission_orm)
+        db_session.add(task_attempt)
+    db_session.add(submission_orm)
+
+    db_session.commit()
+    db_session.refresh(submission_orm)
+
+    return submission_orm
 
 
 @router.get("/submissions/{submission_id}", summary="Get results of a submission")
@@ -118,21 +127,17 @@ def get_submission(
         select(SubmissionORM)
         .where(SubmissionORM.id == submission_id)
         .options(
-            selectinload(
-                SubmissionORM.task_attempts.and_(col(TaskAttemptORM.task_id) == task_id)
-                if task_id
-                else SubmissionORM.task_attempts
-            ).selectinload(TaskAttemptORM.task_results),
-            selectinload(
-                SubmissionORM.task_attempts.and_(col(TaskAttemptORM.task_id) == task_id)
-                if task_id
-                else SubmissionORM.task_attempts
-            ).selectinload(TaskAttemptORM.task),
+            selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
+            selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
         )
     )
 
+    if task_id is not None:
+        query = query.where(TaskAttemptORM.task_id == task_id)
+
+    # Execute query and handle not found case
     submission = db_session.exec(query).first()
     if submission is None:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "Submission not found")
-    else:
-        return SubmissionPublic.model_validate(submission)
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Submission not found")
+
+    return SubmissionPublic.model_validate(submission)

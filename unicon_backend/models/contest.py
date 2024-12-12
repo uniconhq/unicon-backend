@@ -91,18 +91,27 @@ class TaskORM(CustomSQLModel, table=True):
         return _convert_task_to_orm(**task.model_dump(serialize_as_any=True))
 
 
-class SubmissionBase(SQLModel):
+class SubmissionAttemptLink(CustomSQLModel, table=True):
+    __tablename__ = "submission_attempt"
+
+    submission_id: int = Field(foreign_key="submission.id", primary_key=True)
+    task_attempt_id: int = Field(foreign_key="task_attempt.id", primary_key=True)
+
+
+class SubmissionBase(CustomSQLModel):
     __tablename__ = "submission"
 
     id: int = Field(primary_key=True)
     problem_id: int = Field(foreign_key="problem.id")
     user_id: int = Field(foreign_key="user.id")
 
-    submitted_at: datetime | None = Field(sa_column=_timestamp_column(nullable=True, default=False))
+    submitted_at: datetime | None = Field(sa_column=_timestamp_column(nullable=False, default=True))
 
 
 class SubmissionORM(SubmissionBase, table=True):
-    task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(back_populates="submission")
+    task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(
+        link_model=SubmissionAttemptLink, back_populates="submissions"
+    )
     problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="submissions")
 
 
@@ -113,7 +122,6 @@ class SubmissionPublic(SubmissionBase):
 class TaskAttemptBase(CustomSQLModel):
     id: int
     user_id: int
-    submission_id: int | None
     task_id: int
     task_type: TaskType
     other_fields: dict
@@ -127,16 +135,11 @@ class TaskAttemptPublic(TaskAttemptBase):
 class TaskAttemptORM(CustomSQLModel, table=True):
     __tablename__ = "task_attempt"
     __table_args__ = (
-        sa.ForeignKeyConstraint(
-            ["task_id", "problem_id"],
-            ["task.id", "task.problem_id"],
-            name="task_attempt_task_id_problem_id_fkey",
-        ),
+        sa.ForeignKeyConstraint(["task_id", "problem_id"], ["task.id", "task.problem_id"]),
     )
 
     id: int = Field(primary_key=True)
     user_id: int = Field(foreign_key="user.id", nullable=False)
-    submission_id: int = Field(foreign_key="submission.id", nullable=True)
     task_id: int
     problem_id: int
 
@@ -146,7 +149,9 @@ class TaskAttemptORM(CustomSQLModel, table=True):
     # TODO: figure out polymorphism to stop abusing JSONB
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
 
-    submission: sa_orm.Mapped[SubmissionORM] = Relationship(back_populates="task_attempts")
+    submissions: sa_orm.Mapped[list[SubmissionORM]] = Relationship(
+        back_populates="task_attempts", link_model=SubmissionAttemptLink
+    )
     task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_attempts")
     task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task_attempt")
 
