@@ -1,15 +1,15 @@
 from datetime import datetime
-from enum import Enum
 from typing import TYPE_CHECKING, Any, Self
 
 import sqlalchemy as sa
 import sqlalchemy.dialects.postgresql as pg
 import sqlalchemy.orm as sa_orm
 from pydantic import model_validator
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship
 
 from unicon_backend.evaluator.contest import Problem
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus, TaskType
+from unicon_backend.lib.common import CustomSQLModel
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import Task
@@ -24,19 +24,14 @@ _timestamp_column = lambda nullable, default: sa.Column(
 )
 
 
-class SubmissionStatus(str, Enum):
-    Pending = "PENDING"
-    Ok = "OK"
-
-
-class ProblemBase(SQLModel):
+class ProblemBase(CustomSQLModel):
     id: int
     name: str
     description: str
     project_id: int
 
 
-class ProblemORM(SQLModel, table=True):
+class ProblemORM(CustomSQLModel, table=True):
     __tablename__ = "problem"
 
     id: int = Field(primary_key=True)
@@ -74,7 +69,7 @@ class ProblemORM(SQLModel, table=True):
         )
 
 
-class TaskORM(SQLModel, table=True):
+class TaskORM(CustomSQLModel, table=True):
     __tablename__ = "task"
 
     id: int = Field(primary_key=True)
@@ -115,7 +110,7 @@ class SubmissionPublic(SubmissionBase):
     task_attempts: list["TaskAttemptPublic"]
 
 
-class TaskAttemptBase(SQLModel):
+class TaskAttemptBase(CustomSQLModel):
     id: int
     user_id: int
     submission_id: int | None
@@ -129,7 +124,7 @@ class TaskAttemptPublic(TaskAttemptBase):
     task: "TaskORM"
 
 
-class TaskAttemptORM(SQLModel, table=True):
+class TaskAttemptORM(CustomSQLModel, table=True):
     __tablename__ = "task_attempt"
     __table_args__ = (
         sa.ForeignKeyConstraint(
@@ -156,7 +151,7 @@ class TaskAttemptORM(SQLModel, table=True):
     task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task_attempt")
 
 
-class TaskResultBase(SQLModel):
+class TaskResultBase(CustomSQLModel):
     __tablename__ = "task_result"
 
     id: int = Field(primary_key=True)
@@ -227,7 +222,7 @@ class MultipleChoiceTaskResult(TaskResultPublic):
         return self
 
 
-class MultipleResponseTaskResultType(SQLModel):
+class MultipleResponseTaskResultType(CustomSQLModel):
     correct_choices: list[int]
     incorrect_choices: list[int]
     num_choices: int

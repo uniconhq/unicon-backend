@@ -2,6 +2,7 @@ import re
 from typing import Any
 
 from pydantic import BaseModel, model_validator
+from sqlmodel import MetaData, SQLModel
 
 
 def _camel_to_snake(name: str) -> str:
@@ -32,3 +33,15 @@ class CustomBaseModel(BaseModel, extra="forbid"):
         cls.__polymorphic__ = polymorphic
         cls.__subclasses_map__[f"{_camel_to_snake(cls.__qualname__).upper()}"] = cls
         super().__init_subclass__(**kwargs)
+
+
+class CustomSQLModel(SQLModel):
+    metadata = MetaData(
+        naming_convention={
+            "ix": "ix_%(column_0_label)s",
+            "uq": "uq_%(table_name)s_%(column_0_name)s",
+            "ck": "ck_%(table_name)s_`%(constraint_name)s`",
+            "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+            "pk": "pk_%(table_name)s",
+        }
+    )

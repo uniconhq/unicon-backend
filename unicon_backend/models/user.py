@@ -1,15 +1,16 @@
 from typing import TYPE_CHECKING
 
 import sqlalchemy.orm as sa_orm
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship
 
+from unicon_backend.lib.common import CustomSQLModel
 from unicon_backend.models.links import UserRole
 
 if TYPE_CHECKING:
-    from .organisation import Role
+    from unicon_backend.models.organisation import Role
 
 
-class UserORM(SQLModel, table=True):
+class UserORM(CustomSQLModel, table=True):
     __tablename__ = "user"
 
     id: int = Field(primary_key=True)
