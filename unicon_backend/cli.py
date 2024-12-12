@@ -5,16 +5,41 @@ from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
 
-from unicon_backend.evaluator.contest import Problem, ProgrammingTask
-from unicon_backend.models.contest import TaskType
-
 rich_console = Console()
 app = typer.Typer(name="Unicon 🦄 CLI")
+
+
+@app.command(name="seed")
+def seed(username: str, password: str):
+    """Seed the database with initial admin user and organisation."""
+    from unicon_backend.database import SessionLocal
+    from unicon_backend.dependencies.auth import AUTH_PWD_CONTEXT
+    from unicon_backend.models.organisation import Organisation, Project, Role
+    from unicon_backend.models.user import UserORM
+
+    db_session = SessionLocal()
+    hash_password = AUTH_PWD_CONTEXT.hash(password)
+
+    admin_user = UserORM(username=username, password=hash_password)
+    db_session.add(admin_user)
+    db_session.flush()
+
+    organisation = Organisation(name="Unicon", description="Rainbows", owner_id=admin_user.id)
+    project = Project(name="Sparkles", organisation=organisation)
+    roles = [Role(name="admin", project=project, users=[admin_user])]
+
+    db_session.add_all([organisation, project, *roles])
+    db_session.commit()
+
+    rich_console.print("Database seeded successfully 🌈")
 
 
 @app.command(name="assemble")
 def assemble(defn_file: Annotated[typer.FileText, typer.Option("--defn", mode="r")]):
     """Assemble the programs for all programming tasks in the given definition file."""
+    from unicon_backend.evaluator.contest import Problem, ProgrammingTask
+    from unicon_backend.models.contest import TaskType
+
     defn = Problem.model_validate_json(defn_file.read())
     for task in defn.tasks:
         if task.type != TaskType.PROGRAMMING:
