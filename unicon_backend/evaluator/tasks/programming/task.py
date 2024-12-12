@@ -18,7 +18,7 @@ from unicon_backend.evaluator.tasks.programming.steps import (
     StepSocket,
     StepType,
 )
-from unicon_backend.workers import task_publisher
+from unicon_backend.workers.publisher import task_publisher
 
 logger = getLogger(__name__)
 
