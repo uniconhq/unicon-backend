@@ -1,0 +1,17 @@
+{
+  "user_inputs": [
+    {
+      "task_id": 0,
+      "user_input": [
+        {
+          "id": "DATA.OUT.ADD",
+          "data": {
+            "file_name": "add.py",
+            "content": "def add(a, b):\n\tglobal VAR_1_DATA_OUT_EXPECTED_ANSWER\n\tVAR_1_DATA_OUT_EXPECTED_ANSWER = 0\n\treturn 0"
+          }
+        }
+      ]
+    }
+  ],
+  "expected_answers": []
+}
