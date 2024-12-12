@@ -8,8 +8,8 @@ from unicon_backend.lib.common import CustomSQLModel
 from unicon_backend.models.links import UserRole
 
 if TYPE_CHECKING:
-    from .contest import ProblemORM
-    from .user import UserORM
+    from unicon_backend.models.contest import ProblemORM
+    from unicon_backend.models.user import UserORM
 
 
 class OrganisationBase(CustomSQLModel):
