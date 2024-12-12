@@ -1,7 +1,7 @@
 import re
-from typing import Any, TypeVar
+from typing import Any
 
-from pydantic import BaseModel, RootModel, model_validator
+from pydantic import BaseModel, model_validator
 
 
 def _camel_to_snake(name: str) -> str:
@@ -32,16 +32,3 @@ class CustomBaseModel(BaseModel, extra="forbid"):
         cls.__polymorphic__ = polymorphic
         cls.__subclasses_map__[f"{_camel_to_snake(cls.__qualname__).upper()}"] = cls
         super().__init_subclass__(**kwargs)
-
-
-T = TypeVar("T")
-
-
-class RootModelList(RootModel[list[T]]):
-    root: list[T]
-
-    def __iter__(self):
-        return iter(self.root)
-
-    def __getitem__(self, item):
-        return self.root[item]
