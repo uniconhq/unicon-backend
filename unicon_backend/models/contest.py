@@ -9,7 +9,7 @@ from pydantic import model_validator
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from unicon_backend.evaluator.contest import Definition
+    from unicon_backend.evaluator.contest import Problem
     from unicon_backend.evaluator.tasks.base import Task
     from unicon_backend.models.organisation import Project
 
@@ -61,7 +61,7 @@ class ProblemORM(SQLModel, table=True):
     project: sa_orm.Mapped["Project"] = Relationship(back_populates="problems")
     submissions: sa_orm.Mapped[list["SubmissionORM"]] = Relationship(back_populates="problem")
 
-    def update(self, definition: "Definition") -> None:
+    def update(self, definition: "Problem") -> None:
         self.name = definition.name
         self.description = definition.description
 
@@ -70,7 +70,7 @@ class ProblemORM(SQLModel, table=True):
         self.tasks.extend([TaskORM.from_task(task) for task in definition.tasks])
 
     @classmethod
-    def from_definition(cls, definition: "Definition") -> "ProblemORM":
+    def from_definition(cls, definition: "Problem") -> "ProblemORM":
         tasks_orm: list[TaskORM] = [TaskORM.from_task(task) for task in definition.tasks]
         return cls(name=definition.name, description=definition.description, tasks=tasks_orm)
 

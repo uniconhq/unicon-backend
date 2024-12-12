@@ -9,7 +9,7 @@ from sqlmodel import Session, col, select
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
-from unicon_backend.evaluator.contest import Definition, ExpectedAnswer, UserInput
+from unicon_backend.evaluator.contest import ExpectedAnswer, Problem, UserInput
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus
 from unicon_backend.models import (
     ProblemORM,
@@ -26,29 +26,29 @@ if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
 
 
-@router.get("/definitions", summary="Get all contest definitions", response_model=list[ProblemORM])
-def get_definitions(
+@router.get("/problems", summary="Get all problems", response_model=list[ProblemORM])
+def get_problems(
     db_session: Annotated[Session, Depends(get_db_session)],
 ):
     return db_session.exec(select(ProblemORM)).all()
 
 
-@router.get("/definitions/{id}", summary="Get a contest definition")
-def get_definition(
+@router.get("/problems/{id}", summary="Get a problem definition")
+def get_problem(
     id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
-) -> Definition:
-    definition_orm = db_session.scalar(
+) -> Problem:
+    problem_orm = db_session.scalar(
         select(ProblemORM).where(ProblemORM.id == id).options(selectinload(ProblemORM.tasks))
     )
 
-    if definition_orm is None:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "Contest definition not found")
+    if problem_orm is None:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Problem definition not found")
 
-    definition: Definition = Definition.model_validate(
+    problem: Problem = Problem.model_validate(
         {
-            "name": definition_orm.name,
-            "description": definition_orm.description,
+            "name": problem_orm.name,
+            "description": problem_orm.description,
             "tasks": [
                 {
                     "id": task_orm.id,
@@ -56,71 +56,69 @@ def get_definition(
                     "autograde": task_orm.autograde,
                     **task_orm.other_fields,
                 }
-                for task_orm in definition_orm.tasks
+                for task_orm in problem_orm.tasks
             ],
         }
     )
 
-    for task in definition.tasks:
+    for task in problem.tasks:
         if task.type == TaskType.PROGRAMMING:
             programming_task: ProgrammingTask = task
             for testcase in programming_task.testcases:
                 testcase.nodes.insert(0, programming_task.get_implicit_input_step())
 
-    return definition
+    return problem
 
 
-@router.patch("/definitions/{id}", summary="Update a contest definition", response_model=Definition)
-def update_definition(
-    id: int, definition: Definition, db_session: Annotated[Session, Depends(get_db_session)]
+@router.patch("/problem/{id}", summary="Update a problem definition", response_model=Problem)
+def update_problem(
+    id: int, problem: Problem, db_session: Annotated[Session, Depends(get_db_session)]
 ):
-    definition_orm = db_session.scalar(
+    problem_orm = db_session.scalar(
         select(ProblemORM).where(ProblemORM.id == id).options(selectinload(ProblemORM.tasks))
     )
 
-    if definition_orm is None:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "Contest definition not found")
+    if problem_orm is None:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Problem definition not found")
 
     # Delete existing tasks and add new ones
-    for task_orm in definition_orm.tasks:
+    for task_orm in problem_orm.tasks:
         db_session.delete(task_orm)
 
-    # Update definition
-    definition_orm.update(definition)
+    # Update problem definition
+    problem_orm.update(problem)
 
-    db_session.add(definition_orm)
+    db_session.add(problem_orm)
     db_session.commit()
-    db_session.refresh(definition_orm)
+    db_session.refresh(problem_orm)
 
-    return definition_orm
+    return problem_orm
 
 
-class ContestSubmission(BaseModel):
+class ProblemSubmission(BaseModel):
     expected_answers: list[ExpectedAnswer]
     user_inputs: list[UserInput]
 
 
-@router.post(
-    "/definitions/{id}/submissions", summary="Upload a submission for a contest definition"
-)
-def submit_contest_submission(
+@router.post("/problems/{id}/submissions", summary="Upload a problem submission")
+def submit_problem_submission(
     id: int,
-    submission: ContestSubmission,
+    submission: ProblemSubmission,
     db_session: Annotated[Session, Depends(get_db_session)],
     user: Annotated[UserORM, Depends(get_current_user)],
     task_id: int | None = None,
 ) -> SubmissionORM:
-    definition_orm = db_session.scalar(
+    problem_orm = db_session.scalar(
         select(ProblemORM).where(ProblemORM.id == id).options(selectinload(ProblemORM.tasks))
     )
 
-    if definition_orm is None:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "Contest definition not found")
+    if problem_orm is None:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Problem definition not found")
 
-    definition: Definition = Definition.model_validate(
+    problem: Problem = Problem.model_validate(
         {
-            "name": definition_orm.name,
-            "description": definition_orm.description,
+            "name": problem_orm.name,
+            "description": problem_orm.description,
             "tasks": [
                 {
                     "id": task_orm.id,
@@ -128,12 +126,12 @@ def submit_contest_submission(
                     "autograde": task_orm.autograde,
                     **task_orm.other_fields,
                 }
-                for task_orm in definition_orm.tasks
+                for task_orm in problem_orm.tasks
             ],
         }
     )
 
-    task_results: list[TaskEvalResult] = definition.run(
+    task_results: list[TaskEvalResult] = problem.run(
         submission.user_inputs, submission.expected_answers, task_id
     )
     has_pending_tasks: bool = any(
@@ -148,7 +146,7 @@ def submit_contest_submission(
         TaskAttemptORM(
             problem_id=id,
             task_id=task_result.task_id,
-            task_type=definition.tasks[task_result.task_id].type,
+            task_type=problem.tasks[task_result.task_id].type,
             other_fields=user_input_index[task_result.task_id].model_dump(),
             task_results=[
                 TaskResultORM(
@@ -163,7 +161,7 @@ def submit_contest_submission(
                     if task_result.status != TaskEvalStatus.PENDING and task_result.result
                     else None,
                     error=task_result.error,
-                    task_type=definition.tasks[task_result.task_id].type,
+                    task_type=problem.tasks[task_result.task_id].type,
                 )
             ],
         )

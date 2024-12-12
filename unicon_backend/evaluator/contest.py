@@ -21,7 +21,7 @@ class UserInput(BaseModel):
     user_input: Any
 
 
-class Definition(BaseModel):
+class Problem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     name: str

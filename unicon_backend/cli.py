@@ -5,7 +5,7 @@ from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
 
-from unicon_backend.evaluator.contest import Definition, ProgrammingTask
+from unicon_backend.evaluator.contest import Problem, ProgrammingTask
 from unicon_backend.models.contest import TaskType
 
 rich_console = Console()
@@ -15,7 +15,7 @@ app = typer.Typer(name="Unicon 🦄 CLI")
 @app.command(name="assemble")
 def assemble(defn_file: Annotated[typer.FileText, typer.Option("--defn", mode="r")]):
     """Assemble the programs for all programming tasks in the given definition file."""
-    defn = Definition.model_validate_json(defn_file.read())
+    defn = Problem.model_validate_json(defn_file.read())
     for task in defn.tasks:
         if task.type != TaskType.PROGRAMMING:
             continue

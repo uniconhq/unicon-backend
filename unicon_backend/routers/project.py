@@ -9,7 +9,7 @@ from sqlmodel import Session, and_, col, select
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.project import get_project_by_id
-from unicon_backend.evaluator.contest import Definition
+from unicon_backend.evaluator.contest import Problem
 from unicon_backend.models.contest import (
     ProblemORM,
     SubmissionORM,
@@ -203,7 +203,7 @@ def join_project(
 
 @router.post("/{id}/problems")
 def create_problem(
-    definition: Definition,
+    definition: Problem,
     db_session: Annotated[Session, Depends(get_db_session)],
     project: Annotated[Project, Depends(get_project_by_id)],
 ) -> ProblemORM:
