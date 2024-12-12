@@ -1,186 +1,98 @@
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Annotated
 
-import sqlalchemy as sa
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, select
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
-from unicon_backend.evaluator.contest import ExpectedAnswer, Problem, UserInput
-from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus
+from unicon_backend.dependencies.problem import get_problem_by_id
+from unicon_backend.evaluator.contest import Problem, UserInput
 from unicon_backend.models import (
     ProblemORM,
     SubmissionORM,
-    SubmissionStatus,
     TaskResultORM,
 )
-from unicon_backend.models.contest import SubmissionPublic, TaskAttemptORM, TaskType
+from unicon_backend.models.contest import SubmissionPublic, TaskAttemptORM, TaskAttemptPublic
 from unicon_backend.models.user import UserORM
 
-router = APIRouter(prefix="/contests", tags=["contest"], dependencies=[Depends(get_current_user)])
-
 if TYPE_CHECKING:
-    from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
+    from unicon_backend.evaluator.tasks.base import TaskEvalResult
+
+router = APIRouter(prefix="/problems", tags=["problem"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("/problems", summary="Get all problems", response_model=list[ProblemORM])
+@router.get("/", summary="Get all problems", response_model=list[ProblemORM])
 def get_problems(
     db_session: Annotated[Session, Depends(get_db_session)],
 ):
     return db_session.exec(select(ProblemORM)).all()
 
 
-@router.get("/problems/{id}", summary="Get a problem definition")
+@router.get("/{id}", summary="Get a problem definition")
 def get_problem(
-    id: int,
+    problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+) -> Problem:
+    return problem_orm.to_problem()
+
+
+@router.patch("/{id}", summary="Update a problem definition")
+def update_problem(
+    existing_problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    new_problem: Problem,
     db_session: Annotated[Session, Depends(get_db_session)],
 ) -> Problem:
-    problem_orm = db_session.scalar(
-        select(ProblemORM).where(ProblemORM.id == id).options(selectinload(ProblemORM.tasks))
-    )
-
-    if problem_orm is None:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "Problem definition not found")
-
-    problem: Problem = Problem.model_validate(
-        {
-            "name": problem_orm.name,
-            "description": problem_orm.description,
-            "tasks": [
-                {
-                    "id": task_orm.id,
-                    "type": task_orm.type,
-                    "autograde": task_orm.autograde,
-                    **task_orm.other_fields,
-                }
-                for task_orm in problem_orm.tasks
-            ],
-        }
-    )
-
-    for task in problem.tasks:
-        if task.type == TaskType.PROGRAMMING:
-            programming_task: ProgrammingTask = task
-            for testcase in programming_task.testcases:
-                testcase.nodes.insert(0, programming_task.get_implicit_input_step())
-
-    return problem
-
-
-@router.patch("/problem/{id}", summary="Update a problem definition", response_model=Problem)
-def update_problem(
-    id: int, problem: Problem, db_session: Annotated[Session, Depends(get_db_session)]
-):
-    problem_orm = db_session.scalar(
-        select(ProblemORM).where(ProblemORM.id == id).options(selectinload(ProblemORM.tasks))
-    )
-
-    if problem_orm is None:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "Problem definition not found")
-
     # Delete existing tasks and add new ones
-    for task_orm in problem_orm.tasks:
+    for task_orm in existing_problem_orm.tasks:
         db_session.delete(task_orm)
 
     # Update problem definition
-    problem_orm.update(problem)
+    existing_problem_orm.update(new_problem)
 
-    db_session.add(problem_orm)
+    db_session.add(existing_problem_orm)
     db_session.commit()
-    db_session.refresh(problem_orm)
+    db_session.refresh(existing_problem_orm)
 
-    return problem_orm
-
-
-class ProblemSubmission(BaseModel):
-    expected_answers: list[ExpectedAnswer]
-    user_inputs: list[UserInput]
+    return existing_problem_orm.to_problem()
 
 
-@router.post("/problems/{id}/submissions", summary="Upload a problem submission")
-def submit_problem_submission(
-    id: int,
-    submission: ProblemSubmission,
+@router.post(
+    "/{id}/tasks/{task_id}", summary="Submit a task attempt", response_model=TaskAttemptPublic
+)
+def submit_problem_task_attempt(
+    user_input: UserInput,
+    task_id: int,
+    problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
     db_session: Annotated[Session, Depends(get_db_session)],
     user: Annotated[UserORM, Depends(get_current_user)],
-    task_id: int | None = None,
-) -> SubmissionORM:
-    problem_orm = db_session.scalar(
-        select(ProblemORM).where(ProblemORM.id == id).options(selectinload(ProblemORM.tasks))
-    )
-
-    if problem_orm is None:
-        raise HTTPException(HTTPStatus.NOT_FOUND, "Problem definition not found")
-
-    problem: Problem = Problem.model_validate(
-        {
-            "name": problem_orm.name,
-            "description": problem_orm.description,
-            "tasks": [
-                {
-                    "id": task_orm.id,
-                    "type": task_orm.type,
-                    "autograde": task_orm.autograde,
-                    **task_orm.other_fields,
-                }
-                for task_orm in problem_orm.tasks
-            ],
-        }
-    )
-
-    task_results: list[TaskEvalResult] = problem.run(
-        submission.user_inputs, submission.expected_answers, task_id
-    )
-    has_pending_tasks: bool = any(
-        task_result.status == TaskEvalStatus.PENDING for task_result in task_results
-    )
-
-    user_input_index: dict[int, UserInput] = {
-        user_input.task_id: user_input for user_input in submission.user_inputs
-    }
-
-    task_attempts = [
-        TaskAttemptORM(
-            problem_id=id,
-            task_id=task_result.task_id,
-            task_type=problem.tasks[task_result.task_id].type,
-            other_fields=user_input_index[task_result.task_id].model_dump(),
-            task_results=[
-                TaskResultORM(
-                    completed_at=sa.func.now()
-                    if task_result.status != TaskEvalStatus.PENDING
-                    else None,
-                    job_id=task_result.result
-                    if task_result.status == TaskEvalStatus.PENDING
-                    else None,
-                    status=task_result.status,
-                    result=task_result.result.model_dump(mode="json")
-                    if task_result.status != TaskEvalStatus.PENDING and task_result.result
-                    else None,
-                    error=task_result.error,
-                    task_type=problem.tasks[task_result.task_id].type,
-                )
-            ],
-        )
-        for task_result in task_results
-    ]
-
-    submission_orm = SubmissionORM(
+):
+    problem: Problem = problem_orm.to_problem()
+    task_type = problem.task_index[task_id].type
+    # TODO: Retrieve expected answers (https://github.com/uniconhq/unicon-backend/issues/12)
+    task_attempt_orm: TaskAttemptORM = TaskAttemptORM(
         user_id=user.id,
-        problem_id=id,
-        status=SubmissionStatus.Pending if has_pending_tasks else SubmissionStatus.Ok,
-        task_attempts=task_attempts,
-        other_fields={},
+        problem_id=problem_orm.id,
+        task_id=task_id,
+        task_type=task_type,
+        other_fields={"user_input": user_input.value},
     )
 
-    db_session.add(submission_orm)
-    db_session.commit()
-    db_session.refresh(submission_orm)
+    db_session.add(task_attempt_orm)
+    db_session.flush()
+    db_session.refresh(task_attempt_orm)
 
-    return submission_orm
+    task_result: TaskEvalResult = problem.run_task(task_id, user_input.value, None)
+    task_result_orm: TaskResultORM = TaskResultORM.from_task_eval_result(
+        task_result, attempt_id=task_attempt_orm.id, task_type=task_type
+    )
+    task_attempt_orm.task_results.append(task_result_orm)
+
+    db_session.add_all([task_result_orm, task_attempt_orm])
+    db_session.commit()
+    db_session.refresh(task_attempt_orm)
+
+    return task_attempt_orm
 
 
 @router.get("/submissions", summary="Get all submissions", response_model=list[SubmissionPublic])
