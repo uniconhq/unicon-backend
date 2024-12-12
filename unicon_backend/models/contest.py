@@ -8,6 +8,8 @@ import sqlalchemy.orm as sa_orm
 from pydantic import model_validator
 from sqlmodel import Field, Relationship, SQLModel
 
+from unicon_backend.evaluator.tasks.base import TaskEvalStatus, TaskType
+
 if TYPE_CHECKING:
     from unicon_backend.evaluator.contest import Problem
     from unicon_backend.evaluator.tasks.base import Task
@@ -20,20 +22,6 @@ _timestamp_column = lambda nullable, default: sa.Column(
     nullable=nullable,
     server_default=sa.func.now() if default else None,
 )
-
-
-class TaskType(str, Enum):
-    MULTIPLE_CHOICE = "MULTIPLE_CHOICE_TASK"
-    MULTIPLE_RESPONSE = "MULTIPLE_RESPONSE_TASK"
-    SHORT_ANSWER = "SHORT_ANSWER_TASK"
-    PROGRAMMING = "PROGRAMMING_TASK"
-
-
-class TaskEvalStatus(str, Enum):
-    SUCCESS = "SUCCESS"
-    PENDING = "PENDING"
-    SKIPPED = "SKIPPED"
-    FAILED = "FAILED"
 
 
 class SubmissionStatus(str, Enum):
@@ -70,9 +58,9 @@ class ProblemORM(SQLModel, table=True):
         self.tasks.extend([TaskORM.from_task(task) for task in definition.tasks])
 
     @classmethod
-    def from_definition(cls, definition: "Problem") -> "ProblemORM":
-        tasks_orm: list[TaskORM] = [TaskORM.from_task(task) for task in definition.tasks]
-        return cls(name=definition.name, description=definition.description, tasks=tasks_orm)
+    def from_problem(cls, problem: "Problem") -> "ProblemORM":
+        tasks_orm: list[TaskORM] = [TaskORM.from_task(task) for task in problem.tasks]
+        return cls(name=problem.name, description=problem.description, tasks=tasks_orm)
 
 
 class TaskORM(SQLModel, table=True):
