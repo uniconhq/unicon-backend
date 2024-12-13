@@ -103,11 +103,27 @@ def make_submission(
         .where(TaskAttemptORM.user_id == user.id)
     )
 
+    # Verify that (1) all task attempts are associated to the user and present in the database,
+    #             (2) all task attempts are for the same problem and
+    #             (3) no >1 task attempts are for the same task
     if len(task_attempts.all()) != len(attempt_ids):
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail="Invalid task attempt IDs",
         )
+    _task_ids: set[int] = set()
+    for task_attempt in task_attempts:
+        if task_attempt.problem_id != problem_orm.id:
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST,
+                detail="Invalid task attempts IDs: Found task attempts for different problem",
+            )
+        if task_attempt.task_id in _task_ids:
+            raise HTTPException(
+                status_code=HTTPStatus.BAD_REQUEST,
+                detail="Invalid task attempts IDs: Found multiple attempts for the same task",
+            )
+        _task_ids.add(task_attempt.task_id)
 
     for task_attempt in task_attempts:
         task_attempt.submissions.append(submission_orm)
