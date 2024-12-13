@@ -103,7 +103,7 @@ def make_submission(
         .where(TaskAttemptORM.user_id == user.id)
     )
 
-    if len(task_attempts) != len(attempt_ids):
+    if len(task_attempts.all()) != len(attempt_ids):
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail="Invalid task attempt IDs",
