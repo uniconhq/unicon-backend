@@ -23,13 +23,6 @@ if TYPE_CHECKING:
 router = APIRouter(prefix="/problems", tags=["problem"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("/", summary="Get all problems", response_model=list[ProblemORM])
-def get_problems(
-    db_session: Annotated[Session, Depends(get_db_session)],
-):
-    return db_session.exec(select(ProblemORM)).all()
-
-
 @router.get("/{id}", summary="Get a problem definition")
 def get_problem(
     problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
