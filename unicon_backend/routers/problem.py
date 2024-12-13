@@ -61,6 +61,11 @@ def submit_problem_task_attempt(
     user: Annotated[UserORM, Depends(get_current_user)],
 ):
     problem: Problem = problem_orm.to_problem()
+    if task_id not in problem.task_index:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Task not found in problem definition"
+        )
+
     task_type = problem.task_index[task_id].type
     # TODO: Retrieve expected answers (https://github.com/uniconhq/unicon-backend/issues/12)
     task_attempt_orm: TaskAttemptORM = TaskAttemptORM(
@@ -97,6 +102,12 @@ def make_submission(
         .where(col(TaskAttemptORM.id).in_(attempt_ids))
         .where(TaskAttemptORM.user_id == user.id)
     )
+
+    if len(task_attempts) != len(attempt_ids):
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Invalid task attempt IDs",
+        )
 
     for task_attempt in task_attempts:
         task_attempt.submissions.append(submission_orm)
