@@ -2,16 +2,17 @@ import uuid
 from typing import TYPE_CHECKING
 
 import sqlalchemy.orm as sa_orm
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship
 
+from unicon_backend.lib.common import CustomSQLModel
 from unicon_backend.models.links import UserRole
 
 if TYPE_CHECKING:
-    from .contest import ProblemORM
-    from .user import UserORM
+    from unicon_backend.models.problem import ProblemORM
+    from unicon_backend.models.user import UserORM
 
 
-class OrganisationBase(SQLModel):
+class OrganisationBase(CustomSQLModel):
     name: str
     description: str
 
@@ -22,7 +23,7 @@ class Organisation(OrganisationBase, table=True):
     projects: sa_orm.Mapped[list["Project"]] = Relationship(back_populates="organisation")
 
 
-class ProjectBase(SQLModel):
+class ProjectBase(CustomSQLModel):
     name: str
 
 
@@ -35,7 +36,7 @@ class Project(ProjectBase, table=True):
     problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(back_populates="project")
 
 
-class RoleBase(SQLModel):
+class RoleBase(CustomSQLModel):
     name: str
 
 
@@ -51,7 +52,7 @@ class Role(RoleBase, table=True):
     )
 
 
-class InvitationKeyBase(SQLModel):
+class InvitationKeyBase(CustomSQLModel):
     key: uuid.UUID = Field(default_factory=uuid.uuid4, unique=True)
     enabled: bool = Field(default=True)
 

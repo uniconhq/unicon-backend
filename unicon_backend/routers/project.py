@@ -9,10 +9,15 @@ from sqlmodel import Session, and_, col, select
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.project import get_project_by_id
-from unicon_backend.evaluator.contest import Definition
-from unicon_backend.models.contest import ProblemORM
+from unicon_backend.evaluator.problem import Problem
 from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import InvitationKey, Project, Role
+from unicon_backend.models.problem import (
+    ProblemORM,
+    SubmissionORM,
+    SubmissionPublic,
+    TaskAttemptORM,
+)
 from unicon_backend.models.user import UserORM
 from unicon_backend.schemas.auth import UserPublicWithRoles
 from unicon_backend.schemas.organisation import (
@@ -32,7 +37,7 @@ def get_all_projects(
     user: Annotated[UserORM, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_db_session)],
 ):
-    projects = db_session.exec(
+    return db_session.exec(
         select(Project)
         .join(Role)
         .join(UserRole)
@@ -40,8 +45,6 @@ def get_all_projects(
         .where(UserRole.role_id == Role.id)
         .options(selectinload(Project.roles.and_(Role.users.any(col(UserORM.id) == user.id))))
     ).all()
-
-    return projects
 
 
 @router.get("/{id}", summary="Get a project", response_model=ProjectPublicWithProblems)
@@ -62,6 +65,7 @@ def update_project(
     project.sqlmodel_update(update_data)
     db_session.commit()
     db_session.refresh(project)
+
     return project
 
 
@@ -75,14 +79,12 @@ def get_project_roles(
     db_session: Annotated[Session, Depends(get_db_session)],
     _: Annotated[Project, Depends(get_project_by_id)],
 ):
-    roles = db_session.exec(
+    return db_session.exec(
         select(Role)
         .join(Project)
         .where(Project.id == id)
         .options(selectinload(Role.invitation_keys))
     ).all()
-
-    return roles
 
 
 @router.get(
@@ -93,7 +95,7 @@ def get_project_users(
     db_session: Annotated[Session, Depends(get_db_session)],
     _: Annotated[Project, Depends(get_project_by_id)],
 ):
-    users = db_session.exec(
+    return db_session.exec(
         select(UserORM)
         .join(UserRole)
         .join(Role)
@@ -102,7 +104,32 @@ def get_project_users(
         .options(selectinload(UserORM.roles.and_(col(Role.project_id) == id)))
     ).all()
 
-    return users
+
+@router.get(
+    "/{id}/submissions",
+    summary="Get all submissions in a project",
+    response_model=list[SubmissionPublic],
+)
+def get_project_submissions(
+    id: int,
+    db_session: Annotated[Session, Depends(get_db_session)],
+    _: Annotated[Project, Depends(get_project_by_id)],
+    all_users: bool = False,
+):
+    query = (
+        select(SubmissionORM)
+        .where(SubmissionORM.problem.has(col(ProblemORM.project_id) == id))
+        .options(
+            selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
+            selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
+        )
+    )
+
+    # TODO: this will be useful for admin view, but we need to add access control
+    if not all_users:
+        pass
+
+    return db_session.exec(query).all()
 
 
 @router.post("/{id}/roles", summary="Create a new role", response_model=RolePublic)
@@ -117,6 +144,7 @@ def create_role(
     db_session.add(role)
     db_session.commit()
     db_session.refresh(role)
+
     return role
 
 
@@ -167,15 +195,15 @@ def join_project(
     return role.project
 
 
-@router.post("/{id}/problems")
+@router.post("/{id}/problems", description="Create a new problem")
 def create_problem(
-    definition: Definition,
+    problem: Problem,
     db_session: Annotated[Session, Depends(get_db_session)],
     project: Annotated[Project, Depends(get_project_by_id)],
 ) -> ProblemORM:
     # TODO: Add permissions here - currently just checking if project exists
 
-    new_problem = ProblemORM.from_definition(definition)
+    new_problem = ProblemORM.from_problem(problem)
     project.problems.append(new_problem)
 
     db_session.add(project)

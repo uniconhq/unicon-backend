@@ -1,10 +1,10 @@
-from unicon_backend.models.contest import ProblemBase
 from unicon_backend.models.organisation import (
     InvitationKeyBase,
     OrganisationBase,
     ProjectBase,
     RoleBase,
 )
+from unicon_backend.models.problem import ProblemBase
 
 
 class OrganisationCreate(OrganisationBase):

@@ -60,7 +60,7 @@ def signup(
     create_data: UserCreate,
     db_session: Annotated[Session, Depends(get_db_session)],
     response: Response,
-):
+) -> Token:
     username, password = create_data.username, create_data.password
     if db_session.exec(select(UserORM).where(UserORM.username == username)).first():
         raise HTTPException(HTTPStatus.BAD_REQUEST, "Username already exists")

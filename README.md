@@ -19,6 +19,14 @@ Run database migrations:
 uv run alembic upgrade head
 ```
 
+Add database migrations:
+
+```bash
+# Generates new migration files under `unicon_backend/migrations/versions`
+# This should be ran after making changes to any database models under `unicon_backend/models`
+uv run alembic revision --autogenerate -m "<description>"
+```
+
 Start the development server:
 
 ```bash

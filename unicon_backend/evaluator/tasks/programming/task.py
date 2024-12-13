@@ -18,7 +18,7 @@ from unicon_backend.evaluator.tasks.programming.steps import (
     StepSocket,
     StepType,
 )
-from unicon_backend.workers import task_publisher
+from unicon_backend.workers.publisher import task_publisher
 
 logger = getLogger(__name__)
 
@@ -46,17 +46,6 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
     environment: RunnerEnvironment
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
-
-    def get_implicit_input_step(self):
-        return InputStep(
-            id=USER_INPUT_STEP_ID,
-            inputs=[],
-            outputs=[
-                StepSocket(id=str(required_input.id), data="")
-                for required_input in self.required_inputs
-            ],
-            type=StepType.INPUT,
-        )
 
     def create_input_step(self, user_inputs: list[RequiredInput]) -> InputStep:
         """

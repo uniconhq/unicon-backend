@@ -1,7 +1,8 @@
 import re
-from typing import Any, TypeVar
+from typing import Any
 
-from pydantic import BaseModel, RootModel, model_validator
+from pydantic import BaseModel, model_validator
+from sqlmodel import MetaData, SQLModel
 
 
 def _camel_to_snake(name: str) -> str:
@@ -34,14 +35,13 @@ class CustomBaseModel(BaseModel, extra="forbid"):
         super().__init_subclass__(**kwargs)
 
 
-T = TypeVar("T")
-
-
-class RootModelList(RootModel[list[T]]):
-    root: list[T]
-
-    def __iter__(self):
-        return iter(self.root)
-
-    def __getitem__(self, item):
-        return self.root[item]
+class CustomSQLModel(SQLModel):
+    metadata = MetaData(
+        naming_convention={
+            "ix": "ix_%(column_0_label)s",
+            "uq": "uq_%(table_name)s_%(column_0_name)s",
+            "ck": "ck_%(table_name)s_`%(constraint_name)s`",
+            "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+            "pk": "pk_%(table_name)s",
+        }
+    )
