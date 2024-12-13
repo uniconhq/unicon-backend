@@ -9,15 +9,15 @@ from sqlmodel import Session, and_, col, select
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.project import get_project_by_id
-from unicon_backend.evaluator.contest import Problem
-from unicon_backend.models.contest import (
+from unicon_backend.evaluator.problem import Problem
+from unicon_backend.models.links import UserRole
+from unicon_backend.models.organisation import InvitationKey, Project, Role
+from unicon_backend.models.problem import (
     ProblemORM,
     SubmissionORM,
     SubmissionPublic,
     TaskAttemptORM,
 )
-from unicon_backend.models.links import UserRole
-from unicon_backend.models.organisation import InvitationKey, Project, Role
 from unicon_backend.models.user import UserORM
 from unicon_backend.schemas.auth import UserPublicWithRoles
 from unicon_backend.schemas.organisation import (

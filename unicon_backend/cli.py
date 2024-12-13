@@ -37,8 +37,8 @@ def seed(username: str, password: str):
 @app.command(name="assemble")
 def assemble(defn_file: Annotated[typer.FileText, typer.Option("--defn", mode="r")]):
     """Assemble the programs for all programming tasks in the given definition file."""
-    from unicon_backend.evaluator.contest import Problem, ProgrammingTask
-    from unicon_backend.models.contest import TaskType
+    from unicon_backend.evaluator.problem import Problem, ProgrammingTask
+    from unicon_backend.models.problem import TaskType
 
     defn = Problem.model_validate_json(defn_file.read())
     for task in defn.tasks:

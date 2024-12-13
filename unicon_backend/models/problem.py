@@ -7,7 +7,7 @@ import sqlalchemy.orm as sa_orm
 from pydantic import model_validator
 from sqlmodel import Field, Relationship
 
-from unicon_backend.evaluator.contest import Problem
+from unicon_backend.evaluator.problem import Problem
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus, TaskType
 from unicon_backend.lib.common import CustomSQLModel
 

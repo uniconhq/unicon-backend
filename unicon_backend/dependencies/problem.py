@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 
 from unicon_backend.dependencies.common import get_db_session
-from unicon_backend.models.contest import ProblemORM
+from unicon_backend.models.problem import ProblemORM
 
 
 def get_problem_by_id(

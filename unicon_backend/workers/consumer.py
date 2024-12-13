@@ -10,7 +10,7 @@ from unicon_backend.constants import EXCHANGE_NAME, RABBITMQ_URL, RESULT_QUEUE_N
 from unicon_backend.database import SessionLocal
 from unicon_backend.evaluator.tasks.base import TaskEvalStatus
 from unicon_backend.lib.amqp import AsyncConsumer
-from unicon_backend.models.contest import TaskResultORM
+from unicon_backend.models.problem import TaskResultORM
 
 logging.getLogger("pika").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)

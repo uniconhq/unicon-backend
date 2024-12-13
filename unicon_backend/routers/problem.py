@@ -8,13 +8,13 @@ from sqlmodel import Session, col, select
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.problem import get_problem_by_id
-from unicon_backend.evaluator.contest import Problem, UserInput
+from unicon_backend.evaluator.problem import Problem, UserInput
 from unicon_backend.models import (
     ProblemORM,
     SubmissionORM,
     TaskResultORM,
 )
-from unicon_backend.models.contest import SubmissionPublic, TaskAttemptORM, TaskAttemptPublic
+from unicon_backend.models.problem import SubmissionPublic, TaskAttemptORM, TaskAttemptPublic
 from unicon_backend.models.user import UserORM
 
 if TYPE_CHECKING:
