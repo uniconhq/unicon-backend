@@ -26,7 +26,10 @@ def seed(username: str, password: str):
 
     organisation = Organisation(name="Unicon", description="Rainbows", owner_id=admin_user.id)
     project = Project(name="Sparkles", organisation=organisation)
-    roles = [Role(name="admin", project=project, users=[admin_user])]
+    roles = [
+        Role(name="admin", project=project, users=[admin_user]),
+        *[Role(name=role, project=project) for role in ["member", "helper"]],
+    ]
 
     db_session.add_all([organisation, project, *roles])
     db_session.commit()
