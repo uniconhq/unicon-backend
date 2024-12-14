@@ -89,7 +89,7 @@ def submit_problem_task_attempt(
     return task_attempt_orm
 
 
-@router.post("/{id}/submit", summary="Make a problem submission")
+@router.post("/{id}/submit", summary="Make a problem submission", response_model=SubmissionPublic)
 def make_submission(
     attempt_ids: list[int],
     problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
@@ -101,12 +101,12 @@ def make_submission(
         select(TaskAttemptORM)
         .where(col(TaskAttemptORM.id).in_(attempt_ids))
         .where(TaskAttemptORM.user_id == user.id)
-    )
+    ).all()
 
     # Verify that (1) all task attempts are associated to the user and present in the database,
     #             (2) all task attempts are for the same problem and
     #             (3) no >1 task attempts are for the same task
-    if len(task_attempts.all()) != len(attempt_ids):
+    if len(task_attempts) != len(attempt_ids):
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
             detail="Invalid task attempt IDs",
