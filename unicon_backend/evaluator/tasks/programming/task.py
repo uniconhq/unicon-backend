@@ -1,7 +1,9 @@
+from collections import Counter
+from functools import cached_property
 from logging import getLogger
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, RootModel, model_validator
 
 from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus, TaskType
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
@@ -27,6 +29,17 @@ USER_INPUT_STEP_ID: int = 0
 
 class Testcase(ComputeGraph):
     id: int
+
+    @cached_property
+    def socket_type_counts(self) -> Counter[str]:
+        return Counter(socket.type for socket in self.nodes)
+
+    @model_validator(mode="after")
+    def check_exactly_one_output_step(self) -> Self:
+        output_step_count = self.socket_type_counts[StepType.OUTPUT.value]
+        if output_step_count != 1:
+            raise ValueError(f"Expected exactly 1 output step, found {output_step_count}")
+        return self
 
 
 class RequiredInput(BaseModel):
