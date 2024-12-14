@@ -1,12 +1,12 @@
 from enum import Enum
 from typing import Any, NewType, Self
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from pydantic import BaseModel, model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File
 
-SubmissionId = NewType("SubmissionId", UUID)
+SubmissionId = NewType("SubmissionId", str)
 
 
 class ProgrammingLanguage(str, Enum):
@@ -21,11 +21,31 @@ class RunnerEnvironment(BaseModel):
     extra_options: dict[str, Any] | None = None
 
 
-class RunnerResponse(BaseModel):
-    submission_id: SubmissionId
-    status: int
+class TaskEvalStatus(str, Enum):
+    SUCCESS = "SUCCESS"
+    PENDING = "PENDING"
+    SKIPPED = "SKIPPED"
+    FAILED = "FAILED"
+
+
+class Status(str, Enum):
+    OK = "OK"
+    MLE = "MLE"
+    TLE = "TLE"
+    RTE = "RTE"
+    WA = "WA"
+
+
+class Result(BaseModel):
+    status: Status
     stdout: str
     stderr: str
+
+
+class RunnerResponse(BaseModel):
+    submission_id: SubmissionId
+    status: TaskEvalStatus
+    result: list[Result]
 
 
 class RunnerPackage(BaseModel):
@@ -48,7 +68,7 @@ class RunnerRequest(BaseModel):
     def create(
         cls, programs: list[RunnerPackage], environment: RunnerEnvironment
     ) -> "RunnerRequest":
-        submission_id = SubmissionId(uuid4())
+        submission_id = SubmissionId(str(uuid4()))
         return RunnerRequest(
             submission_id=submission_id, programs=programs, environment=environment
         )
