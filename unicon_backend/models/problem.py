@@ -9,6 +9,9 @@ from sqlmodel import Field, Relationship
 
 from unicon_backend.evaluator.problem import Problem
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus, TaskType
+from unicon_backend.evaluator.tasks.multiple_choice import MultipleChoiceTask, MultipleResponseTask
+from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
+from unicon_backend.evaluator.tasks.short_answer import ShortAnswerTask
 from unicon_backend.lib.common import CustomSQLModel
 
 if TYPE_CHECKING:
@@ -89,6 +92,22 @@ class TaskORM(CustomSQLModel, table=True):
             return TaskORM(id=id, type=type, autograde=autograde, other_fields=other_fields)
 
         return _convert_task_to_orm(**task.model_dump(serialize_as_any=True))
+
+    def to_task(self) -> "Task":
+        task_classes: dict[TaskType, type[Task]] = {
+            TaskType.MULTIPLE_CHOICE: MultipleChoiceTask,
+            TaskType.MULTIPLE_RESPONSE: MultipleResponseTask,
+            TaskType.PROGRAMMING: ProgrammingTask,
+            TaskType.SHORT_ANSWER: ShortAnswerTask,
+        }
+        return task_classes[self.type].model_validate(
+            {
+                "id": self.id,
+                "type": self.type,
+                "autograde": self.autograde,
+                **self.other_fields,
+            }
+        )
 
 
 class SubmissionAttemptLink(CustomSQLModel, table=True):

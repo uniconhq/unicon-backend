@@ -10,6 +10,7 @@ import libcst as cst
 from pydantic import model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
+from unicon_backend.evaluator.tasks.programming.runner import Result
 from unicon_backend.evaluator.tasks.programming.transforms import hoist_imports
 from unicon_backend.lib.common import CustomBaseModel, CustomSQLModel
 from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
@@ -374,6 +375,34 @@ class Comparison(CustomSQLModel):
         if not isinstance(self.value, PrimitiveData):
             raise ValueError(f"Invalid comparison value {self.value} for operator {self.operator}")
         return self
+
+    def compare(self, actual_value: Any):
+        try:
+            if self.operator == Operator.EQUAL:
+                return actual_value == self.value
+            elif self.operator == Operator.LESS_THAN:
+                return actual_value < self.value
+            elif self.operator == Operator.GREATER_THAN:
+                return actual_value > self.value
+        finally:
+            # if there was an exception, the type returned was incorrect.
+            # so return False.
+            return False  # noqa: B012
+
+
+class SocketResult(CustomSQLModel):
+    """
+    This class is used to store whether the result of an output socket is right or wrong.
+    Note that whether or not to show this information (public) and other variables should be derived from data in Testcase.
+    """
+
+    id: str
+    value: Any
+    correct: bool
+
+
+class ProcessedResult(Result):
+    results: list[SocketResult] | None = None
 
 
 class OutputSocketConfig(CustomSQLModel):
