@@ -47,13 +47,7 @@ class RequiredInput(BaseModel):
     data: PrimitiveData | File
 
 
-class ExpectedAnswer(BaseModel):
-    testcase_id: int
-    step_id: int
-    expected_answer: Any
-
-
-class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswer]]):
+class ProgrammingTask(Task[list[RequiredInput], SubmissionId]):
     type: Literal[TaskType.PROGRAMMING]
     question: str
     environment: RunnerEnvironment
@@ -76,7 +70,7 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
             type=StepType.INPUT,
         )
 
-    def run(self, user_inputs: list[RequiredInput], _) -> TaskEvalResult[SubmissionId]:
+    def run(self, user_inputs: list[RequiredInput]) -> TaskEvalResult[SubmissionId]:
         # Check if all required inputs are provided
         for required_input in self.required_inputs:
             if not any(required_input.id == user_input.id for user_input in user_inputs):
@@ -121,7 +115,3 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
 
     def validate_user_input(self, user_input: Any) -> list[RequiredInput]:
         return RootModel[list[RequiredInput]].model_validate(user_input).root
-
-    def validate_expected_answer(self, expected_answer: Any) -> list[ExpectedAnswer]:
-        # TEMP: Ignore expected answer for now
-        return []
