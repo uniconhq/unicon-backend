@@ -1,0 +1,34 @@
+{
+  "user_inputs": [
+    {
+      "task_id": 0,
+      "value": 0
+    },
+    {
+      "task_id": 1,
+      "value": [1]
+    },
+    {
+      "task_id": 2,
+      "value": "hello world"
+    },
+    {
+      "task_id": 3,
+      "value": [
+        {
+          "id": "DATA.IN.TREE_SEARCH",
+          "data": {
+            "file_name": "a.py",
+            "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
+          }
+        }
+      ]
+    }
+  ],
+  "expected_answers": [
+    {
+      "task_id": 1,
+      "expected_answer": [1]
+    }
+  ]
+}
