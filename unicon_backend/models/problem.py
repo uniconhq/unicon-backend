@@ -10,6 +10,7 @@ from sqlmodel import Field, Relationship
 from unicon_backend.evaluator.problem import Problem
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus, TaskType
 from unicon_backend.evaluator.tasks.multiple_choice import MultipleChoiceTask, MultipleResponseTask
+from unicon_backend.evaluator.tasks.programming.steps import ProcessedResult
 from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
 from unicon_backend.evaluator.tasks.short_answer import ShortAnswerTask
 from unicon_backend.lib.common import CustomSQLModel
@@ -263,7 +264,7 @@ class MultipleResponseTaskResult(TaskResultPublic):
 
 
 class ProgrammingTaskResult(TaskResultPublic):
-    result: list[dict] | None  # TODO: handle this one properly
+    result: list[ProcessedResult] | None  # TODO: handle this one properly
 
     @model_validator(mode="after")
     def validate_task_type(self) -> Self:
