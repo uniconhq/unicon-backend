@@ -100,6 +100,7 @@ class ProgrammingTask(Task[list[RequiredInput], SubmissionId, list[ExpectedAnswe
                 )
 
             runner_package = RunnerPackage(
+                id=testcase.id,
                 entrypoint="__entrypoint.py",
                 # TODO: instead of always passing in user_input, we can refactor in the future
                 # to let ComputeGraph derive all the files needed to run the testcase

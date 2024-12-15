@@ -37,6 +37,7 @@ class Status(str, Enum):
 
 
 class Result(BaseModel):
+    id: int
     status: Status
     stdout: str
     stderr: str
@@ -49,6 +50,7 @@ class RunnerResponse(BaseModel):
 
 
 class RunnerPackage(BaseModel):
+    id: int  # used for testcase_id
     entrypoint: str
     files: list[File]
 

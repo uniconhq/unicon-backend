@@ -378,13 +378,16 @@ class Comparison(CustomSQLModel):
 
     def compare(self, actual_value: Any):
         try:
-            if self.operator == Operator.EQUAL:
-                return actual_value == self.value
-            elif self.operator == Operator.LESS_THAN:
-                return actual_value < self.value
-            elif self.operator == Operator.GREATER_THAN:
-                return actual_value > self.value
-        finally:
+            match self.operator:
+                case Operator.EQUAL:
+                    return actual_value == self.value
+                case Operator.LESS_THAN:
+                    return actual_value < self.value
+                case Operator.GREATER_THAN:
+                    return actual_value > self.value
+                case _:
+                    return False
+        except:
             # if there was an exception, the type returned was incorrect.
             # so return False.
             return False  # noqa: B012

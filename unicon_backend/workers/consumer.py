@@ -49,12 +49,12 @@ class TaskResultsConsumer(AsyncConsumer):
                 # Updates to testcases must be done very carefully because of this assumption.
                 # To remove this assumption, we need to add a testcase_id field to the result model.
                 processedResults: list[ProcessedResult] = []
-                for testcase, result in zip(task.testcases, body_json.result, strict=True):
-                    # if result.status != Status.OK:
-                    #     processedResults.append(
-                    #         ProcessedResult.model_validate({**result.model_dump(), "results": []})
-                    #     )
-                    #     continue
+                for testcase in task.testcases:
+                    result = [
+                        testcaseResult
+                        for testcaseResult in body_json.result
+                        if testcaseResult.id == testcase.id
+                    ][0]
 
                     output_step = OutputStep.model_validate(
                         [node for node in testcase.nodes if node.type == StepType.OUTPUT][0],
@@ -69,6 +69,7 @@ class TaskResultsConsumer(AsyncConsumer):
                         )
                         if config.comparison is not None:
                             socket_result.correct = config.comparison.compare(socket_result.value)
+
                         if not socket_result.correct and result.status == Status.OK:
                             result.status = Status.WA
 
@@ -79,7 +80,6 @@ class TaskResultsConsumer(AsyncConsumer):
                             {**result.model_dump(), "results": socket_results}
                         )
                     )
-                print(processedResults)
 
                 task_result.result = [result.model_dump() for result in processedResults]
 
