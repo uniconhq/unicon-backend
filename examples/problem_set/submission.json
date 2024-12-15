@@ -24,11 +24,5 @@
         }
       ]
     }
-  ],
-  "expected_answers": [
-    {
-      "task_id": 1,
-      "expected_answer": [1]
-    }
   ]
 }

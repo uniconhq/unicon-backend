@@ -6,7 +6,8 @@
       "id": 0,
       "type": "MULTIPLE_CHOICE_TASK",
       "question": "True or False: Uniform Cost Search is a special case of A* search.",
-      "choices": ["True", "False"]
+      "choices": ["True", "False"],
+      "expected_answer": 0
     },
     {
       "id": 1,
@@ -17,7 +18,8 @@
         "P(y = 0 |x, w) = 0.4",
         "P(y = 1 |x, w) = 0.6",
         "P(y = 0 |x, w) = 0.6"
-      ]
+      ],
+      "expected_answer": [0, 3]
     },
     {
       "id": 2,
