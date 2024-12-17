@@ -506,7 +506,7 @@ class PyRunFunctionStep(Step):
         ][0].from_node_id == 0
 
         # NOTE: Assume that the program file is always a Python file
-        module_name_str = program_file.file_name.split(".py")[0]
+        module_name_str = program_file.name.split(".py")[0]
 
         func_name = cst.Name(self.function_identifier)
         args = [cst.Arg(var_inputs[socket.id]) for socket in self.arg_sockets]

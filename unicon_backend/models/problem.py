@@ -44,13 +44,6 @@ class ProblemORM(CustomSQLModel, table=True):
     project: sa_orm.Mapped["Project"] = Relationship(back_populates="problems")
     submissions: sa_orm.Mapped[list["SubmissionORM"]] = Relationship(back_populates="problem")
 
-    def update(self, problem: "Problem") -> None:
-        self.name, self.description = problem.name, problem.description
-
-        # Remove existing tasks and add new ones
-        self.tasks.clear()
-        self.tasks.extend([TaskORM.from_task(task) for task in problem.tasks])
-
     @classmethod
     def from_problem(cls, problem: "Problem") -> "ProblemORM":
         tasks_orm: list[TaskORM] = [TaskORM.from_task(task) for task in problem.tasks]

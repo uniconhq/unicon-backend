@@ -30,26 +30,6 @@ def get_problem(
     return problem_orm.to_problem()
 
 
-@router.patch("/{id}", summary="Update a problem definition")
-def update_problem(
-    existing_problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
-    new_problem: Problem,
-    db_session: Annotated[Session, Depends(get_db_session)],
-) -> Problem:
-    # Delete existing tasks and add new ones
-    for task_orm in existing_problem_orm.tasks:
-        db_session.delete(task_orm)
-
-    # Update problem definition
-    existing_problem_orm.update(new_problem)
-
-    db_session.add(existing_problem_orm)
-    db_session.commit()
-    db_session.refresh(existing_problem_orm)
-
-    return existing_problem_orm.to_problem()
-
-
 @router.post(
     "/{id}/tasks/{task_id}", summary="Submit a task attempt", response_model=TaskAttemptPublic
 )
