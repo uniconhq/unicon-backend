@@ -1,8 +1,8 @@
 from http import HTTPStatus
 from typing import Annotated
 
-import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import DataError
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, and_, col, select
 
@@ -167,7 +167,7 @@ def join_project(
                 )
             )
         ).first()
-    except sqlalchemy.exc.DataError:
+    except DataError:
         # invitation key is an invalid uuid
         role = None
 
