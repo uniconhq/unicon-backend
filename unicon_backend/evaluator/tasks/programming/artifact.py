@@ -4,5 +4,5 @@ PrimitiveData = str | int | float | bool
 
 
 class File(BaseModel):
-    file_name: str
+    name: str
     content: str

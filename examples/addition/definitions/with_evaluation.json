@@ -11,14 +11,14 @@
         "options": {
           "version": "3.12"
         },
-        "time_limit": 5,
-        "memory_limit": 500
+        "time_limit_secs": 5,
+        "memory_limit_mb": 500
       },
       "required_inputs": [
         {
           "id": "DATA.OUT.ADD",
           "data": {
-            "file_name": "tree_search.py",
+            "name": "tree_search.py",
             "content": "def add(a, b):\n\traise NotImplememented()"
           }
         }
