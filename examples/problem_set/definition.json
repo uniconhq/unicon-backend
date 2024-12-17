@@ -36,14 +36,14 @@
         "options": {
           "version": "3.12"
         },
-        "time_limit": 10,
-        "memory_limit": 500
+        "time_limit_secs": 10,
+        "memory_limit_mb": 500
       },
       "required_inputs": [
         {
           "id": "DATA.IN.TREE_SEARCH",
           "data": {
-            "file_name": "tree_search.py",
+            "name": "tree_search.py",
             "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
           }
         }

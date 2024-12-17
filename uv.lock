@@ -911,9 +911,6 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
-cli = [
-    { name = "typer" },
-]
 dev = [
     { name = "mypy" },
     { name = "pre-commit" },
@@ -942,7 +939,6 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-cli = [{ name = "typer", specifier = ">=0.15.1" }]
 dev = [
     { name = "mypy", specifier = ">=1.11.2" },
     { name = "pre-commit", specifier = ">=3.8.0" },

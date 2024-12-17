@@ -18,7 +18,7 @@
         {
           "id": "DATA.IN.TREE_SEARCH",
           "data": {
-            "file_name": "a.py",
+            "name": "a.py",
             "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
           }
         }

@@ -11,7 +11,6 @@ from sqlmodel import col
 from unicon_backend.constants import EXCHANGE_NAME, RABBITMQ_URL, RESULT_QUEUE_NAME
 from unicon_backend.database import SessionLocal
 from unicon_backend.evaluator.tasks.base import TaskEvalStatus
-from unicon_backend.evaluator.tasks.programming.runner import RunnerResponse, Status
 from unicon_backend.evaluator.tasks.programming.steps import (
     OutputStep,
     ProcessedResult,
@@ -21,6 +20,7 @@ from unicon_backend.evaluator.tasks.programming.steps import (
 from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
 from unicon_backend.lib.amqp import AsyncConsumer
 from unicon_backend.models.problem import TaskResultORM
+from unicon_backend.runner import JobResult, Status
 
 logging.getLogger("pika").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -33,10 +33,10 @@ class TaskResultsConsumer(AsyncConsumer):
     def message_callback(
         self, _basic_deliver: Basic.Deliver, _properties: pika.BasicProperties, body: bytes
     ):
-        body_json: RunnerResponse = RunnerResponse.model_validate_json(body)
-        with SessionLocal() as session:
-            task_result = session.scalar(
-                sa.select(TaskResultORM).where(col(TaskResultORM.job_id) == body_json.submission_id)
+        response: JobResult = JobResult.model_validate_json(body)
+        with SessionLocal() as db_session:
+            task_result = db_session.scalar(
+                sa.select(TaskResultORM).where(col(TaskResultORM.job_id) == response.id)
             )
             if task_result is not None:
                 task_result.status = TaskEvalStatus.SUCCESS
@@ -52,7 +52,7 @@ class TaskResultsConsumer(AsyncConsumer):
                 for testcase in task.testcases:
                     result = [
                         testcaseResult
-                        for testcaseResult in body_json.result
+                        for testcaseResult in response.results
                         if testcaseResult.id == testcase.id
                     ][0]
 
@@ -83,8 +83,8 @@ class TaskResultsConsumer(AsyncConsumer):
 
                 task_result.result = [result.model_dump() for result in processedResults]
 
-                session.add(task_result)
-                session.commit()
+                db_session.add(task_result)
+                db_session.commit()
 
 
 task_results_consumer = TaskResultsConsumer()

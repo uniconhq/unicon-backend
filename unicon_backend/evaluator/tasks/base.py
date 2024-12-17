@@ -4,8 +4,6 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
-from unicon_backend.evaluator.tasks.programming.runner import TaskEvalStatus
-
 TaskUserInput = TypeVar("TaskUserInput")
 TaskResult = TypeVar("TaskResult")
 
@@ -15,6 +13,13 @@ class TaskType(str, Enum):
     MULTIPLE_RESPONSE = "MULTIPLE_RESPONSE_TASK"
     SHORT_ANSWER = "SHORT_ANSWER_TASK"
     PROGRAMMING = "PROGRAMMING_TASK"
+
+
+class TaskEvalStatus(str, Enum):
+    SUCCESS = "SUCCESS"
+    PENDING = "PENDING"
+    SKIPPED = "SKIPPED"
+    FAILED = "FAILED"
 
 
 class TaskEvalResult(BaseModel, Generic[TaskResult]):

@@ -10,11 +10,11 @@ import libcst as cst
 from pydantic import model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
-from unicon_backend.evaluator.tasks.programming.runner import Result
 from unicon_backend.evaluator.tasks.programming.transforms import hoist_imports
 from unicon_backend.lib.common import CustomBaseModel, CustomSQLModel
 from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
 from unicon_backend.lib.helpers import partition
+from unicon_backend.runner import ProgramResult
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -404,7 +404,7 @@ class SocketResult(CustomSQLModel):
     correct: bool
 
 
-class ProcessedResult(Result):
+class ProcessedResult(ProgramResult):
     results: list[SocketResult] | None = None
 
 
@@ -591,7 +591,7 @@ class PyRunFunctionStep(Step):
         ][0].from_node_id == 0
 
         # NOTE: Assume that the program file is always a Python file
-        module_name_str = program_file.file_name.split(".py")[0]
+        module_name_str = program_file.name.split(".py")[0]
 
         func_name = cst.Name(self.function_identifier)
         args = [cst.Arg(var_inputs[socket.id]) for socket in self.arg_sockets]
