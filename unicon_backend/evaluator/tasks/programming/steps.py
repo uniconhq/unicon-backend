@@ -2,18 +2,19 @@ import abc
 import logging
 from collections import deque
 from collections.abc import MutableSequence, Sequence
-from enum import Enum
+from enum import Enum, StrEnum
 from functools import cached_property
-from typing import TYPE_CHECKING, ClassVar, Optional, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Self
 
 import libcst as cst
 from pydantic import model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
 from unicon_backend.evaluator.tasks.programming.transforms import hoist_imports
-from unicon_backend.lib.common import CustomBaseModel
+from unicon_backend.lib.common import CustomBaseModel, CustomSQLModel
 from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
 from unicon_backend.lib.helpers import partition
+from unicon_backend.runner import ProgramResult
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -356,8 +357,92 @@ class InputStep(Step):
         return program
 
 
+class Operator(StrEnum):
+    LESS_THAN = "<"
+    EQUAL = "="
+    GREATER_THAN = ">"
+
+
+class Comparison(CustomSQLModel):
+    operator: Operator
+    value: Any
+
+    @model_validator(mode="after")
+    def check_value_type(self) -> Self:
+        """For < and >, check the operator can be compared (i.e. primitive)"""
+        if self.operator == Operator.EQUAL:
+            return self
+        if not isinstance(self.value, PrimitiveData):
+            raise ValueError(f"Invalid comparison value {self.value} for operator {self.operator}")
+        return self
+
+    def compare(self, actual_value: Any):
+        try:
+            match self.operator:
+                case Operator.EQUAL:
+                    return actual_value == self.value
+                case Operator.LESS_THAN:
+                    return actual_value < self.value
+                case Operator.GREATER_THAN:
+                    return actual_value > self.value
+                case _:
+                    return False
+        except:
+            # if there was an exception, the type returned was incorrect.
+            # so return False.
+            return False  # noqa: B012
+
+
+class SocketResult(CustomSQLModel):
+    """
+    This class is used to store whether the result of an output socket is right or wrong.
+    Note that whether or not to show this information (public) and other variables should be derived from data in Testcase.
+    """
+
+    id: str
+    value: Any
+    correct: bool
+
+
+class ProcessedResult(ProgramResult):
+    results: list[SocketResult] | None = None
+
+
+class OutputSocketConfig(CustomSQLModel):
+    id: str
+    """ID of the socket."""
+    label: str | None = ""
+    """User facing label of the socket. Optional."""
+    comparison: Comparison | None
+    """Comparison to be made with the output of the socket. Optional."""
+    public: bool = True
+    """Whether output of the socket should be shown to less priviledged users."""
+
+    @model_validator(mode="after")
+    def set_default_label(self) -> Self:
+        if self.label == "":
+            self.label = self.id
+        return self
+
+
 class OutputStep(Step):
     required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (0, 0))
+
+    socket_metadata: list[OutputSocketConfig]
+
+    @model_validator(mode="after")
+    def check_all_sockets_have_config(self) -> Self:
+        socket_ids = {socket.id for socket in self.data_in}
+        metadata_socket_ids = {socket.id for socket in self.socket_metadata}
+
+        if len(metadata_socket_ids) != len(self.socket_metadata):
+            raise ValueError("Duplicate socket metadata configuration")
+
+        if not socket_ids == metadata_socket_ids:
+            raise ValueError(
+                f"Socket ids differ: {metadata_socket_ids - socket_ids}, {socket_ids - metadata_socket_ids}"
+            )
+        return self
 
     def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> ProgramFragment:
         result_dict = cst.Dict(

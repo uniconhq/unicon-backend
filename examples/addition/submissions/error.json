@@ -2,7 +2,7 @@
   "user_inputs": [
     {
       "task_id": 0,
-      "user_input": [
+      "value": [
         {
           "id": "DATA.OUT.ADD",
           "data": {
@@ -12,6 +12,5 @@
         }
       ]
     }
-  ],
-  "expected_answers": []
+  ]
 }

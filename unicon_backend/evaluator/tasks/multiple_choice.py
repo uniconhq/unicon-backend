@@ -1,33 +1,31 @@
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, RootModel, model_validator
 
 from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus, TaskType
 
 
-class MultipleChoiceTask(Task[int, RootModel[bool], int]):
+class MultipleChoiceTask(Task[int, RootModel[bool]]):
     type: Literal[TaskType.MULTIPLE_CHOICE]
     question: str
     choices: list[str]
+    expected_answer: int
 
-    def run(self, user_input: int, expected_answer: int) -> TaskEvalResult[RootModel[bool]]:
+    @model_validator(mode="after")
+    def check_expected_answer_is_valid(self) -> Self:
+        if self.expected_answer < 0 or self.expected_answer >= len(self.choices):
+            raise ValueError("Expected answer must be within the range of choices")
+        return self
+
+    def run(self, user_input: int) -> TaskEvalResult[RootModel[bool]]:
         return TaskEvalResult(
             task_id=self.id,
             status=TaskEvalStatus.SUCCESS,
-            result=RootModel[bool](user_input == expected_answer),
+            result=RootModel[bool](user_input == self.expected_answer),
         )
 
     def validate_user_input(self, user_input: Any) -> int:
         return RootModel[int].model_validate(user_input).root
-
-    def validate_expected_answer(self, expected_answer: Any) -> int:
-        validated = RootModel[int].model_validate(expected_answer).root
-
-        # Verify that the expected answer is within the range of choices
-        if validated < 0 or validated >= len(self.choices):
-            raise ValueError("Expected answer must be within the range of choices")
-
-        return validated
 
 
 class MultipleResponseTaskResult(BaseModel):
@@ -36,14 +34,23 @@ class MultipleResponseTaskResult(BaseModel):
     num_choices: int
 
 
-class MultipleResponseTask(Task[set[int], MultipleResponseTaskResult, set[int]]):
+class MultipleResponseTask(Task[set[int], MultipleResponseTaskResult]):
     type: Literal[TaskType.MULTIPLE_RESPONSE]
     question: str
     choices: list[str]
+    expected_answer: list[int]
 
-    def run(
-        self, user_input: set[int], expected_answer: set[int]
-    ) -> TaskEvalResult[MultipleResponseTaskResult]:
+    @model_validator(mode="after")
+    def check_correct_choices_is_valid(self) -> Self:
+        if len(self.expected_answer) != len(set(self.expected_answer)):
+            raise ValueError("Correct choices must be unique")
+
+        if not all(0 <= choice < len(self.choices) for choice in self.expected_answer):
+            raise ValueError("Expected answer must be within the range of choices")
+        return self
+
+    def run(self, user_input: set[int]) -> TaskEvalResult[MultipleResponseTaskResult]:
+        expected_answer = set(self.expected_answer)
         return TaskEvalResult(
             task_id=self.id,
             status=TaskEvalStatus.SUCCESS,
@@ -56,12 +63,3 @@ class MultipleResponseTask(Task[set[int], MultipleResponseTaskResult, set[int]])
 
     def validate_user_input(self, user_input: Any) -> set[int]:
         return RootModel[set[int]].model_validate(user_input).root
-
-    def validate_expected_answer(self, expected_answer: Any) -> set[int]:
-        validated = RootModel[set[int]].model_validate(expected_answer).root
-
-        # Verify that choices in the expected answer are within the range of choices
-        if not all(0 <= choice < len(self.choices) for choice in validated):
-            raise ValueError("Expected answer must be within the range of choices")
-
-        return validated

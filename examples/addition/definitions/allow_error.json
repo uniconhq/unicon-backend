@@ -81,6 +81,26 @@
             {
               "id": 3,
               "type": "OUTPUT_STEP",
+              "socket_metadata": [
+                {
+                  "id": "DATA.OUT",
+                  "label": "Addition output",
+                  "comparison": {
+                    "operator": "=",
+                    "value": 3
+                  },
+                  "public": true
+                },
+                {
+                  "id": "DATA.OUT.ERROR",
+                  "label": "Error",
+                  "comparison": {
+                    "operator": "=",
+                    "value": "Error: None"
+                  },
+                  "public": true
+                }
+              ],
               "inputs": [
                 {
                   "id": "DATA.OUT"
