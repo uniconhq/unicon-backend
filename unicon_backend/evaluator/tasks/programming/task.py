@@ -64,10 +64,6 @@ class ProgrammingTask(Task[list[RequiredInput], JobId, list[ExpectedAnswer]]):
             if not any(required_input.id == user_input.id for user_input in user_inputs):
                 raise ValueError(f"Required input {required_input.id} not provided")
 
-        user_input_files: list[File] = [
-            user_input.data for user_input in user_inputs if isinstance(user_input.data, File)
-        ]
-
         runner_programs: list[RunnerProgram] = []
         for testcase in self.testcases:
             assembled_program = mpi_sandbox(testcase.run(self.create_input_step(user_inputs)))
@@ -87,7 +83,6 @@ class ProgrammingTask(Task[list[RequiredInput], JobId, list[ExpectedAnswer]]):
                     # TODO: instead of always passing in user_input, we can refactor in the future
                     # to let ComputeGraph derive all the files needed to run the testcase
                     files=[
-                        *user_input_files,
                         *graph_files,
                         File(name="__entrypoint.py", content=assembled_program.code),
                     ],
