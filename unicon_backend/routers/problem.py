@@ -8,13 +8,18 @@ from sqlmodel import Session, col, select
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.problem import get_problem_by_id
-from unicon_backend.evaluator.problem import Problem, UserInput
+from unicon_backend.evaluator.problem import Problem, Task, UserInput
 from unicon_backend.models import (
     ProblemORM,
     SubmissionORM,
     TaskResultORM,
 )
-from unicon_backend.models.problem import SubmissionPublic, TaskAttemptORM, TaskAttemptPublic
+from unicon_backend.models.problem import (
+    SubmissionPublic,
+    TaskAttemptORM,
+    TaskAttemptPublic,
+    TaskORM,
+)
 from unicon_backend.models.user import UserORM
 
 if TYPE_CHECKING:
@@ -28,6 +33,42 @@ def get_problem(
     problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
 ) -> Problem:
     return problem_orm.to_problem()
+
+
+@router.post("/{id}/tasks", summary="Add a task to a problem")
+def add_task_to_problem(
+    task: Task,
+    problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+):
+    taskOrm = TaskORM.from_task(task)
+    taskOrm.id = max((task.id for task in problem_orm.tasks), default=-1) + 1
+
+    problem_orm.tasks.append(taskOrm)
+    db_session.add(problem_orm)
+    db_session.commit()
+    return
+
+
+# TODO: this route is broken
+@router.patch("/{id}", summary="Update a problem definition")
+def update_problem(
+    existing_problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    new_problem: Problem,
+    db_session: Annotated[Session, Depends(get_db_session)],
+) -> Problem:
+    # Delete existing tasks and add new ones
+    for task_orm in existing_problem_orm.tasks:
+        db_session.delete(task_orm)
+
+    # Update problem definition
+    existing_problem_orm.update(new_problem)
+
+    db_session.add(existing_problem_orm)
+    db_session.commit()
+    db_session.refresh(existing_problem_orm)
+
+    return existing_problem_orm.to_problem()
 
 
 @router.post(
