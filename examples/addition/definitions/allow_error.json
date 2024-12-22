@@ -84,7 +84,7 @@
               "inputs": [
                 {
                   "id": "DATA.OUT",
-                  "label": "Addition output",
+                  "user_label": "Addition output",
                   "comparison": {
                     "operator": "=",
                     "value": 3
@@ -93,7 +93,7 @@
                 },
                 {
                   "id": "DATA.OUT.ERROR",
-                  "label": "Error",
+                  "user_label": "Error",
                   "comparison": {
                     "operator": "=",
                     "value": "Error: None"

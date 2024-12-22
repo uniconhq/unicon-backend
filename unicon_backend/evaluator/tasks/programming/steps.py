@@ -278,95 +278,6 @@ class Step[SocketT: StepSocket](CustomBaseModel, GraphNode[SocketT], abc.ABC, po
     ) -> ProgramFragment: ...
 
 
-class ComputeGraph(Graph[Step[StepSocket | OutputSocket]]):
-    def _create_link_variable(self, from_node: Step, from_socket: str) -> ProgramVariable:
-        """
-        Create a variable name for the output of a node. The variable name must be unique across all nodes and sockets.
-
-        Args:
-            from_node (Step): The node that is outputting the variable
-            from_socket (str): The socket that the variable is outputting from
-        """
-        return from_node.get_output_variable(from_socket)
-
-    def run(
-        self,
-        user_input_step: Optional["InputStep"] = None,
-        debug: bool = True,
-        node_ids: set[int] | None = None,
-    ) -> Program:
-        """
-        Run the compute graph with the given user input.
-
-        Args:
-            user_input_step (InputStep, optional): The input step (id = 0) that contains the user input
-            debug (bool, optional): Whether to include debug statements in the program. Defaults to True.
-            node_ids (set[int], optional): The node ids to run. Defaults to None.
-
-        Returns:
-            Program: The program that is generated from the compute graph
-        """
-        # Add user input step (node) to compute graph
-        if user_input_step is not None:
-            self.nodes.append(user_input_step)
-
-        # If node_ids is provided, we exclude all other nodes
-        # This is useful when we want to run only a subset of the compute graph
-        node_ids_to_exclude: set[int] = set()
-        if node_ids is not None:
-            node_ids_to_exclude = set(self.node_index.keys()) - node_ids
-
-        subgraph_node_ids: set[int] = set()
-        for node in self.nodes:
-            if node.id not in node_ids_to_exclude:
-                subgraph_node_ids |= node.get_all_subgraph_node_ids(self)
-
-        # We do not consider subgraph nodes when determining the flow order (topological order) of the main compute graph
-        # The responsibility of determining the order of subgraph nodes is deferred to the step itself
-        topological_order: list[Step] = self.topological_sort(
-            subgraph_node_ids | node_ids_to_exclude
-        )
-
-        program_body: ProgramBody = []
-        for node in topological_order:
-            # Output of a step will be stored in a variable in the format `var_{step_id}_{socket_id}`
-            # It is assumed that every step will always output the same number of values as the number of output sockets
-            # As such, all we need to do is to pass in the correct variables to the next step
-
-            input_variables: dict[SocketId, ProgramVariable] = {}
-            file_inputs: dict[SocketId, File] = {}
-
-            for in_edge in self.in_edges_index[node.id]:
-                in_node: Step = self.node_index[in_edge.from_node_id]
-
-                # Find the socket that the link is connected to
-                for socket in filter(lambda socket: socket.id == in_edge.to_socket_id, node.inputs):
-                    in_node_sockets = [
-                        socket for socket in in_node.outputs if socket.id == in_edge.from_socket_id
-                    ]
-                    assert len(in_node_sockets) <= 1
-
-                    # If no sockets are connected to this input socket, skip.
-                    if not in_node_sockets:
-                        continue
-
-                    # Get origining node socket from in_node
-                    in_node_socket: StepSocket = in_node_sockets[0]
-
-                    if in_node_socket.data is not None and isinstance(in_node_socket.data, File):
-                        # NOTE: File objects are passed directly to the next step and not serialized as a variable
-                        file_inputs[socket.id] = in_node_socket.data
-                    else:
-                        input_variables[socket.id] = self._create_link_variable(
-                            in_node, in_node_socket.id
-                        )
-
-            node._debug = debug
-            program_body.extend(assemble_fragment(node.run(input_variables, file_inputs, self)))
-
-        return hoist_imports(cst.Module(body=program_body))
-
-
 class InputStep(Step[StepSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (1, -1))
 
@@ -538,7 +449,7 @@ class PyRunFunctionStep(Step[StepSocket]):
         self,
         var_inputs: dict[SocketId, ProgramVariable],
         file_inputs: dict[SocketId, File],
-        graph: ComputeGraph,
+        graph: "ComputeGraph",
     ) -> ProgramFragment:
         # Get the input file that we are running the function from
         program_file: File | None = file_inputs.get(self._data_in_file_id)
@@ -608,7 +519,7 @@ class LoopStep(Step[StepSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (0, 0))
 
     def run(
-        self, var_inputs: dict[SocketId, ProgramVariable], _, graph: ComputeGraph
+        self, var_inputs: dict[SocketId, ProgramVariable], _, graph: "ComputeGraph"
     ) -> ProgramFragment:
         return [
             cst.While(
@@ -637,7 +548,7 @@ class IfElseStep(Step[StepSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (0, 0))
 
     def run(
-        self, var_inputs: dict[SocketId, ProgramVariable], _, graph: ComputeGraph
+        self, var_inputs: dict[SocketId, ProgramVariable], _, graph: "ComputeGraph"
     ) -> ProgramFragment:
         return [
             *self.run_subgraph(self._pred_socket_id, graph).body,
@@ -649,3 +560,103 @@ class IfElseStep(Step[StepSocket]):
                 ),
             ),
         ]
+
+
+StepClasses = (
+    OutputStep
+    | InputStep
+    | PyRunFunctionStep
+    | LoopStep
+    | IfElseStep
+    | StringMatchStep
+    | ObjectAccessStep
+)
+
+
+class ComputeGraph(Graph[StepClasses]):
+    def _create_link_variable(self, from_node: Step, from_socket: str) -> ProgramVariable:
+        """
+        Create a variable name for the output of a node. The variable name must be unique across all nodes and sockets.
+
+        Args:
+            from_node (Step): The node that is outputting the variable
+            from_socket (str): The socket that the variable is outputting from
+        """
+        return from_node.get_output_variable(from_socket)
+
+    def run(
+        self,
+        user_input_step: Optional["InputStep"] = None,
+        debug: bool = True,
+        node_ids: set[int] | None = None,
+    ) -> Program:
+        """
+        Run the compute graph with the given user input.
+
+        Args:
+            user_input_step (InputStep, optional): The input step (id = 0) that contains the user input
+            debug (bool, optional): Whether to include debug statements in the program. Defaults to True.
+            node_ids (set[int], optional): The node ids to run. Defaults to None.
+
+        Returns:
+            Program: The program that is generated from the compute graph
+        """
+        # Add user input step (node) to compute graph
+        if user_input_step is not None:
+            self.nodes.append(user_input_step)
+
+        # If node_ids is provided, we exclude all other nodes
+        # This is useful when we want to run only a subset of the compute graph
+        node_ids_to_exclude: set[int] = set()
+        if node_ids is not None:
+            node_ids_to_exclude = set(self.node_index.keys()) - node_ids
+
+        subgraph_node_ids: set[int] = set()
+        for node in self.nodes:
+            if node.id not in node_ids_to_exclude:
+                subgraph_node_ids |= node.get_all_subgraph_node_ids(self)
+
+        # We do not consider subgraph nodes when determining the flow order (topological order) of the main compute graph
+        # The responsibility of determining the order of subgraph nodes is deferred to the step itself
+        topological_order: list[StepClasses] = self.topological_sort(
+            subgraph_node_ids | node_ids_to_exclude
+        )
+
+        program_body: ProgramBody = []
+        for node in topological_order:
+            # Output of a step will be stored in a variable in the format `var_{step_id}_{socket_id}`
+            # It is assumed that every step will always output the same number of values as the number of output sockets
+            # As such, all we need to do is to pass in the correct variables to the next step
+
+            input_variables: dict[SocketId, ProgramVariable] = {}
+            file_inputs: dict[SocketId, File] = {}
+
+            for in_edge in self.in_edges_index[node.id]:
+                in_node: Step = self.node_index[in_edge.from_node_id]
+
+                # Find the socket that the link is connected to
+                for socket in filter(lambda socket: socket.id == in_edge.to_socket_id, node.inputs):
+                    in_node_sockets = [
+                        socket for socket in in_node.outputs if socket.id == in_edge.from_socket_id
+                    ]
+                    assert len(in_node_sockets) <= 1
+
+                    # If no sockets are connected to this input socket, skip.
+                    if not in_node_sockets:
+                        continue
+
+                    # Get origining node socket from in_node
+                    in_node_socket: StepSocket = in_node_sockets[0]
+
+                    if in_node_socket.data is not None and isinstance(in_node_socket.data, File):
+                        # NOTE: File objects are passed directly to the next step and not serialized as a variable
+                        file_inputs[socket.id] = in_node_socket.data
+                    else:
+                        input_variables[socket.id] = self._create_link_variable(
+                            in_node, in_node_socket.id
+                        )
+
+            node._debug = debug
+            program_body.extend(assemble_fragment(node.run(input_variables, file_inputs, self)))
+
+        return hoist_imports(cst.Module(body=program_body))

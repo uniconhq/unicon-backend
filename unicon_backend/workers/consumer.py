@@ -37,7 +37,7 @@ class TaskResultsConsumer(AsyncConsumer):
         response: JobResult = JobResult.model_validate_json(body)
         with SessionLocal() as db_session:
             task_result_db = db_session.scalar(
-                select(TaskResultORM).where(TaskResultORM.job_id == response.id)
+                select(TaskResultORM).where(TaskResultORM.job_id == str(response.id))
             )
 
             if task_result_db is None:
