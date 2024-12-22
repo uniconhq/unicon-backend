@@ -1,172 +1,180 @@
 {
-    "name": "Problem Set & Lecture Training",
-    "description": "Collection of questions from CS2109S problem sets and lecture trainings",
-    "tasks": [
-      {
-        "id": 0,
-        "type": "MULTIPLE_CHOICE_TASK",
-        "question": "True or False: Uniform Cost Search is a special case of A* search.",
-        "choices": ["True", "False"]
-      },
-      {
-        "id": 1,
-        "type": "MULTIPLE_RESPONSE_TASK",
-        "question": "Suppose you have a trained logistic classifier, and it outputs on a new example a prediction hw(x) = 0.4. Which of the following is/are true? Select all that apply.",
-        "choices": [
-          "P(y = 1 |x, w) = 0.4",
-          "P(y = 0 |x, w) = 0.4",
-          "P(y = 1 |x, w) = 0.6",
-          "P(y = 0 |x, w) = 0.6"
-        ]
-      },
-      {
-        "id": 2,
-        "type": "SHORT_ANSWER_TASK",
-        "autograde": false,
-        "question": "Propose a state representation for the Missionaries & Cannibals problem if we want to formulate it as a search problem and define the corresponding actions."
-      },
-      {
-        "id": 3,
-        "type": "PROGRAMMING_TASK",
-        "question": "Implement Tree Search",
-        "environment": {
-          "language": "PYTHON",
-          "options": {
-            "version": "3.12"
-          },
-          "time_limit_secs": 10,
-          "memory_limit_mb": 500
+  "name": "Problem Set & Lecture Training",
+  "description": "Collection of questions from CS2109S problem sets and lecture trainings",
+  "tasks": [
+    {
+      "id": 0,
+      "type": "MULTIPLE_CHOICE_TASK",
+      "question": "True or False: Uniform Cost Search is a special case of A* search.",
+      "choices": ["True", "False"],
+      "expected_answer": 0
+    },
+    {
+      "id": 1,
+      "type": "MULTIPLE_RESPONSE_TASK",
+      "question": "Suppose you have a trained logistic classifier, and it outputs on a new example a prediction hw(x) = 0.4. Which of the following is/are true? Select all that apply.",
+      "choices": [
+        "P(y = 1 |x, w) = 0.4",
+        "P(y = 0 |x, w) = 0.4",
+        "P(y = 1 |x, w) = 0.6",
+        "P(y = 0 |x, w) = 0.6"
+      ],
+      "expected_answer": [0, 3]
+    },
+    {
+      "id": 2,
+      "type": "SHORT_ANSWER_TASK",
+      "autograde": false,
+      "question": "Propose a state representation for the Missionaries & Cannibals problem if we want to formulate it as a search problem and define the corresponding actions."
+    },
+    {
+      "id": 3,
+      "type": "PROGRAMMING_TASK",
+      "question": "Implement Tree Search",
+      "environment": {
+        "language": "PYTHON",
+        "options": {
+          "version": "3.12"
         },
-        "required_inputs": [
-          {
-            "id": "DATA.IN.TREE_SEARCH",
-            "data": {
-              "name": "tree_search.py",
-              "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
+        "time_limit_secs": 10,
+        "memory_limit_mb": 500
+      },
+      "required_inputs": [
+        {
+          "id": "DATA.IN.TREE_SEARCH",
+          "data": {
+            "name": "tree_search.py",
+            "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
+          }
+        }
+      ],
+      "testcases": [
+        {
+          "id": 0,
+          "nodes": [
+            {
+              "id": 1,
+              "type": "INPUT_STEP",
+              "inputs": [],
+              "outputs": [
+                {
+                  "id": "DATA.OUT.ARG.m",
+                  "data": 2
+                },
+                {
+                  "id": "DATA.OUT.ARG.c",
+                  "data": 1
+                },
+                {
+                  "id": "DATA.OUT.EXPECTED_RESULT",
+                  "data": "((2, 0), (1, 0), (1, 1))"
+                }
+              ]
+            },
+            {
+              "id": 2,
+              "type": "PY_RUN_FUNCTION_STEP",
+              "function_identifier": "mnc_tree_search",
+              "inputs": [
+                {
+                  "id": "DATA.IN.FILE"
+                },
+                {
+                  "id": "DATA.IN.ARG.0.m"
+                },
+                {
+                  "id": "DATA.IN.ARG.0.c"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "CONTROL.OUT"
+                },
+                {
+                  "id": "DATA.OUT"
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "type": "STRING_MATCH_STEP",
+              "inputs": [
+                {
+                  "id": "DATA.IN.STRING.0"
+                },
+                {
+                  "id": "DATA.IN.STRING.1"
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "DATA.OUT.STRING_MATCH"
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "type": "OUTPUT_STEP",
+              "outputs": [],
+              "inputs": [
+                {
+                  "id": "DATA.IN.STRING_MATCH_RESULT",
+                  "user_label": "Do strings match?",
+                  "comparison": {
+                    "operator": "=",
+                    "value": true
+                  },
+                  "public": true
+                }
+              ]
             }
-          }
-        ],
-        "testcases": [
-          {
-            "id": 0,
-            "nodes": [
-              {
-                "id": 1,
-                "type": "INPUT_STEP",
-                "inputs": [],
-                "outputs": [
-                  {
-                    "id": "DATA.OUT.ARG.m",
-                    "data": 2
-                  },
-                  {
-                    "id": "DATA.OUT.ARG.c",
-                    "data": 1
-                  },
-                  {
-                    "id": "DATA.OUT.EXPECTED_RESULT",
-                    "data": "((2, 0), (1, 0), (1, 1))"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "type": "PY_RUN_FUNCTION_STEP",
-                "function_identifier": "mnc_tree_search",
-                "inputs": [
-                  {
-                    "id": "DATA.IN.FILE"
-                  },
-                  {
-                    "id": "DATA.IN.ARG.0.m"
-                  },
-                  {
-                    "id": "DATA.IN.ARG.0.c"
-                  }
-                ],
-                "outputs": [
-                  {
-                    "id": "CONTROL.OUT"
-                  },
-                  {
-                    "id": "DATA.OUT"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "type": "STRING_MATCH_STEP",
-                "inputs": [
-                  {
-                    "id": "DATA.IN.STRING.0"
-                  },
-                  {
-                    "id": "DATA.IN.STRING.1"
-                  }
-                ],
-                "outputs": [
-                  {
-                    "id": "DATA.OUT.STRING_MATCH"
-                  }
-                ]
-              },
-              {
-                "id": 4,
-                "type": "OUTPUT_STEP",
-                "inputs": [
-                  {
-                    "id": "DATA.IN.STRING_MATCH_RESULT"
-                  }
-                ],
-                "outputs": []
-              }
-            ],
-            "edges": [
-              {
-                "id": 1,
-                "from_node_id": 0,
-                "from_socket_id": "DATA.IN.TREE_SEARCH", 
-                "to_node_id": 2,
-                "to_socket_id": "DATA.IN.FILE"
-              },
-              {
-                "id": 2,
-                "from_node_id": 1,
-                "from_socket_id": "DATA.OUT.ARG.m",
-                "to_node_id": 2,
-                "to_socket_id": "DATA.IN.ARG.0.m"
-              },
-              {
-                "id": 3,
-                "from_node_id": 1,
-                "from_socket_id": "DATA.OUT.ARG.c",
-                "to_node_id": 2,
-                "to_socket_id": "DATA.IN.ARG.0.c"
-              },
-              {
-                "id": 4,
-                "from_node_id": 2,
-                "from_socket_id": "DATA.OUT",
-                "to_node_id": 3,
-                "to_socket_id": "DATA.IN.STRING.0"
-              },
-              {
-                "id": 5,
-                "from_node_id": 1,
-                "from_socket_id": "DATA.OUT.EXPECTED_RESULT",
-                "to_node_id": 3,
-                "to_socket_id": "DATA.IN.STRING.1"
-              },
-              {
-                "id": 6,
-                "from_node_id": 3,
-                "from_socket_id": "DATA.OUT.STRING_MATCH",
-                "to_node_id": 4,
-                "to_socket_id": "DATA.IN.STRING_MATCH_RESULT"
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
+          ],
+          "edges": [
+            {
+              "id": 1,
+              "from_node_id": 0,
+              "from_socket_id": "DATA.IN.TREE_SEARCH",
+              "to_node_id": 2,
+              "to_socket_id": "DATA.IN.FILE"
+            },
+            {
+              "id": 2,
+              "from_node_id": 1,
+              "from_socket_id": "DATA.OUT.ARG.m",
+              "to_node_id": 2,
+              "to_socket_id": "DATA.IN.ARG.0.m"
+            },
+            {
+              "id": 3,
+              "from_node_id": 1,
+              "from_socket_id": "DATA.OUT.ARG.c",
+              "to_node_id": 2,
+              "to_socket_id": "DATA.IN.ARG.0.c"
+            },
+            {
+              "id": 4,
+              "from_node_id": 2,
+              "from_socket_id": "DATA.OUT",
+              "to_node_id": 3,
+              "to_socket_id": "DATA.IN.STRING.0"
+            },
+            {
+              "id": 5,
+              "from_node_id": 1,
+              "from_socket_id": "DATA.OUT.EXPECTED_RESULT",
+              "to_node_id": 3,
+              "to_socket_id": "DATA.IN.STRING.1"
+            },
+            {
+              "id": 6,
+              "from_node_id": 3,
+              "from_socket_id": "DATA.OUT.STRING_MATCH",
+              "to_node_id": 4,
+              "to_socket_id": "DATA.IN.STRING_MATCH_RESULT"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

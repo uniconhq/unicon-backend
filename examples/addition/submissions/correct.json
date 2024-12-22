@@ -2,16 +2,15 @@
   "user_inputs": [
     {
       "task_id": 0,
-      "user_input": [
+      "value": [
         {
           "id": "DATA.OUT.ADD",
           "data": {
             "name": "add.py",
-            "content": "def add(a, b):\n\treturn a + b + 10"
+            "content": "def add(a, b):\n\treturn a + b"
           }
         }
       ]
     }
-  ],
-  "expected_answers": []
+  ]
 }

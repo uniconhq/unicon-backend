@@ -83,9 +83,23 @@
               "type": "OUTPUT_STEP",
               "inputs": [
                 {
-                  "id": "DATA.OUT"
+                  "id": "DATA.OUT",
+                  "user_label": "Addition output",
+                  "comparison": {
+                    "operator": "=",
+                    "value": 3
+                  },
+                  "public": true
                 },
-                { "id": "DATA.OUT.ERROR" }
+                {
+                  "id": "DATA.OUT.ERROR",
+                  "user_label": "Error",
+                  "comparison": {
+                    "operator": "=",
+                    "value": "Error: None"
+                  },
+                  "public": true
+                }
               ],
               "outputs": []
             },

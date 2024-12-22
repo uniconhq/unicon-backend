@@ -71,7 +71,13 @@
               "type": "OUTPUT_STEP",
               "inputs": [
                 {
-                  "id": "DATA.OUT"
+                  "id": "DATA.OUT",
+                  "user_label": "Addition output",
+                  "comparison": {
+                    "operator": "=",
+                    "value": 3
+                  },
+                  "public": true
                 }
               ],
               "outputs": []

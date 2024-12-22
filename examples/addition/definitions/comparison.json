@@ -1,6 +1,6 @@
 {
-  "name": "Simple addition (+ evaluation)",
-  "description": "Just add two numbers. With comparison.",
+  "name": "Simple addition",
+  "description": "Just add two numbers. No comparison.",
   "tasks": [
     {
       "id": 0,
@@ -39,10 +39,6 @@
                 {
                   "id": "DATA.OUT.ARG.b",
                   "data": 1
-                },
-                {
-                  "id": "DATA.OUT.EXPECTED_RESULT",
-                  "data": 3
                 }
               ]
             },
@@ -72,27 +68,34 @@
             },
             {
               "id": 3,
-              "type": "STRING_MATCH_STEP",
-              "inputs": [
-                {
-                  "id": "DATA.IN.STRING.0"
-                },
-                {
-                  "id": "DATA.IN.STRING.1"
-                }
-              ],
-              "outputs": [
-                {
-                  "id": "DATA.OUT.STRING_MATCH"
-                }
-              ]
-            },
-            {
-              "id": 4,
               "type": "OUTPUT_STEP",
               "inputs": [
                 {
-                  "id": "DATA.IN.STRING_MATCH_RESULT"
+                  "id": "DATA.OUT",
+                  "user_label": "Addition output",
+                  "comparison": {
+                    "operator": "=",
+                    "value": 3
+                  },
+                  "public": true
+                },
+                {
+                  "id": "DATA.OUT.1",
+                  "user_label": "Addition output again",
+                  "comparison": {
+                    "operator": "<",
+                    "value": 1
+                  },
+                  "public": true
+                },
+                {
+                  "id": "DATA.OUT.2",
+                  "user_label": "Addition output again",
+                  "comparison": {
+                    "operator": ">",
+                    "value": 5
+                  },
+                  "public": true
                 }
               ],
               "outputs": []
@@ -125,21 +128,21 @@
               "from_node_id": 2,
               "from_socket_id": "DATA.OUT",
               "to_node_id": 3,
-              "to_socket_id": "DATA.IN.STRING.0"
+              "to_socket_id": "DATA.OUT"
             },
             {
               "id": 5,
-              "from_node_id": 1,
-              "from_socket_id": "DATA.OUT.EXPECTED_RESULT",
+              "from_node_id": 2,
+              "from_socket_id": "DATA.OUT",
               "to_node_id": 3,
-              "to_socket_id": "DATA.IN.STRING.1"
+              "to_socket_id": "DATA.OUT.1"
             },
             {
               "id": 6,
-              "from_node_id": 3,
-              "from_socket_id": "DATA.OUT.STRING_MATCH",
-              "to_node_id": 4,
-              "to_socket_id": "DATA.IN.STRING_MATCH_RESULT"
+              "from_node_id": 2,
+              "from_socket_id": "DATA.OUT",
+              "to_node_id": 3,
+              "to_socket_id": "DATA.OUT.2"
             }
           ]
         }
