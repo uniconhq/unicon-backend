@@ -14,7 +14,6 @@ from unicon_backend.evaluator.tasks.programming.transforms import hoist_imports
 from unicon_backend.lib.common import CustomBaseModel, CustomSQLModel
 from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
 from unicon_backend.lib.helpers import partition
-from unicon_backend.runner import ProgramResult
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -403,21 +402,6 @@ class InputStep(Step[StepSocket]):
                 )
 
         return program
-
-
-class SocketResult(CustomSQLModel):
-    """
-    This class is used to store whether the result of an output socket is right or wrong.
-    Note that whether or not to show this information (public) and other variables should be derived from data in Testcase.
-    """
-
-    id: str
-    value: Any
-    correct: bool
-
-
-class ProcessedResult(ProgramResult):
-    results: list[SocketResult] | None = None
 
 
 class OutputStep(Step[OutputSocket]):
