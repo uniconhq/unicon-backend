@@ -1,26 +1,28 @@
 import json
 import logging
-from typing import cast
+from operator import attrgetter
+from typing import TYPE_CHECKING, Any, cast
 
 import pika
-import sqlalchemy as sa
 from pika.exchange_type import ExchangeType
 from pika.spec import Basic
-from sqlmodel import select
+from sqlmodel import func, select
 
 from unicon_backend.constants import EXCHANGE_NAME, RABBITMQ_URL, RESULT_QUEUE_NAME
 from unicon_backend.database import SessionLocal
-from unicon_backend.evaluator.tasks.base import TaskEvalStatus
-from unicon_backend.evaluator.tasks.programming.steps import (
-    OutputStep,
-    ProcessedResult,
+from unicon_backend.evaluator.tasks.programming.base import (
+    ProgrammingTask,
     SocketResult,
-    StepType,
+    TaskEvalStatus,
+    TestcaseResult,
 )
-from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
 from unicon_backend.lib.amqp import AsyncConsumer
 from unicon_backend.models.problem import TaskResultORM
-from unicon_backend.runner import JobResult, Status
+from unicon_backend.runner import JobResult, ProgramResult, Status
+
+if TYPE_CHECKING:
+    from unicon_backend.evaluator.tasks.programming.base import Testcase
+    from unicon_backend.evaluator.tasks.programming.steps import OutputStep
 
 logging.getLogger("pika").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -35,56 +37,51 @@ class TaskResultsConsumer(AsyncConsumer):
     ):
         response: JobResult = JobResult.model_validate_json(body)
         with SessionLocal() as db_session:
-            task_result = db_session.scalar(
+            task_result_db = db_session.scalar(
                 select(TaskResultORM).where(TaskResultORM.job_id == response.id)
             )
-            if task_result is not None:
-                task_result.status = TaskEvalStatus.SUCCESS
-                task_result.completed_at = sa.func.now()  # type: ignore
 
-                # Evaluate result based on OutputStep
-                task = cast(ProgrammingTask, task_result.task_attempt.task.to_task())
+            if task_result_db is None:
+                # We have received a result a task that we are not aware of
+                # TODO: We should either logged this somewhere or sent to a dead-letter exchange
+                return
 
-                # Assumption: testcase index = result index
-                # Updates to testcases must be done very carefully because of this assumption.
-                # To remove this assumption, we need to add a testcase_id field to the result model.
-                processedResults: list[ProcessedResult] = []
-                for testcase in task.testcases:
-                    result = [
-                        testcaseResult
-                        for testcaseResult in response.results
-                        if testcaseResult.id == testcase.id
-                    ][0]
+            task = cast(ProgrammingTask, task_result_db.task_attempt.task.to_task())
+            testcases: list[Testcase] = sorted(task.testcases, key=attrgetter("id"))
+            eval_results: list[ProgramResult] = sorted(response.results, key=attrgetter("id"))
 
-                    output_step = OutputStep.model_validate(
-                        [node for node in testcase.nodes if node.type == StepType.OUTPUT][0],
-                        from_attributes=True,
+            testcase_results: list[TestcaseResult] = []
+            for testcase, eval_result in zip(testcases, eval_results, strict=False):
+                output_step: OutputStep = testcase.output_step
+                eval_value: dict[str, Any] = json.loads(eval_result.stdout)
+
+                socket_results: list[SocketResult] = []
+                for socket in output_step.data_in:
+                    eval_socket_value = eval_value.get(socket.id, None)
+                    # If there is no comparison required, the value is always regarded as correct
+                    is_correct = (
+                        socket.comparison.compare(eval_socket_value) if socket.comparison else True
                     )
-                    actual_output = json.loads(result.stdout)
-
-                    socket_results: list[SocketResult] = []
-                    for socket in output_step.data_in:
-                        socket_result = SocketResult(
-                            id=socket.id, value=actual_output.get(socket.id, None), correct=True
-                        )
-                        if socket.comparison is not None:
-                            socket_result.correct = socket.comparison.compare(socket_result.value)
-
-                        if not socket_result.correct and result.status == Status.OK:
-                            result.status = Status.WA
-
-                        socket_results.append(socket_result)
-
-                    processedResults.append(
-                        ProcessedResult.model_validate(
-                            {**result.model_dump(), "results": socket_results}
-                        )
+                    socket_results.append(
+                        SocketResult(id=socket.id, value=eval_socket_value, correct=is_correct)
                     )
 
-                task_result.result = [result.model_dump() for result in processedResults]
+                testcase_result = TestcaseResult(**eval_result.model_dump(), results=socket_results)
+                testcase_result.status = (
+                    Status.WA
+                    if not all(socket_result.correct for socket_result in socket_results)
+                    else testcase_result.status
+                )
+                testcase_results.append(testcase_result)
 
-                db_session.add(task_result)
-                db_session.commit()
+            task_result_db.status = TaskEvalStatus.SUCCESS
+            task_result_db.completed_at = func.now()  # type: ignore
+            task_result_db.result = [
+                testcase_result.model_dump() for testcase_result in testcase_results
+            ]
+
+            db_session.add(task_result_db)
+            db_session.commit()
 
 
 task_results_consumer = TaskResultsConsumer()
