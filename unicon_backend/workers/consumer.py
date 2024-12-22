@@ -6,7 +6,7 @@ import pika
 import sqlalchemy as sa
 from pika.exchange_type import ExchangeType
 from pika.spec import Basic
-from sqlmodel import col
+from sqlmodel import select
 
 from unicon_backend.constants import EXCHANGE_NAME, RABBITMQ_URL, RESULT_QUEUE_NAME
 from unicon_backend.database import SessionLocal
@@ -36,7 +36,7 @@ class TaskResultsConsumer(AsyncConsumer):
         response: JobResult = JobResult.model_validate_json(body)
         with SessionLocal() as db_session:
             task_result = db_session.scalar(
-                sa.select(TaskResultORM).where(col(TaskResultORM.job_id) == response.id)
+                select(TaskResultORM).where(TaskResultORM.job_id == response.id)
             )
             if task_result is not None:
                 task_result.status = TaskEvalStatus.SUCCESS
