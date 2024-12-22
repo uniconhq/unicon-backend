@@ -45,9 +45,6 @@ class TaskResultsConsumer(AsyncConsumer):
                 # Evaluate result based on OutputStep
                 task = cast(ProgrammingTask, task_result.task_attempt.task.to_task())
 
-                # Assumption: testcase index = result index
-                # Updates to testcases must be done very carefully because of this assumption.
-                # To remove this assumption, we need to add a testcase_id field to the result model.
                 processedResults: list[ProcessedResult] = []
                 for testcase in task.testcases:
                     result = [
