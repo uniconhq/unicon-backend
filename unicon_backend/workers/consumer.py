@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.programming.base import Testcase
     from unicon_backend.evaluator.tasks.programming.steps import OutputStep
 
-logging.getLogger("pika").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
