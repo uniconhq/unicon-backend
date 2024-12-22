@@ -14,7 +14,6 @@ from unicon_backend.evaluator.tasks.programming.transforms import hoist_imports
 from unicon_backend.lib.common import CustomBaseModel, CustomSQLModel
 from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
 from unicon_backend.lib.helpers import partition
-from unicon_backend.runner import ProgramResult
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -91,10 +90,58 @@ class StepSocket(NodeSocket):
         return self.id.split(".", 2)[-1]
 
 
+class Operator(StrEnum):
+    LESS_THAN = "<"
+    EQUAL = "="
+    GREATER_THAN = ">"
+
+
+class Comparison(CustomSQLModel):
+    operator: Operator
+    value: Any
+
+    @model_validator(mode="after")
+    def check_value_type(self) -> Self:
+        """For < and >, check the operator can be compared (i.e. primitive)"""
+        if self.operator == Operator.EQUAL:
+            return self
+        if not isinstance(self.value, PrimitiveData):
+            raise ValueError(f"Invalid comparison value {self.value} for operator {self.operator}")
+        return self
+
+    def compare(self, actual_value: Any):
+        try:
+            match self.operator:
+                case Operator.EQUAL:
+                    return actual_value == self.value
+                case Operator.LESS_THAN:
+                    return actual_value < self.value
+                case Operator.GREATER_THAN:
+                    return actual_value > self.value
+                case _:
+                    return False
+        except:
+            # if there was an exception, the type returned was incorrect.
+            # so return False.
+            return False  # noqa: B012
+
+
+class OutputSocket(StepSocket):
+    user_label: str | None = None
+    """User facing label of the socket. Optional."""
+    comparison: Comparison | None = None
+    """Comparison to be made with the output of the socket. Optional."""
+    public: bool = True
+    """Whether output of the socket should be shown to less priviledged users."""
+
+    def model_post_init(self, __context):
+        self.label = self.label or self.id
+
+
 Range = tuple[int, int]
 
 
-class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
+class Step[SocketT: StepSocket](CustomBaseModel, GraphNode[SocketT], abc.ABC, polymorphic=True):
     id: int
     type: StepType
 
@@ -142,19 +189,19 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
         return self
 
     @cached_property
-    def control_in(self) -> Sequence[StepSocket]:
+    def control_in(self) -> Sequence[SocketT]:
         return [socket for socket in self.inputs if socket.type == "CONTROL"]
 
     @cached_property
-    def control_out(self) -> Sequence[StepSocket]:
+    def control_out(self) -> Sequence[SocketT]:
         return [socket for socket in self.outputs if socket.type == "CONTROL"]
 
     @cached_property
-    def data_in(self) -> Sequence[StepSocket]:
+    def data_in(self) -> Sequence[SocketT]:
         return [socket for socket in self.inputs if socket.type == "DATA"]
 
     @cached_property
-    def data_out(self) -> Sequence[StepSocket]:
+    def data_out(self) -> Sequence[SocketT]:
         return [socket for socket in self.outputs if socket.type == "DATA"]
 
     def get_subgraph_node_ids(self, subgraph_socket_id: str, graph: "ComputeGraph") -> set[int]:
@@ -231,7 +278,7 @@ class Step(CustomBaseModel, GraphNode[StepSocket], abc.ABC, polymorphic=True):
     ) -> ProgramFragment: ...
 
 
-class ComputeGraph(Graph[Step]):
+class ComputeGraph(Graph[Step[StepSocket | OutputSocket]]):
     def _create_link_variable(self, from_node: Step, from_socket: str) -> ProgramVariable:
         """
         Create a variable name for the output of a node. The variable name must be unique across all nodes and sockets.
@@ -320,7 +367,7 @@ class ComputeGraph(Graph[Step]):
         return hoist_imports(cst.Module(body=program_body))
 
 
-class InputStep(Step):
+class InputStep(Step[StepSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (1, -1))
 
     @model_validator(mode="after")
@@ -357,92 +404,8 @@ class InputStep(Step):
         return program
 
 
-class Operator(StrEnum):
-    LESS_THAN = "<"
-    EQUAL = "="
-    GREATER_THAN = ">"
-
-
-class Comparison(CustomSQLModel):
-    operator: Operator
-    value: Any
-
-    @model_validator(mode="after")
-    def check_value_type(self) -> Self:
-        """For < and >, check the operator can be compared (i.e. primitive)"""
-        if self.operator == Operator.EQUAL:
-            return self
-        if not isinstance(self.value, PrimitiveData):
-            raise ValueError(f"Invalid comparison value {self.value} for operator {self.operator}")
-        return self
-
-    def compare(self, actual_value: Any):
-        try:
-            match self.operator:
-                case Operator.EQUAL:
-                    return actual_value == self.value
-                case Operator.LESS_THAN:
-                    return actual_value < self.value
-                case Operator.GREATER_THAN:
-                    return actual_value > self.value
-                case _:
-                    return False
-        except:
-            # if there was an exception, the type returned was incorrect.
-            # so return False.
-            return False  # noqa: B012
-
-
-class SocketResult(CustomSQLModel):
-    """
-    This class is used to store whether the result of an output socket is right or wrong.
-    Note that whether or not to show this information (public) and other variables should be derived from data in Testcase.
-    """
-
-    id: str
-    value: Any
-    correct: bool
-
-
-class ProcessedResult(ProgramResult):
-    results: list[SocketResult] | None = None
-
-
-class OutputSocketConfig(CustomSQLModel):
-    id: str
-    """ID of the socket."""
-    label: str | None = ""
-    """User facing label of the socket. Optional."""
-    comparison: Comparison | None
-    """Comparison to be made with the output of the socket. Optional."""
-    public: bool = True
-    """Whether output of the socket should be shown to less priviledged users."""
-
-    @model_validator(mode="after")
-    def set_default_label(self) -> Self:
-        if self.label == "":
-            self.label = self.id
-        return self
-
-
-class OutputStep(Step):
+class OutputStep(Step[OutputSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (0, 0))
-
-    socket_metadata: list[OutputSocketConfig]
-
-    @model_validator(mode="after")
-    def check_all_sockets_have_config(self) -> Self:
-        socket_ids = {socket.id for socket in self.data_in}
-        metadata_socket_ids = {socket.id for socket in self.socket_metadata}
-
-        if len(metadata_socket_ids) != len(self.socket_metadata):
-            raise ValueError("Duplicate socket metadata configuration")
-
-        if not socket_ids == metadata_socket_ids:
-            raise ValueError(
-                f"Socket ids differ: {metadata_socket_ids - socket_ids}, {socket_ids - metadata_socket_ids}"
-            )
-        return self
 
     def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> ProgramFragment:
         result_dict = cst.Dict(
@@ -470,7 +433,7 @@ class OutputStep(Step):
         ]
 
 
-class StringMatchStep(Step):
+class StringMatchStep(Step[StepSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((2, 2), (1, 1))
 
     def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> ProgramFragment:
@@ -492,7 +455,7 @@ class StringMatchStep(Step):
         ]
 
 
-class ObjectAccessStep(Step):
+class ObjectAccessStep(Step[StepSocket]):
     """
     A step to retrieve a value from a dictionary.
     To use this step, the user must provide the key value to access the dictionary.
@@ -514,7 +477,7 @@ class ObjectAccessStep(Step):
         ]
 
 
-class PyRunFunctionStep(Step):
+class PyRunFunctionStep(Step[StepSocket]):
     """
     A step that runs a Python function.
     To use this step, the user must provide the function name and the arguments to the function via the input sockets.
@@ -636,7 +599,7 @@ class PyRunFunctionStep(Step):
         )
 
 
-class LoopStep(Step):
+class LoopStep(Step[StepSocket]):
     _pred_socket_id: ClassVar[str] = "CONTROL.IN.PREDICATE"
     _body_socket_id: ClassVar[str] = "CONTROL.OUT.BODY"
 
@@ -664,7 +627,7 @@ class LoopStep(Step):
         ]
 
 
-class IfElseStep(Step):
+class IfElseStep(Step[StepSocket]):
     _pred_socket_id: ClassVar[str] = "CONTROL.IN.PREDICATE"
     _if_socket_id: ClassVar[str] = "CONTROL.OUT.IF"
     _else_socket_id: ClassVar[str] = "CONTROL.OUT.ELSE"

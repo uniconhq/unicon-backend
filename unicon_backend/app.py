@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -12,6 +13,7 @@ from unicon_backend.workers.consumer import task_results_consumer
 from unicon_backend.workers.publisher import task_publisher
 
 setup_rich_logger()
+logging.getLogger("pika").setLevel(logging.WARNING)
 
 
 @asynccontextmanager

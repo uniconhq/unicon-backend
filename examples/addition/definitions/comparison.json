@@ -69,10 +69,10 @@
             {
               "id": 3,
               "type": "OUTPUT_STEP",
-              "socket_metadata": [
+              "inputs": [
                 {
                   "id": "DATA.OUT",
-                  "label": "Addition output",
+                  "user_label": "Addition output",
                   "comparison": {
                     "operator": "=",
                     "value": 3
@@ -81,7 +81,7 @@
                 },
                 {
                   "id": "DATA.OUT.1",
-                  "label": "Addition output again",
+                  "user_label": "Addition output again",
                   "comparison": {
                     "operator": "<",
                     "value": 1
@@ -90,23 +90,12 @@
                 },
                 {
                   "id": "DATA.OUT.2",
-                  "label": "Addition output again",
+                  "user_label": "Addition output again",
                   "comparison": {
                     "operator": ">",
                     "value": 5
                   },
                   "public": true
-                }
-              ],
-              "inputs": [
-                {
-                  "id": "DATA.OUT"
-                },
-                {
-                  "id": "DATA.OUT.1"
-                },
-                {
-                  "id": "DATA.OUT.2"
                 }
               ],
               "outputs": []

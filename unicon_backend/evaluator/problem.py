@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from unicon_backend.evaluator.tasks.base import TaskEvalResult
 from unicon_backend.evaluator.tasks.multiple_choice import MultipleChoiceTask, MultipleResponseTask
-from unicon_backend.evaluator.tasks.programming.task import ProgrammingTask
+from unicon_backend.evaluator.tasks.programming.base import ProgrammingTask
 from unicon_backend.evaluator.tasks.short_answer import ShortAnswerTask
 
 logger = getLogger(__name__)

@@ -6,7 +6,6 @@ from pika.exchange_type import ExchangeType
 from unicon_backend.constants import EXCHANGE_NAME, RABBITMQ_URL, TASK_QUEUE_NAME
 from unicon_backend.lib.amqp import AsyncPublisher
 
-logging.getLogger("pika").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 

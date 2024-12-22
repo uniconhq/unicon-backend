@@ -81,7 +81,7 @@
             {
               "id": 3,
               "type": "OUTPUT_STEP",
-              "socket_metadata": [
+              "inputs": [
                 {
                   "id": "DATA.OUT",
                   "label": "Addition output",
@@ -100,12 +100,6 @@
                   },
                   "public": true
                 }
-              ],
-              "inputs": [
-                {
-                  "id": "DATA.OUT"
-                },
-                { "id": "DATA.OUT.ERROR" }
               ],
               "outputs": []
             },
