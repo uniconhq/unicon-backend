@@ -69,20 +69,15 @@
             {
               "id": 3,
               "type": "OUTPUT_STEP",
-              "socket_metadata": [
+              "inputs": [
                 {
                   "id": "DATA.OUT",
-                  "label": "Addition output",
+                  "user_label": "Addition output",
                   "comparison": {
                     "operator": "=",
                     "value": 3
                   },
                   "public": true
-                }
-              ],
-              "inputs": [
-                {
-                  "id": "DATA.OUT"
                 }
               ],
               "outputs": []

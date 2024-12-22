@@ -63,12 +63,12 @@ class TaskResultsConsumer(AsyncConsumer):
                     actual_output = json.loads(result.stdout)
 
                     socket_results: list[SocketResult] = []
-                    for config in output_step.socket_metadata:
+                    for socket in output_step.data_in:
                         socket_result = SocketResult(
-                            id=config.id, value=actual_output.get(config.id, None), correct=True
+                            id=socket.id, value=actual_output.get(socket.id, None), correct=True
                         )
-                        if config.comparison is not None:
-                            socket_result.correct = config.comparison.compare(socket_result.value)
+                        if socket.comparison is not None:
+                            socket_result.correct = socket.comparison.compare(socket_result.value)
 
                         if not socket_result.correct and result.status == Status.OK:
                             result.status = Status.WA

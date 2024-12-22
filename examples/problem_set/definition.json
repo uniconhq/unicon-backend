@@ -115,16 +115,11 @@
             {
               "id": 4,
               "type": "OUTPUT_STEP",
+              "outputs": [],
               "inputs": [
                 {
-                  "id": "DATA.IN.STRING_MATCH_RESULT"
-                }
-              ],
-              "outputs": [],
-              "socket_metadata": [
-                {
                   "id": "DATA.IN.STRING_MATCH_RESULT",
-                  "label": "Do strings match?",
+                  "user_label": "Do strings match?",
                   "comparison": {
                     "operator": "=",
                     "value": true
