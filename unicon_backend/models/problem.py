@@ -8,10 +8,9 @@ from pydantic import model_validator
 from sqlmodel import Field, Relationship
 
 from unicon_backend.evaluator.problem import Problem
+from unicon_backend.evaluator.tasks import task_classes
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus, TaskType
-from unicon_backend.evaluator.tasks.multiple_choice import MultipleChoiceTask, MultipleResponseTask
-from unicon_backend.evaluator.tasks.programming.base import ProgrammingTask, TestcaseResult
-from unicon_backend.evaluator.tasks.short_answer import ShortAnswerTask
+from unicon_backend.evaluator.tasks.programming.base import TestcaseResult
 from unicon_backend.lib.common import CustomSQLModel
 
 if TYPE_CHECKING:
@@ -87,12 +86,6 @@ class TaskORM(CustomSQLModel, table=True):
         return _convert_task_to_orm(**task.model_dump(serialize_as_any=True))
 
     def to_task(self) -> "Task":
-        task_classes: dict[TaskType, type[Task]] = {
-            TaskType.MULTIPLE_CHOICE: MultipleChoiceTask,
-            TaskType.MULTIPLE_RESPONSE: MultipleResponseTask,
-            TaskType.PROGRAMMING: ProgrammingTask,
-            TaskType.SHORT_ANSWER: ShortAnswerTask,
-        }
         return task_classes[self.type].model_validate(
             {
                 "id": self.id,
