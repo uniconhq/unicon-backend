@@ -66,11 +66,12 @@ class TaskResultsConsumer(AsyncConsumer):
                     )
 
                 testcase_result = TestcaseResult(**eval_result.model_dump(), results=socket_results)
-                testcase_result.status = (
-                    Status.WA
-                    if not all(socket_result.correct for socket_result in socket_results)
-                    else testcase_result.status
-                )
+                if testcase_result.status == Status.OK:
+                    testcase_result.status = (
+                        Status.WA
+                        if not all(socket_result.correct for socket_result in socket_results)
+                        else testcase_result.status
+                    )
                 testcase_results.append(testcase_result)
 
             task_result_db.status = TaskEvalStatus.SUCCESS
