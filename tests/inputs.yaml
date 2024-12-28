@@ -1,0 +1,60 @@
+- definition: ./examples/addition/definitions/simple.json
+  inputs:
+    - file: ./examples/addition/submissions/correct.json
+      result:
+        returncode: 0
+        stdout: |
+          {"DATA.OUT": 3}
+    - file: ./examples/addition/submissions/wrong.json
+      result:
+        returncode: 0
+        stdout: |
+          {"DATA.OUT": 4}
+    - file: ./examples/addition/submissions/variable_overwrite.json
+      result:
+        returncode: 0
+        stdout: |
+          {"DATA.OUT": 0}
+    - file: ./examples/addition/submissions/error.json
+      result:
+        returncode: 1
+        stdout: |
+          {"file_name": "add", "function_name": "add", "error": "test err"}
+
+- definition: ./examples/addition/definitions/comparison.json
+  inputs:
+    - file: ./examples/addition/submissions/correct.json
+      result:
+        returncode: 0
+        stdout: |
+          {"DATA.OUT": 3, "DATA.OUT.1": 3, "DATA.OUT.2": 3}
+    - file: ./examples/addition/submissions/wrong.json
+      result:
+        returncode: 0
+        stdout: |
+          {"DATA.OUT": 4, "DATA.OUT.1": 4, "DATA.OUT.2": 4}
+    - file: ./examples/addition/submissions/variable_overwrite.json
+      result:
+        returncode: 0
+        stdout: |
+          {"DATA.OUT": 0, "DATA.OUT.1": 0, "DATA.OUT.2": 0}
+
+- definition: ./examples/addition/definitions/allow_error.json
+  inputs:
+    - file: ./examples/addition/submissions/correct.json
+      result:
+        returncode: 0
+        stdout: |
+          {"DATA.OUT": 3, "DATA.OUT.ERROR": "Error: None"}
+
+    - file: ./examples/addition/submissions/error.json
+      result:
+        returncode: 0
+        stdout: |
+          {"DATA.OUT": null, "DATA.OUT.ERROR": "Error: test err"}
+
+    - file: ./examples/addition/submissions/variable_overwrite.json
+      result:
+        returncode: 0
+        stdout: |
+          {"DATA.OUT": 0, "DATA.OUT.ERROR": "Error: None"}

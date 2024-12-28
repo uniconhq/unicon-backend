@@ -81,12 +81,7 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
             type=StepType.INPUT,
         )
 
-    def run(self, user_inputs: list[RequiredInput]) -> TaskEvalResult[JobId]:
-        # Check if all required inputs are provided
-        for required_input in self.required_inputs:
-            if not any(required_input.id == user_input.id for user_input in user_inputs):
-                raise ValueError(f"Required input {required_input.id} not provided")
-
+    def _get_runner_programs(self, user_inputs: list[RequiredInput]) -> list[RunnerProgram]:
         runner_programs: list[RunnerProgram] = []
         for testcase in self.testcases:
             assembled_program = mpi_sandbox(testcase.run(self.create_input_step(user_inputs)))
@@ -111,6 +106,15 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
                     ],
                 )
             )
+        return runner_programs
+
+    def run(self, user_inputs: list[RequiredInput]) -> TaskEvalResult[JobId]:
+        # Check if all required inputs are provided
+        for required_input in self.required_inputs:
+            if not any(required_input.id == user_input.id for user_input in user_inputs):
+                raise ValueError(f"Required input {required_input.id} not provided")
+
+        runner_programs = self._get_runner_programs(user_inputs)
 
         runner_job = RunnerJob.create(runner_programs, self.environment)
         task_publisher.publish(runner_job.model_dump_json(serialize_as_any=True))
