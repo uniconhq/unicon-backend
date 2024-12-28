@@ -1,19 +1,16 @@
 import json
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING, TypedDict
+from typing import TypedDict
 
 import pytest
 import yaml
 from pydantic import RootModel
 
-from unicon_backend.evaluator.problem import Problem, UserInput
+from unicon_backend.evaluator.problem import Problem
 from unicon_backend.evaluator.tasks.base import TaskType
 from unicon_backend.evaluator.tasks.programming.base import RequiredInput
 from unicon_backend.runner import RunnerProgram
-
-if TYPE_CHECKING:
-    from unicon_backend.evaluator.tasks.programming.base import ProgrammingTask
 
 
 def execute_program(program: RunnerProgram, temp_dir: Path) -> tuple[int, str, str]:
@@ -31,18 +28,14 @@ class ExpectedResult(TypedDict):
     stdout: str
 
 
-class TestcaseInput(TypedDict):
-    __test__ = False
-
+class Input(TypedDict):
     file: str
     result: ExpectedResult
 
 
-class Testcase(TypedDict):
-    __test__ = False
-
+class Definition(TypedDict):
     definition: str
-    inputs: list[TestcaseInput]
+    inputs: list[Input]
 
 
 with open("./tests/inputs.yaml") as defn_file:
@@ -50,20 +43,20 @@ with open("./tests/inputs.yaml") as defn_file:
 
 
 @pytest.mark.parametrize("testcase", testcases)
-def test_assembly(testcase: Testcase, tmp_path):
+def test_assembly(testcase: Definition, tmp_path):
     with open(testcase["definition"]) as defn_file:
         defn = Problem.model_validate_json(defn_file.read())
 
     for input in testcase["inputs"]:
         with open(input["file"]) as ans_file:
-            user_inputs: list[UserInput] = json.loads(ans_file.read())["user_inputs"]
+            user_inputs = json.loads(ans_file.read())["user_inputs"]
 
         for user_input_dict in user_inputs:
             user_input = (
                 RootModel[list[RequiredInput]].model_validate(user_input_dict["value"]).root
             )
 
-            task: ProgrammingTask = defn.task_index[user_input_dict["task_id"]]
+            task = defn.task_index[user_input_dict["task_id"]]
             assert task.type == TaskType.PROGRAMMING
 
             programs = task._get_runner_programs(user_input)
