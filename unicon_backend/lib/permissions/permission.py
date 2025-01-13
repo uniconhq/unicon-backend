@@ -166,7 +166,9 @@ def _model_to_type(model: Any) -> str:
 
 def permission_check(entity, permission, subject) -> bool:
     """can SUBJECT (probably the user) do PERMISSION on ENTITY?"""
-    metadata = p.DataWriteRequestMetadata.from_dict({"schema_version": SCHEMA_VERSION})
+    metadata = p.PermissionCheckRequestMetadata.from_dict(
+        {"schema_version": SCHEMA_VERSION, "depth": 200}
+    )
     if not metadata:
         # This should not happen.
         raise ValueError("Failed to create metadata")
@@ -176,7 +178,7 @@ def permission_check(entity, permission, subject) -> bool:
         result = permissions_api.permissions_check(
             TENANT_ID,
             p.CheckBody(
-                metadata={**metadata, "depth": 200},
+                metadata=metadata,
                 entity=_make_entity(_model_to_type(entity), str(entity.id)),
                 permission=permission,
                 subject=_make_entity(_model_to_type(subject), str(subject.id)),

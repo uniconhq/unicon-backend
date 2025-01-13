@@ -36,6 +36,8 @@ entity project {
     relation view_others_submission_access @role#assignee
 
     // actions from above roles (to combine with org permissions)
+    action create_problems = org.edit or create_problems_access
+    
     action view_restricted_problems = org.view or view_restricted_problems_access
     action view_unrestricted_problems = view_restricted_problems or view_problems_access 
 

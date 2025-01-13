@@ -207,10 +207,9 @@ def create_problem(
     problem: Problem,
     db_session: Annotated[Session, Depends(get_db_session)],
     project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ) -> ProblemORM:
-    # TODO: Add permissions here - currently just checking if project exists
-
-    if not permission_check(project, "create_problem"):
+    if not permission_check(project, "create_problems", user):
         raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
     new_problem = ProblemORM.from_problem(problem)
