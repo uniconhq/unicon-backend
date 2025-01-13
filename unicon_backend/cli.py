@@ -5,8 +5,20 @@ from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
 
+from unicon_backend.lib.permissions.permission import (
+    delete_all_permission_records,
+    init_schema,
+    permission_create,
+)
+
 rich_console = Console()
 app = typer.Typer(name="Unicon 🦄 CLI")
+
+
+@app.command(name="init-permify")
+def init_permify():
+    schema_version = init_schema("unicon_backend/lib/permissions/unicon.perm")
+    print(f"Schema version: {schema_version}. Please update your .env file.")
 
 
 @app.command(name="seed")
@@ -33,6 +45,12 @@ def seed(username: str, password: str):
 
     db_session.add_all([organisation, project, *roles])
     db_session.commit()
+
+    # initialise permissions - assume schema is initialised
+    delete_all_permission_records()
+    permission_create(project)
+    for role in roles:
+        permission_create(role)
 
     rich_console.print("Database seeded successfully 🌈")
 

@@ -32,6 +32,12 @@ def init_schema(schemaFilePath: str) -> str:
         return schema_version
 
 
+def delete_all_permission_records():
+    with p.ApiClient(CONFIGURATION) as api_client:
+        data_api = p.DataApi(api_client)
+        data_api.data_delete_without_preload_content(TENANT_ID, p.DataDeleteBody())
+
+
 ##########################################
 #    List of tuples to make consistent   #
 ##########################################
@@ -152,53 +158,47 @@ def _make_entity(type: str, id: str):
 
 def _create_project(project: Project) -> list[p.Tuple]:
     project_organisation_link = _make_tuple(
-        _make_entity("PROJECT", str(project.id)),
+        _make_entity("project", str(project.id)),
         "org",
-        _make_entity("ORGANISATION", str(project.id)),
+        _make_entity("organisation", str(project.organisation_id)),
     )
     return [project_organisation_link]
 
 
 def _create_role(role: Role) -> list[p.Tuple]:
-    role_project_link = _make_tuple(
-        _make_entity("ROLE", str(role.id)),
-        "project",
-        _make_entity("PROJECT", str(role.project_id)),
-    )
-
     role_access_links = [
         _make_tuple(
-            _make_entity("PROJECT", str(role.project_id)),
+            _make_entity("project", str(role.project_id)),
             permission,
-            _make_entity("ROLE", str(role.id)),
+            {**_make_entity("role", str(role.id)), "relation": "assignee"},
         )
         for permission in PERMISSIONS
         if getattr(role, permission)
     ]
-    return [role_project_link] + role_access_links
+    return role_access_links
 
 
 def _create_problem(problem: ProblemORM) -> list[p.Tuple]:
     problem_project_link = _make_tuple(
-        _make_entity("PROBLEM", str(problem.id)),
+        _make_entity("problem", str(problem.id)),
         "project",
-        _make_entity("PROJECT", str(problem.project_id)),
+        _make_entity("project", str(problem.project_id)),
     )
     return [problem_project_link]
 
 
 def _create_submission(submission: SubmissionORM) -> list[p.Tuple]:
     submission_problem_link = _make_tuple(
-        _make_entity("SUBMISSION", str(submission.id)),
+        _make_entity("submission", str(submission.id)),
         "problem",
-        _make_entity("PROBLEM", str(submission.problem_id)),
+        _make_entity("problem", str(submission.problem_id)),
     )
 
     # TODO: account for group submissions
     submission_owner_link = _make_tuple(
-        _make_entity("SUBMISSION", str(submission.id)),
+        _make_entity("submission", str(submission.id)),
         "owner",
-        _make_entity("USER", str(submission.user_id)),
+        _make_entity("user", str(submission.user_id)),
     )
     return [submission_problem_link, submission_owner_link]
 

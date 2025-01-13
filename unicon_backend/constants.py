@@ -22,4 +22,6 @@ TASK_QUEUE_NAME = _get_env_var("WORK_QUEUE_NAME", "unicon.tasks")
 RESULT_QUEUE_NAME = _get_env_var("RESULT_QUEUE_NAME", "unicon.results")
 
 PERMIFY_HOST = _get_env_var("PERMIFY_HOST", "http://localhost:3476")
-SCHEMA_VERSION = _get_env_var("SCHEMA_VERSION")
+SCHEMA_VERSION = _get_env_var(
+    "SCHEMA_VERSION", "If you see this, run cli.py init_permify", required=False
+)
