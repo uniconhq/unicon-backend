@@ -9,7 +9,7 @@ from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.problem import get_problem_by_id
 from unicon_backend.evaluator.problem import Problem, Task, UserInput
-from unicon_backend.lib.permissions.permission import permission_create
+from unicon_backend.lib.permissions.permission import permission_check, permission_create
 from unicon_backend.models import (
     ProblemORM,
     SubmissionORM,
@@ -56,7 +56,13 @@ def update_problem(
     existing_problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
     new_problem: Problem,
     db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ) -> Problem:
+    if not permission_check(existing_problem_orm, "edit", user):
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to update problem",
+        )
     existing_problem_orm.name = new_problem.name
     existing_problem_orm.description = new_problem.description
 

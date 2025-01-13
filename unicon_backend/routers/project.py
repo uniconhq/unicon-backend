@@ -60,8 +60,11 @@ def update_project(
     db_session: Annotated[Session, Depends(get_db_session)],
     update_data: ProjectUpdate,
     project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ):
     # TODO: Add permissions here - currently just checking if user is part of project
+    if not permission_check(project, "edit", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
     project.sqlmodel_update(update_data)
     db_session.commit()
