@@ -12,3 +12,9 @@ class UserRole(CustomSQLModel, table=True):
 
     user_id: int = Field(foreign_key="user.id", primary_key=True)
     role_id: int = Field(foreign_key="role.id", primary_key=True)
+
+
+class GroupMember(CustomSQLModel):
+    id: int | None = Field(default=None, primary_key=True)
+    group_id: int = Field(foreign_key="group.id")
+    user_id: int = Field(foreign_key="user.id")
