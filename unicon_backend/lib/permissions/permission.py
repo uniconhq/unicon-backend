@@ -3,8 +3,10 @@ from typing import Any
 import permify as p
 
 from unicon_backend.constants import PERMIFY_HOST, SCHEMA_VERSION
-from unicon_backend.models.organisation import Project, Role
+from unicon_backend.models.links import UserRole
+from unicon_backend.models.organisation import Organisation, Project, Role
 from unicon_backend.models.problem import ProblemORM, SubmissionORM
+from unicon_backend.models.user import UserORM
 
 SCHEMA_VERSION = SCHEMA_VERSION
 CONFIGURATION = p.Configuration(host=PERMIFY_HOST)
@@ -77,6 +79,10 @@ def permission_create(model: Any):
         tuples = _create_problem(model)
     elif model_type is SubmissionORM:
         tuples = _create_submission(model)
+    elif model_type is UserRole:
+        tuples = _create_user_role(model)
+    elif model_type is Organisation:
+        tuples = _create_organisation(model)
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -144,6 +150,41 @@ def permission_update(old: Any, new: Any):
         )
 
 
+def _model_to_type(model: Any) -> str:
+    if type(model) is Project:
+        return "project"
+    if type(model) is Role:
+        return "role"
+    if type(model) is ProblemORM:
+        return "problem"
+    if type(model) is SubmissionORM:
+        return "submission"
+    if type(model) is UserORM:
+        return "user"
+    raise ValueError(f"Unsupported model type: {type(model)}")
+
+
+def permission_check(entity, permission, subject) -> bool:
+    """can SUBJECT (probably the user) do PERMISSION on ENTITY?"""
+    metadata = p.DataWriteRequestMetadata.from_dict({"schema_version": SCHEMA_VERSION})
+    if not metadata:
+        # This should not happen.
+        raise ValueError("Failed to create metadata")
+
+    with p.ApiClient(CONFIGURATION) as api_client:
+        permissions_api = p.PermissionApi(api_client)
+        result = permissions_api.permissions_check(
+            TENANT_ID,
+            p.CheckBody(
+                metadata={**metadata, "depth": 200},
+                entity=_make_entity(_model_to_type(entity), str(entity.id)),
+                permission=permission,
+                subject=_make_entity(_model_to_type(subject), str(subject.id)),
+            ),
+        )
+        return result.can == p.CheckResult.CHECK_RESULT_ALLOWED
+
+
 def _make_tuple(entity, relation, subject) -> p.Tuple:
     result = p.Tuple.from_dict({"entity": entity, "relation": relation, "subject": subject})
     if result is None:
@@ -154,6 +195,15 @@ def _make_tuple(entity, relation, subject) -> p.Tuple:
 
 def _make_entity(type: str, id: str):
     return {"type": type, "id": id}
+
+
+def _create_organisation(organisation: Organisation):
+    owner_link = _make_tuple(
+        _make_entity("organisation", str(organisation.id)),
+        "owner",
+        _make_entity("user", str(organisation.owner_id)),
+    )
+    return [owner_link]
 
 
 def _create_project(project: Project) -> list[p.Tuple]:
@@ -201,6 +251,16 @@ def _create_submission(submission: SubmissionORM) -> list[p.Tuple]:
         _make_entity("user", str(submission.user_id)),
     )
     return [submission_problem_link, submission_owner_link]
+
+
+def _create_user_role(userRole: UserRole):
+    """this is role assignment link"""
+    assignee_link = _make_tuple(
+        _make_entity("role", str(userRole.role_id)),
+        "assignee",
+        _make_entity("user", str(userRole.user_id)),
+    )
+    return [assignee_link]
 
 
 def _update_role(old_role: Role, new_role: Role) -> tuple[list[p.Tuple], list[p.Tuple]]:

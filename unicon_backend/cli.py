@@ -38,9 +38,36 @@ def seed(username: str, password: str):
 
     organisation = Organisation(name="Unicon", description="Rainbows", owner_id=admin_user.id)
     project = Project(name="Sparkles", organisation=organisation)
+
+    role_permissions = {}
+    role_permissions["member"] = [
+        "view_problems_access",
+        "make_submission_access",
+        "view_own_submission_access",
+    ]
+    role_permissions["helper"] = role_permissions["member"] + [
+        "create_problems_access",
+        "edit_problems_access",
+        "delete_problems_access",
+        "view_others_submission_access",
+    ]
+    role_permissions["admin"] = role_permissions["helper"] + [
+        "view_restricted_problems_access",
+        "edit_restricted_problems_access",
+        "delete_restricted_problems_access",
+    ]
+
     roles = [
-        Role(name="admin", project=project, users=[admin_user]),
-        *[Role(name=role, project=project) for role in ["member", "helper"]],
+        Role(
+            name="admin",
+            project=project,
+            users=[admin_user],
+            **{perm: True for perm in role_permissions["admin"]},
+        ),
+        *[
+            Role(name=role, project=project, **{perm: True for perm in role_permissions[role]})
+            for role in ["member", "helper"]
+        ],
     ]
 
     db_session.add_all([organisation, project, *roles])
@@ -48,9 +75,11 @@ def seed(username: str, password: str):
 
     # initialise permissions - assume schema is initialised
     delete_all_permission_records()
+    permission_create(organisation)
     permission_create(project)
     for role in roles:
         permission_create(role)
+    # permission_create(UserRole(user_id=admin_user.id, role_id=roles[0].id))
 
     rich_console.print("Database seeded successfully 🌈")
 

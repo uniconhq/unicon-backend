@@ -15,7 +15,7 @@ entity organisation {
     action delete = owner
     action edit = delete or admin
     action view = edit or observer
-}
+} 
 
 entity project {
     relation org @organisation
@@ -23,6 +23,7 @@ entity project {
     
     // assignable to roles
     relation view_problems_access @role#assignee
+    relation create_problems_access @role#assignee
     relation edit_problems_access @role#assignee
     relation delete_problems_access @role#assignee
 
