@@ -10,6 +10,7 @@ from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.project import get_project_by_id
 from unicon_backend.evaluator.problem import Problem
+from unicon_backend.lib.permissions.permission import permission_create
 from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import InvitationKey, Project, Role
 from unicon_backend.models.problem import (
@@ -145,6 +146,8 @@ def create_role(
     db_session.commit()
     db_session.refresh(role)
 
+    permission_create(role)
+
     return role
 
 
@@ -209,5 +212,7 @@ def create_problem(
     db_session.add(project)
     db_session.commit()
     db_session.refresh(new_problem)
+
+    permission_create(new_problem)
 
     return new_problem

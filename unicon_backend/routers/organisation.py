@@ -7,6 +7,7 @@ from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.organisation import get_organisation_by_id
 from unicon_backend.dependencies.project import create_project_with_defaults
+from unicon_backend.lib.permissions.permission import permission_create
 from unicon_backend.models import Organisation, UserORM
 from unicon_backend.schemas.organisation import (
     OrganisationCreate,
@@ -89,4 +90,10 @@ def create_project(
     db_session.add(project)
     db_session.commit()
     db_session.refresh(project)
+
+    # Update permission records
+    permission_create(project)
+    for role in project.roles:
+        permission_create(role)
+
     return project

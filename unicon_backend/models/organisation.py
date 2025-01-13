@@ -34,7 +34,9 @@ class Project(ProjectBase, table=True):
 
     organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="projects")
     roles: sa_orm.Mapped[list["Role"]] = Relationship(back_populates="project")
-    problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(back_populates="project")
+    problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(
+        back_populates="project", sa_relationship_kwargs={"order_by": "ProblemORM.id.desc()"}
+    )
 
 
 class RoleBase(CustomSQLModel):

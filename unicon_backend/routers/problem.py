@@ -9,6 +9,7 @@ from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.problem import get_problem_by_id
 from unicon_backend.evaluator.problem import Problem, Task, UserInput
+from unicon_backend.lib.permissions.permission import permission_create
 from unicon_backend.models import (
     ProblemORM,
     SubmissionORM,
@@ -148,6 +149,8 @@ def make_submission(
 
     db_session.commit()
     db_session.refresh(submission_orm)
+
+    permission_create(submission_orm)
 
     return submission_orm
 
