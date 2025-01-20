@@ -1,66 +1,39 @@
-import json
-import subprocess
 from pathlib import Path
 from typing import TypedDict
 
 import pytest
 import yaml
-from pydantic import RootModel
 
 from unicon_backend.evaluator.problem import Problem
 from unicon_backend.evaluator.tasks.base import TaskType
-from unicon_backend.evaluator.tasks.programming.base import RequiredInput
-from unicon_backend.runner import RunnerProgram
 
 
-def execute_program(program: RunnerProgram, temp_dir: Path) -> tuple[int, str, str]:
-    """Simplistic executor - do not run unsafe code (e.g arbitrary code execution) with it."""
-    for file in program.files:
-        file_path = temp_dir / file.name
-        file_path.write_text(file.content)
-
-    proc = subprocess.run(["python", str(temp_dir / program.entrypoint)], capture_output=True)
-    return proc.returncode, proc.stdout.decode(), proc.stderr.decode()
-
-
-class ExpectedResult(TypedDict):
-    returncode: int
-    stdout: str
-
-
-class Input(TypedDict):
-    file: str
-    result: ExpectedResult
-
-
-class Definition(TypedDict):
+class AssemblyTestcase(TypedDict):
     definition: str
-    inputs: list[Input]
+    """File path to the problem definition"""
+
+    output: list[list[str]]
+    """List of code outputs per testcase. Non programming tasks have an empty list and are ignored by the test."""
 
 
-with open("./tests/inputs.yaml") as defn_file:
+TEST_FILE_DIR = Path(__file__).parent
+TEST_INPUT_FILE = TEST_FILE_DIR / "inputs.yaml"
+with open(TEST_INPUT_FILE) as defn_file:
     testcases = yaml.safe_load(defn_file)
 
 
 @pytest.mark.parametrize("testcase", testcases)
-def test_assembly(testcase: Definition, tmp_path):
-    with open(testcase["definition"]) as defn_file:
+def test_assembly(testcase: AssemblyTestcase):
+    with Path(testcase["definition"]).open() as defn_file:
         defn = Problem.model_validate_json(defn_file.read())
 
-    for input in testcase["inputs"]:
-        with open(input["file"]) as ans_file:
-            user_inputs = json.loads(ans_file.read())["user_inputs"]
+    for task_index, task in enumerate(defn.tasks):
+        if task.type != TaskType.PROGRAMMING:
+            continue
 
-        for user_input_dict in user_inputs:
-            user_input = (
-                RootModel[list[RequiredInput]].model_validate(user_input_dict["value"]).root
-            )
+        user_input_step = task.create_input_step(task.required_inputs)
 
-            task = defn.task_index[user_input_dict["task_id"]]
-            assert task.type == TaskType.PROGRAMMING
-
-            programs = task._get_runner_programs(user_input)
-            returncode, stdout, stderr = execute_program(programs[0], tmp_path)
-            assert returncode == input["result"]["returncode"]
-            assert stdout == input["result"]["stdout"]
-            assert stderr == ""
+        for index, task_tc in enumerate(task.testcases):
+            assembled_prog = task_tc.run(user_input_step)
+            expected_output = testcase["output"][task_index][index]
+            assert assembled_prog.code == expected_output

@@ -1,9 +1,15 @@
+from pathlib import Path
 from typing import Annotated
 
 import typer
+import yaml
 from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
+
+from tests.test_assembly import TEST_INPUT_FILE, AssemblyTestcase
+from unicon_backend.evaluator.problem import Problem
+from unicon_backend.evaluator.tasks.base import TaskType
 
 rich_console = Console()
 app = typer.Typer(name="Unicon 🦄 CLI")
@@ -67,6 +73,44 @@ def assemble(defn_file: Annotated[typer.FileText, typer.Option("--defn", mode="r
             table.add_row(str(testcase.id), syntax_highlighted_code)
 
         rich_console.print(table)
+
+
+@app.command(name="generate-tests")
+def generate_tests():
+    """
+    For every 'definition' in tests/inputs.yaml, generate the expected output.
+    - All tasks have a list of outputs
+      - non programming tasks are ignored with output being an empty list,
+      - programming tasks have a list of expected code emitted for each testcase.
+    """
+    with TEST_INPUT_FILE.open() as defn_file:
+        testcases: list[AssemblyTestcase] = yaml.safe_load(defn_file)
+
+    # This is the base path of the repository
+    BASE_PATH = Path(__file__).parents[1]
+
+    for assembly_tc in testcases:
+        defn_path = BASE_PATH / assembly_tc["definition"]
+        with defn_path.open() as defn_file:
+            defn = Problem.model_validate_json(defn_file.read())
+
+        assembly_tc["output"] = []
+        for task in defn.tasks:
+            if task.type != TaskType.PROGRAMMING:
+                assembly_tc["output"].append([])
+                continue
+
+            expected_outputs = []
+
+            user_input_step = task.create_input_step(task.required_inputs)
+            for testcase in task.testcases:
+                assembled_prog = testcase.run(user_input_step)
+                expected_outputs.append(assembled_prog.code)
+
+            assembly_tc["output"].append(expected_outputs)
+
+    with TEST_INPUT_FILE.open("w") as defn_file:
+        yaml.safe_dump(testcases, defn_file)
 
 
 if __name__ == "__main__":
