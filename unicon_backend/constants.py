@@ -2,12 +2,13 @@ import os
 
 from dotenv import load_dotenv
 
+is_ci = os.getenv("CI")
 load_dotenv()
 
 
 def _get_env_var(name: str, default: str | None = None, required: bool = True):
     value = os.getenv(name, default) or default
-    if (value is None) and required:
+    if not is_ci and (value is None) and required:
         raise ValueError(f"{name} environment variable not defined")
     return value
 
