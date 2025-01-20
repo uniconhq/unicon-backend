@@ -76,7 +76,7 @@ def assemble(defn_file: Annotated[typer.FileText, typer.Option("--defn", mode="r
 
 
 @app.command(name="generate-tests")
-def generate_tests():
+def generate_tests() -> None:
     """
     For every 'definition' in tests/inputs.yaml, generate the expected output.
     - All tasks have a list of outputs
