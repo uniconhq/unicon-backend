@@ -21,6 +21,27 @@ def init_permify():
     print(f"Schema version: {schema_version}. Please update your .env file.")
 
 
+@app.command(name="seed-permify")
+def seed_permify():
+    from sqlalchemy import select
+
+    from unicon_backend.database import SessionLocal
+    from unicon_backend.models.links import UserRole
+    from unicon_backend.models.organisation import Organisation, Project, Role
+    from unicon_backend.models.problem import ProblemORM, SubmissionORM
+
+    # assume schema is initialised (run init-permify if not)
+    delete_all_permission_records()
+    model_classes = [Project, Role, ProblemORM, SubmissionORM, UserRole, Organisation]
+    with SessionLocal() as session:
+        for model_class in model_classes:
+            models = session.scalars(select(model_class)).all()
+            for model in models:
+                permission_create(model)
+
+    rich_console.print("Permissions seeded successfully 🌈")
+
+
 @app.command(name="seed")
 def seed(username: str, password: str):
     """Seed the database with initial admin user and organisation."""
