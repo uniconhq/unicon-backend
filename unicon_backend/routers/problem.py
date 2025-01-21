@@ -32,7 +32,13 @@ router = APIRouter(prefix="/problems", tags=["problem"], dependencies=[Depends(g
 @router.get("/{id}", summary="Get a problem definition")
 def get_problem(
     problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ) -> Problem:
+    if not permission_check(problem_orm, "view", user):
+        return HTTPException(
+            status_code=HTTPStatus.FORBIDDEN, detail="User does not have permission to view problem"
+        )
+
     return problem_orm.to_problem()
 
 
@@ -41,7 +47,14 @@ def add_task_to_problem(
     task: Task,
     problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
     db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ):
+    if not permission_check(problem_orm, "edit", user):
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to add task to problem",
+        )
+
     taskOrm = TaskORM.from_task(task)
     taskOrm.id = max((task.id for task in problem_orm.tasks), default=-1) + 1
 
@@ -63,6 +76,7 @@ def update_problem(
             status_code=HTTPStatus.FORBIDDEN,
             detail="User does not have permission to update problem",
         )
+
     existing_problem_orm.name = new_problem.name
     existing_problem_orm.description = new_problem.description
 
@@ -83,6 +97,12 @@ def submit_problem_task_attempt(
     db_session: Annotated[Session, Depends(get_db_session)],
     user: Annotated[UserORM, Depends(get_current_user)],
 ):
+    if not permission_check(problem_orm, "make_submission", user):
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to submit task attempt",
+        )
+
     problem: Problem = problem_orm.to_problem()
     if task_id not in problem.task_index:
         raise HTTPException(
@@ -119,6 +139,12 @@ def make_submission(
     user: Annotated[UserORM, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_db_session)],
 ):
+    if not permission_check(problem_orm, "make_submission", user):
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to submit task attempt",
+        )
+
     submission_orm = SubmissionORM(problem_id=problem_orm.id, user_id=user.id)
     task_attempts = db_session.scalars(
         select(TaskAttemptORM)
@@ -165,6 +191,7 @@ def make_submission(
 def get_submission(
     submission_id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
     task_id: int | None = None,
 ) -> SubmissionPublic:
     # TODO: handle case with more than one task attempt for same task
@@ -184,5 +211,11 @@ def get_submission(
     submission = db_session.exec(query).first()
     if submission is None:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Submission not found")
+
+    if not permission_check(submission, "view", user):
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to view submission",
+        )
 
     return SubmissionPublic.model_validate(submission)

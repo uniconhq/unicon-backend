@@ -29,6 +29,8 @@ def update_role(
         raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
     role.sqlmodel_update(role_data)
+
+    # TODO(permission): fix this
     db_session.commit()
     db_session.refresh(role)
     return role
