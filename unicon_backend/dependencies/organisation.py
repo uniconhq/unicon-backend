@@ -17,6 +17,4 @@ def get_organisation_by_id(
     organisation = db_session.get(Organisation, id)
     if organisation is None:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Organisation not found")
-    if organisation.owner_id != user.id:
-        raise HTTPException(HTTPStatus.FORBIDDEN, "User is not the owner of the organisation")
     return organisation

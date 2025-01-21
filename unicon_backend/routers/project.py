@@ -10,7 +10,11 @@ from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.project import get_project_by_id
 from unicon_backend.evaluator.problem import Problem
-from unicon_backend.lib.permissions.permission import permission_check, permission_create
+from unicon_backend.lib.permissions.permission import (
+    permission_check,
+    permission_create,
+    permission_lookup,
+)
 from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import InvitationKey, Project, Role
 from unicon_backend.models.problem import (
@@ -38,12 +42,10 @@ def get_all_projects(
     user: Annotated[UserORM, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_db_session)],
 ):
+    project_ids = permission_lookup(Project, "view", user)
     return db_session.exec(
         select(Project)
-        .join(Role)
-        .join(UserRole)
-        .where(UserRole.user_id == user.id)
-        .where(UserRole.role_id == Role.id)
+        .where(Project.id.in_(project_ids))
         .options(selectinload(Project.roles.and_(Role.users.any(col(UserORM.id) == user.id))))
     ).all()
 
@@ -51,7 +53,18 @@ def get_all_projects(
 @router.get("/{id}", summary="Get a project", response_model=ProjectPublicWithProblems)
 def get_project(
     project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ):
+    if not permission_check(project, "view", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
+    # TODO: update permission.py to make this work after adding restricted problems.
+    accessible_problem_ids = permission_lookup(ProblemORM, "view", user)
+    result = ProjectPublicWithProblems.model_validate(project)
+    result.problems = [
+        problem for problem in result.problems if problem.id in accessible_problem_ids
+    ]
+
     return project
 
 
@@ -62,7 +75,6 @@ def update_project(
     project: Annotated[Project, Depends(get_project_by_id)],
     user: Annotated[UserORM, Depends(get_current_user)],
 ):
-    # TODO: Add permissions here - currently just checking if user is part of project
     if not permission_check(project, "edit", user):
         raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
@@ -81,8 +93,12 @@ def update_project(
 def get_project_roles(
     id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
-    _: Annotated[Project, Depends(get_project_by_id)],
+    project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ):
+    if not permission_check(project, "view_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
     return db_session.exec(
         select(Role)
         .join(Project)
@@ -97,8 +113,12 @@ def get_project_roles(
 def get_project_users(
     id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
-    _: Annotated[Project, Depends(get_project_by_id)],
+    project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ):
+    if not permission_check(project, "view", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
     return db_session.exec(
         select(UserORM)
         .join(UserRole)
@@ -118,11 +138,15 @@ def get_project_submissions(
     id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
     _: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
     all_users: bool = False,
 ):
+    accessible_submission_ids = permission_lookup(SubmissionORM, "view", user)
+
     query = (
         select(SubmissionORM)
         .where(SubmissionORM.problem.has(col(ProblemORM.project_id) == id))
+        .where(SubmissionORM.id.in_(accessible_submission_ids))
         .options(
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
@@ -140,9 +164,13 @@ def get_project_submissions(
 def create_role(
     id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
-    _: Annotated[Project, Depends(get_project_by_id)],
+    project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
     role_data: RoleCreate,
 ):
+    if not permission_check(project, "add_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
     role = Role(**role_data.model_dump())
     role.project_id = id
     db_session.add(role)

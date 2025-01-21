@@ -7,7 +7,6 @@ from sqlmodel import Session, select
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
-from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import Project, Role
 from unicon_backend.models.user import UserORM
 from unicon_backend.schemas.organisation import ProjectCreate
@@ -44,8 +43,6 @@ def get_project_by_id(
     project = db_session.exec(
         select(Project)
         .join(Role)
-        .join(UserRole)
-        .where(UserRole.user_id == user.id)
         .where(Project.id == id)
         .options(
             selectinload(Project.roles.and_(Role.users.contains(user))).selectinload(

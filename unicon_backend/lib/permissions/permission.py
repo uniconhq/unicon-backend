@@ -87,7 +87,6 @@ def permission_lookup(model_class: Any, permission: str, user: UserORM) -> list[
         )
         while True:
             results.extend([int(entity_id) for entity_id in result.entity_ids or []])
-            print(results)
             if not result.continuous_token:
                 break
             result = permission_api.permissions_lookup_entity(
@@ -122,6 +121,7 @@ def permission_create(model: Any):
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 
+    print(model_type.__name__, tuples)
     metadata = p.DataWriteRequestMetadata.from_dict({"schema_version": SCHEMA_VERSION})
     if not metadata:
         # This should not happen.

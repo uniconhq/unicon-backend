@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
+from unicon_backend.lib.permissions.permission import permission_check
 from unicon_backend.models.organisation import InvitationKey, Project, Role, RoleBase
 from unicon_backend.models.user import UserORM
 
@@ -24,9 +25,8 @@ def update_role(
     if role is None:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Role not found")
 
-    # TODO: fix permissions
-    if role.project.organisation.owner_id != user.id:
-        raise HTTPException(HTTPStatus.FORBIDDEN, "User is not the owner of the organisation")
+    if not permission_check(role.project, "edit_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
     role.sqlmodel_update(role_data)
     db_session.commit()
@@ -44,9 +44,8 @@ def delete_role(
     if role is None:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Role not found")
 
-    # TODO: fix permissions
-    if role.project.organisation.owner_id != user.id:
-        raise HTTPException(HTTPStatus.FORBIDDEN, "User is not the owner of the organisation")
+    if not permission_check(role.project, "delete_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
     if role.users:
         raise HTTPException(HTTPStatus.CONFLICT, "Role still has users")
@@ -77,9 +76,8 @@ def create_invitation_key(
     if role is None:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Role not found")
 
-    # TODO: fix permissions
-    if role.project.organisation.owner_id != user.id:
-        raise HTTPException(HTTPStatus.FORBIDDEN, "User is not the owner of the organisation")
+    if not permission_check(role.project, "edit_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
     if any(invitation_key.enabled for invitation_key in role.invitation_keys):
         raise HTTPException(HTTPStatus.CONFLICT, "Role already has an active invitation key")
@@ -109,8 +107,8 @@ def delete_invitation_key(
     if role is None:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Role not found")
 
-    if role.project.organisation.owner_id != user.id:
-        raise HTTPException(HTTPStatus.FORBIDDEN, "User is not the owner of the organisation")
+    if not permission_check(role.project, "edit_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
     for invitation_key in role.invitation_keys:
         db_session.delete(invitation_key)

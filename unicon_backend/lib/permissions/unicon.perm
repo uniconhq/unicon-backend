@@ -11,7 +11,6 @@ entity organisation {
     relation observer @user
 
     action edit_roles = owner
-
     action delete = owner
     action edit = delete or admin
     action view = edit or observer
@@ -38,18 +37,23 @@ entity project {
     // actions from above roles (to combine with org permissions)
     action create_problems = org.edit or create_problems_access
     
+    action view = view_restricted_problems or view_unrestricted_problems
+
     action view_restricted_problems = org.view or view_restricted_problems_access
     action view_unrestricted_problems = view_restricted_problems or view_problems_access 
-
     action edit_restricted_problems = org.edit or edit_restricted_problems_access
     action edit_unrestricted_problems = edit_restricted_problems or edit_restricted_problems_access
-
     action delete_restricted_problems = org.edit or delete_restricted_problems_access
     action delete_unrestricted_problems = delete_restricted_problems or delete_problems_access
 
     action make_submission = org.edit or make_submission_access
     action view_others_submission = org.view or view_others_submission_access
     action view_own_submission = view_others_submission or view_own_submission_access
+
+    action view_roles = org.view
+    action edit_roles = org.edit
+    action add_roles = edit_roles
+    action delete_roles = edit_roles
 }
 
 
