@@ -67,6 +67,42 @@ PERMISSIONS = [
 ]
 
 
+def permission_lookup(model_class: Any, permission: str, user: UserORM) -> list[int]:
+    """given a model class, return all ids that the user can do PERMISSION on"""
+    metadata = p.PermissionLookupEntityRequestMetadata.from_dict(
+        {"schema_version": SCHEMA_VERSION, "depth": 200}
+    )
+
+    with p.ApiClient(CONFIGURATION) as api_client:
+        permission_api = p.PermissionApi(api_client)
+        results: list[int] = []
+        result = permission_api.permissions_lookup_entity(
+            TENANT_ID,
+            p.LookupEntityBody(
+                metadata=metadata,
+                entity_type=_model_to_type(model_class),
+                permission=permission,
+                subject=p.Subject(type="user", id=str(user.id)),
+            ),
+        )
+        while True:
+            results.extend([int(entity_id) for entity_id in result.entity_ids or []])
+            print(results)
+            if not result.continuous_token:
+                break
+            result = permission_api.permissions_lookup_entity(
+                TENANT_ID,
+                p.LookupEntityBody(
+                    metadata=metadata,
+                    entity_type=_model_to_type(model_class),
+                    permission=permission,
+                    subject=p.Subject(type="user", id=str(user.id)),
+                    continuous_token=result.continuous_token,
+                ),
+            )
+        return results
+
+
 def permission_create(model: Any):
     """given a model, create permission records for it"""
     model_type = type(model)
@@ -151,15 +187,19 @@ def permission_update(old: Any, new: Any):
 
 
 def _model_to_type(model: Any) -> str:
-    if type(model) is Project:
+    model_type = model if isinstance(model, type) else type(model)
+
+    if model_type is Organisation:
+        return "organisation"
+    if model_type is Project:
         return "project"
-    if type(model) is Role:
+    if model_type is Role:
         return "role"
-    if type(model) is ProblemORM:
+    if model_type is ProblemORM:
         return "problem"
-    if type(model) is SubmissionORM:
+    if model_type is SubmissionORM:
         return "submission"
-    if type(model) is UserORM:
+    if model_type is UserORM:
         return "user"
     raise ValueError(f"Unsupported model type: {type(model)}")
 
@@ -193,6 +233,16 @@ def _make_tuple(entity, relation, subject) -> p.Tuple:
         # This should never happen.
         raise ValueError("Failed to create tuple")
     return result
+
+
+# TODO: fix these two once i add restricted attribute to problems
+def _get_permify_bool(bool: bool) -> p.Any:
+    value = p.Any.from_dict({"@type": "type.googleapis.com/base.v1.BooleanValue", "data": bool})
+    return value
+
+
+def _make_attribute(entity, attribute, value) -> p.Attribute:
+    return p.Attribute.from_dict({"entity": entity, "attribute": attribute, "value": value})
 
 
 def _make_entity(type: str, id: str):
