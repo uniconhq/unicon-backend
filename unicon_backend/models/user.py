@@ -14,7 +14,7 @@ class UserORM(CustomSQLModel, table=True):
     __tablename__ = "user"
 
     id: int = Field(primary_key=True)
-    username: str
+    username: str = Field(unique=True, index=True)
     password: str
 
     roles: sa_orm.Mapped[list["Role"]] = Relationship(back_populates="users", link_model=UserRole)
