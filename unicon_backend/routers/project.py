@@ -13,6 +13,7 @@ from unicon_backend.evaluator.problem import Problem
 from unicon_backend.lib.permissions.permission import (
     permission_check,
     permission_create,
+    permission_list_for_subject,
     permission_lookup,
 )
 from unicon_backend.models.links import UserRole
@@ -43,11 +44,17 @@ def get_all_projects(
     db_session: Annotated[Session, Depends(get_db_session)],
 ):
     project_ids = permission_lookup(Project, "view", user)
-    return db_session.exec(
+    projects = db_session.exec(
         select(Project)
         .where(Project.id.in_(project_ids))
         .options(selectinload(Project.roles.and_(Role.users.any(col(UserORM.id) == user.id))))
     ).all()
+
+    result = []
+    for project in projects:
+        permissions = permission_list_for_subject(project, user)
+        result.append(ProjectPublic.model_validate(project, update=permissions))
+    return result
 
 
 @router.get("/{id}", summary="Get a project", response_model=ProjectPublicWithProblems)
@@ -60,12 +67,14 @@ def get_project(
 
     # TODO: update permission.py to make this work after adding restricted problems.
     accessible_problem_ids = permission_lookup(ProblemORM, "view", user)
-    result = ProjectPublicWithProblems.model_validate(project)
+
+    permissions = permission_list_for_subject(project, user)
+    result = ProjectPublicWithProblems.model_validate(project, update=permissions)
     result.problems = [
         problem for problem in result.problems if problem.id in accessible_problem_ids
     ]
 
-    return project
+    return result
 
 
 @router.put("/{id}", summary="Update a project", response_model=ProjectPublic)
@@ -151,6 +160,7 @@ def get_project_submissions(
         .options(
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
+            selectinload(SubmissionORM.user),
         )
     )
 

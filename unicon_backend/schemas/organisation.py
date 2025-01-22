@@ -1,10 +1,17 @@
+from unicon_backend.lib.common import CustomSQLModel
 from unicon_backend.models.organisation import (
     InvitationKeyBase,
     OrganisationBase,
     ProjectBase,
     RoleBase,
 )
-from unicon_backend.models.problem import ProblemBase
+
+
+class ProblemBase(CustomSQLModel):
+    id: int
+    name: str
+    description: str
+    project_id: int
 
 
 class OrganisationCreate(OrganisationBase):
@@ -34,6 +41,14 @@ class ProjectUpdate(ProjectBase):
 class ProjectPublic(ProjectBase):
     id: int
     roles: list["RolePublic"]
+
+    # permissions
+    view_own_submission: bool
+    view_others_submission: bool
+    view_roles: bool
+    add_roles: bool
+    edit_roles: bool
+    create_problems: bool
 
 
 class ProjectPublicWithProblems(ProjectPublic):

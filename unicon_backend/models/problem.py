@@ -16,6 +16,8 @@ from unicon_backend.lib.common import CustomSQLModel
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import Task
     from unicon_backend.models.organisation import Project
+    from unicon_backend.models.user import UserORM
+    from unicon_backend.schemas.auth import UserPublic
 
 
 # Factory function for creating a timestamp column (with timezone)
@@ -118,10 +120,12 @@ class SubmissionORM(SubmissionBase, table=True):
         link_model=SubmissionAttemptLink, back_populates="submissions"
     )
     problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="submissions")
+    user: sa_orm.Mapped["UserORM"] = Relationship(back_populates="submissions")
 
 
 class SubmissionPublic(SubmissionBase):
     task_attempts: list["TaskAttemptPublic"]
+    user: "UserPublic"
 
 
 class TaskAttemptBase(CustomSQLModel):

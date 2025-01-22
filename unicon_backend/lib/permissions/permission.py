@@ -68,7 +68,9 @@ PERMISSIONS = [
 
 
 def permission_lookup(model_class: Any, permission: str, user: UserORM) -> list[int]:
-    """given a model class, return all ids that the user can do PERMISSION on"""
+    """Given a model class, return all ids that the user can do PERMISSION on.
+
+    This function uses the Lookup Entity route (https://docs.permify.co/api-reference/permission/lookup-entity)"""
     metadata = p.PermissionLookupEntityRequestMetadata.from_dict(
         {"schema_version": SCHEMA_VERSION, "depth": 200}
     )
@@ -100,6 +102,31 @@ def permission_lookup(model_class: Any, permission: str, user: UserORM) -> list[
                 ),
             )
         return results
+
+
+def permission_list_for_subject(model: Any, user: UserORM) -> dict[str, bool]:
+    """Which permissions user:x can perform on entity:y?
+
+    This function users the Subject Permission List route (https://docs.permify.co/api-reference/permission/subject-permission)
+    """
+    metadata = p.PermissionSubjectPermissionRequestMetadata.from_dict(
+        {"schema_version": SCHEMA_VERSION, "depth": 200}
+    )
+
+    with p.ApiClient(CONFIGURATION) as api_client:
+        permission_api = p.PermissionApi(api_client)
+        result = permission_api.permissions_subject_permission(
+            TENANT_ID,
+            p.SubjectPermissionBody(
+                metadata=metadata,
+                entity=_make_entity(_model_to_type(model), str(model.id)),
+                subject=_make_entity("user", str(user.id)),
+            ),
+        )
+        return {
+            permission: allowed == p.CheckResult.CHECK_RESULT_ALLOWED
+            for permission, allowed in result.results.items()
+        }
 
 
 def permission_create(model: Any):
