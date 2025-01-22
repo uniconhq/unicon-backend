@@ -1,0 +1,85 @@
+- definition: ./examples/addition/definitions/simple.json
+  output:
+  - - 'import json
+
+
+      var_1_DATA_OUT_ARG_a = 2
+
+      var_1_DATA_OUT_ARG_b = 1
+
+      (var_2_DATA_OUT, _) = call_function_safe(''tree_search'', ''add'', False, var_1_DATA_OUT_ARG_a,
+      var_1_DATA_OUT_ARG_b)
+
+      print(json.dumps({''DATA.OUT'': var_2_DATA_OUT}))
+
+      '
+- definition: ./examples/addition/definitions/comparison.json
+  output:
+  - - 'import json
+
+
+      var_1_DATA_OUT_ARG_a = 2
+
+      var_1_DATA_OUT_ARG_b = 1
+
+      (var_2_DATA_OUT, _) = call_function_safe(''tree_search'', ''add'', False, var_1_DATA_OUT_ARG_a,
+      var_1_DATA_OUT_ARG_b)
+
+      print(json.dumps({''DATA.OUT'': var_2_DATA_OUT, ''DATA.OUT.1'': var_2_DATA_OUT,
+      ''DATA.OUT.2'': var_2_DATA_OUT}))
+
+      '
+- definition: ./examples/addition/definitions/allow_error.json
+  output:
+  - - 'import json
+
+      from utils import error_string
+
+
+      var_1_DATA_OUT_ARG_a = 2
+
+      var_1_DATA_OUT_ARG_b = 1
+
+      (var_2_DATA_OUT, var_2_DATA_OUT_ERROR) = call_function_safe(''tree_search'',
+      ''add'', True, var_1_DATA_OUT_ARG_a, var_1_DATA_OUT_ARG_b)
+
+      var_4_DATA_OUT_ERROR_STRING = error_string(var_2_DATA_OUT_ERROR)
+
+      print(json.dumps({''DATA.OUT'': var_2_DATA_OUT, ''DATA.OUT.ERROR'': var_4_DATA_OUT_ERROR_STRING}))
+
+      '
+- definition: ./examples/breakthrough/definition.json
+  output:
+  - - "import json\nfrom utils import generate_init_state, invert_board, is_game_over,\
+      \ state_change_modified\n\nvar_2_DATA_OUT = generate_init_state()\nvar_3_DATA_OUT\
+      \ = var_2_DATA_OUT['board']\nwhile True:\n    \n    var_4_DATA_OUT = is_game_over(var_3_DATA_OUT)\n\
+      \    if var_4_DATA_OUT: break\n    \n    var_14_DATA_OUT = invert_board(var_3_DATA_OUT)\n\
+      \    if var_14_DATA_OUT:\n        \n        (var_7_DATA_OUT, _) = call_function_safe('agent_1',\
+      \ 'make_move', False, var_3_DATA_OUT)\n        var_8_DATA_OUT = state_change_modified(var_2_DATA_OUT,\
+      \ var_7_DATA_OUT)\n    else:\n        \n        var_9_DATA_OUT = invert_board(var_3_DATA_OUT)\n\
+      \        (var_10_DATA_OUT, _) = call_function_safe('agent_2', 'make_move', False,\
+      \ var_3_DATA_OUT)\n        var_11_DATA_OUT = state_change_modified(var_2_DATA_OUT,\
+      \ var_10_DATA_OUT)\n        var_12_DATA_OUT = invert_board(var_3_DATA_OUT)\n\
+      print(json.dumps({'DATA.STATE': var_2_DATA_OUT}))\n"
+- definition: ./examples/problem_set/definition.json
+  output:
+  - []
+  - []
+  - []
+  - - 'import json
+
+
+      var_1_DATA_OUT_ARG_m = 2
+
+      var_1_DATA_OUT_ARG_c = 1
+
+      var_1_DATA_OUT_EXPECTED_RESULT = "((2, 0), (1, 0), (1, 1))"
+
+      (var_2_DATA_OUT, _) = call_function_safe(''tree_search'', ''mnc_tree_search'',
+      False, var_1_DATA_OUT_ARG_m, var_1_DATA_OUT_ARG_c)
+
+      var_3_DATA_OUT_STRING_MATCH = str(var_2_DATA_OUT) == str(var_1_DATA_OUT_EXPECTED_RESULT)
+
+      print(json.dumps({''DATA.IN.STRING_MATCH_RESULT'': var_3_DATA_OUT_STRING_MATCH}))
+
+      '

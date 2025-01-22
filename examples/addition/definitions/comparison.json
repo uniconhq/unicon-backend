@@ -1,6 +1,6 @@
 {
   "name": "Simple addition",
-  "description": "Just add two numbers. No comparison.",
+  "description": "Just add two numbers.",
   "tasks": [
     {
       "id": 0,
