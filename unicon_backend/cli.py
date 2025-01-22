@@ -10,6 +10,7 @@ from unicon_backend.lib.permissions.permission import (
     init_schema,
     permission_create,
 )
+from unicon_backend.models.links import UserRole
 
 rich_console = Console()
 app = typer.Typer(name="Unicon 🦄 CLI")
@@ -43,11 +44,13 @@ def seed_permify():
 
 
 @app.command(name="seed")
-def seed(username: str, password: str):
-    """Seed the database with initial admin user and organisation."""
+def seed(username: str, password: str, problem_defns: list[typer.FileText]):
+    """Seed the database with initial admin user, organisation, roles, projects and problems."""
     from unicon_backend.database import SessionLocal
     from unicon_backend.dependencies.auth import AUTH_PWD_CONTEXT
+    from unicon_backend.evaluator.problem import Problem
     from unicon_backend.models.organisation import Organisation, Project, Role
+    from unicon_backend.models.problem import ProblemORM
     from unicon_backend.models.user import UserORM
 
     db_session = SessionLocal()
@@ -78,6 +81,14 @@ def seed(username: str, password: str):
         "delete_restricted_problems_access",
     ]
 
+    project = Project(
+        name="Sparkles",
+        organisation=organisation,
+        problems=[
+            ProblemORM.from_problem(Problem.model_validate_json(problem_defn.read()))
+            for problem_defn in problem_defns
+        ],
+    )
     roles = [
         Role(
             name="admin",
@@ -100,9 +111,22 @@ def seed(username: str, password: str):
     permission_create(project)
     for role in roles:
         permission_create(role)
-    # permission_create(UserRole(user_id=admin_user.id, role_id=roles[0].id))
+    permission_create(UserRole(user_id=admin_user.id, role_id=roles[0].id))
 
     rich_console.print("Database seeded successfully 🌈")
+
+    table = Table(show_header=True, show_lines=True)
+    table.add_column("Entity", style="cyan bold", no_wrap=True)
+    table.add_column("Details", style="white")
+    # fmt: off
+    table.add_row("User", f"{admin_user.username} (id: {admin_user.id})")
+    table.add_row("Organisation", f"{organisation.name} (id: {organisation.id})")
+    table.add_row("Project", f"{project.name} (id: {project.id})")
+    table.add_row("Roles", "\n".join(role.name for role in roles))
+    table.add_row("Problems", "\n".join(f"{problem.name} (id: {problem.id})" for problem in project.problems))
+    # fmt: on
+
+    rich_console.print(table)
 
 
 @app.command(name="assemble")

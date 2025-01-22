@@ -33,7 +33,7 @@
       "question": "Implement Tree Search",
       "environment": {
         "language": "PYTHON",
-        "options": {
+        "extra_options": {
           "version": "3.12"
         },
         "time_limit_secs": 10,
