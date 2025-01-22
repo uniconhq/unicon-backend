@@ -12,12 +12,12 @@ from unicon_backend.evaluator.tasks import task_classes
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus, TaskType
 from unicon_backend.evaluator.tasks.programming.base import TestcaseResult
 from unicon_backend.lib.common import CustomSQLModel
+from unicon_backend.schemas.auth import UserPublic
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import Task
     from unicon_backend.models.organisation import Project
     from unicon_backend.models.user import UserORM
-    from unicon_backend.schemas.auth import UserPublic
 
 
 # Factory function for creating a timestamp column (with timezone)
@@ -125,7 +125,7 @@ class SubmissionORM(SubmissionBase, table=True):
 
 class SubmissionPublic(SubmissionBase):
     task_attempts: list["TaskAttemptPublic"]
-    user: "UserPublic"
+    user: UserPublic
 
 
 class TaskAttemptBase(CustomSQLModel):

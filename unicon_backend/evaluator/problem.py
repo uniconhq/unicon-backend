@@ -8,6 +8,7 @@ from unicon_backend.evaluator.tasks.base import TaskEvalResult
 from unicon_backend.evaluator.tasks.multiple_choice import MultipleChoiceTask, MultipleResponseTask
 from unicon_backend.evaluator.tasks.programming.base import ProgrammingTask
 from unicon_backend.evaluator.tasks.short_answer import ShortAnswerTask
+from unicon_backend.lib.common import CustomSQLModel
 
 logger = getLogger(__name__)
 
@@ -20,7 +21,7 @@ class UserInput(BaseModel):
 Task = ProgrammingTask | MultipleChoiceTask | MultipleResponseTask | ShortAnswerTask
 
 
-class Problem(BaseModel):
+class Problem(CustomSQLModel):
     model_config = ConfigDict(from_attributes=True)
 
     name: str

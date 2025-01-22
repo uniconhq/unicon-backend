@@ -9,7 +9,11 @@ from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.problem import get_problem_by_id
 from unicon_backend.evaluator.problem import Problem, Task, UserInput
-from unicon_backend.lib.permissions.permission import permission_check, permission_create
+from unicon_backend.lib.permissions.permission import (
+    permission_check,
+    permission_create,
+    permission_list_for_subject,
+)
 from unicon_backend.models import (
     ProblemORM,
     SubmissionORM,
@@ -22,6 +26,7 @@ from unicon_backend.models.problem import (
     TaskORM,
 )
 from unicon_backend.models.user import UserORM
+from unicon_backend.schemas.problem import ProblemPublic
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import TaskEvalResult
@@ -33,13 +38,14 @@ router = APIRouter(prefix="/problems", tags=["problem"], dependencies=[Depends(g
 def get_problem(
     problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
     user: Annotated[UserORM, Depends(get_current_user)],
-) -> Problem:
+) -> ProblemPublic:
     if not permission_check(problem_orm, "view", user):
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN, detail="User does not have permission to view problem"
         )
 
-    return problem_orm.to_problem()
+    permissions = permission_list_for_subject(problem_orm, user)
+    return ProblemPublic.model_validate(problem_orm.to_problem(), update=permissions)
 
 
 @router.post("/{id}/tasks", summary="Add a task to a problem")
