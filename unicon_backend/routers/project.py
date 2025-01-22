@@ -104,6 +104,7 @@ def get_project_roles(
         .join(Project)
         .where(Project.id == id)
         .options(selectinload(Role.invitation_keys))
+        .order_by(Role.id)
     ).all()
 
 

@@ -100,7 +100,7 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
         ),
         *[
             Role(name=role, **{perm: True for perm in role_permissions[role]})
-            for role in ["member", "helper"]
+            for role in ["helper", "member"]
         ],
     ]
 

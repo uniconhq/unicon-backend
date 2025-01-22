@@ -62,7 +62,7 @@ PERMISSIONS = [
     "edit_restricted_problems_access",
     "delete_restricted_problems_access",
     "make_submission_access",
-    "view_own_submissions_access",
+    "view_own_submission_access",
     "view_others_submission_access",
 ]
 
@@ -121,7 +121,6 @@ def permission_create(model: Any):
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 
-    print(model_type.__name__, tuples)
     metadata = p.DataWriteRequestMetadata.from_dict({"schema_version": SCHEMA_VERSION})
     if not metadata:
         # This should not happen.
@@ -176,6 +175,7 @@ def permission_update(old: Any, new: Any):
                         relation=relation,
                         subject=p.SubjectFilter(type=subject.type, ids=[subject.id]),
                     ),
+                    attribute_filter=p.AttributeFilter(),
                 ),
             )
 

@@ -80,7 +80,7 @@ class Role(RoleBase, table=True):
         default=False,
         sa_column=sa.Column(sa.Boolean(), server_default="0"),
     )
-    view_own_submissions_access: bool = Field(
+    view_own_submission_access: bool = Field(
         default=False,
         sa_column=sa.Column(sa.Boolean(), server_default="0"),
     )

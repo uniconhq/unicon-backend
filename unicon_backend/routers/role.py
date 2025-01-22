@@ -7,9 +7,10 @@ from sqlmodel import Session, select
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
-from unicon_backend.lib.permissions.permission import permission_check
-from unicon_backend.models.organisation import InvitationKey, Project, Role, RoleBase
+from unicon_backend.lib.permissions.permission import permission_check, permission_update
+from unicon_backend.models.organisation import InvitationKey, Project, Role
 from unicon_backend.models.user import UserORM
+from unicon_backend.schemas.organisation import RoleUpdate
 
 router = APIRouter(prefix="/roles", tags=["role"], dependencies=[Depends(get_current_user)])
 
@@ -19,7 +20,7 @@ def update_role(
     id: int,
     user: Annotated[UserORM, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_db_session)],
-    role_data: RoleBase,
+    role_data: RoleUpdate,
 ):
     role = db_session.get(Role, id)
     if role is None:
@@ -28,11 +29,13 @@ def update_role(
     if not permission_check(role.project, "edit_roles", user):
         raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
+    old_role = role.model_copy()
     role.sqlmodel_update(role_data)
 
-    # TODO(permission): fix this
     db_session.commit()
     db_session.refresh(role)
+
+    permission_update(old_role, role)
     return role
 
 
