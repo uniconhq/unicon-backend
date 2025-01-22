@@ -10,20 +10,24 @@ from unicon_backend.lib.permissions.permission import (
     init_schema,
     permission_create,
 )
-from unicon_backend.models.links import UserRole
 
 rich_console = Console()
 app = typer.Typer(name="Unicon 🦄 CLI")
 
+permify_app = typer.Typer()
+app.add_typer(permify_app, name="permify")
 
-@app.command(name="init-permify")
+
+@permify_app.command(name="init")
 def init_permify():
+    """Sends the schema file to permify."""
     schema_version = init_schema("unicon_backend/lib/permissions/unicon.perm")
     print(f"Schema version: {schema_version}. Please update your .env file.")
 
 
-@app.command(name="seed-permify")
+@permify_app.command(name="seed")
 def seed_permify():
+    """Clears permify's existing tuples and repopulates it using the current postgres database."""
     from sqlalchemy import select
 
     from unicon_backend.database import SessionLocal
@@ -61,7 +65,6 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
     db_session.flush()
 
     organisation = Organisation(name="Unicon", description="Rainbows", owner_id=admin_user.id)
-    project = Project(name="Sparkles", organisation=organisation)
 
     role_permissions = {}
     role_permissions["member"] = [
@@ -89,29 +92,22 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
             for problem_defn in problem_defns
         ],
     )
-    roles = [
+    project.roles = [
         Role(
             name="admin",
-            project=project,
             users=[admin_user],
             **{perm: True for perm in role_permissions["admin"]},
         ),
         *[
-            Role(name=role, project=project, **{perm: True for perm in role_permissions[role]})
+            Role(name=role, **{perm: True for perm in role_permissions[role]})
             for role in ["member", "helper"]
         ],
     ]
 
-    db_session.add_all([organisation, project, *roles])
+    db_session.add_all([organisation, project])
     db_session.commit()
 
-    # initialise permissions - assume schema is initialised
-    delete_all_permission_records()
-    permission_create(organisation)
-    permission_create(project)
-    for role in roles:
-        permission_create(role)
-    permission_create(UserRole(user_id=admin_user.id, role_id=roles[0].id))
+    seed_permify()
 
     rich_console.print("Database seeded successfully 🌈")
 
@@ -122,7 +118,7 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
     table.add_row("User", f"{admin_user.username} (id: {admin_user.id})")
     table.add_row("Organisation", f"{organisation.name} (id: {organisation.id})")
     table.add_row("Project", f"{project.name} (id: {project.id})")
-    table.add_row("Roles", "\n".join(role.name for role in roles))
+    table.add_row("Roles", "\n".join(role.name for role in project.roles))
     table.add_row("Problems", "\n".join(f"{problem.name} (id: {problem.id})" for problem in project.problems))
     # fmt: on
 

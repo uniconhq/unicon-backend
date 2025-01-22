@@ -35,7 +35,7 @@ def get_problem(
     user: Annotated[UserORM, Depends(get_current_user)],
 ) -> Problem:
     if not permission_check(problem_orm, "view", user):
-        return HTTPException(
+        raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN, detail="User does not have permission to view problem"
         )
 
