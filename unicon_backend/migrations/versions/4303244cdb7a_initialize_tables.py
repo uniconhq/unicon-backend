@@ -240,3 +240,7 @@ def downgrade() -> None:
     op.drop_table("organisation")
     op.drop_table("user")
     # ### end Alembic commands ###
+
+    # Manually remove ENUM types
+    op.execute("DROP TYPE IF EXISTS tasktype")
+    op.execute("DROP TYPE IF EXISTS taskevalstatus")
