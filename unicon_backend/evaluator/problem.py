@@ -2,7 +2,8 @@ from functools import cached_property
 from logging import getLogger
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
+from sqlmodel._compat import SQLModelConfig
 
 from unicon_backend.evaluator.tasks.base import TaskEvalResult
 from unicon_backend.evaluator.tasks.multiple_choice import MultipleChoiceTask, MultipleResponseTask
@@ -22,7 +23,7 @@ Task = ProgrammingTask | MultipleChoiceTask | MultipleResponseTask | ShortAnswer
 
 
 class Problem(CustomSQLModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = SQLModelConfig(from_attributes=True)
 
     name: str
     restricted: bool

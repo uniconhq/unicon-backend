@@ -4,7 +4,6 @@ import permify as p
 from rich import print
 
 from unicon_backend.constants import PERMIFY_HOST, SCHEMA_VERSION
-from unicon_backend.evaluator.problem import Problem
 from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import Organisation, Project, Role
 from unicon_backend.models.problem import ProblemORM, SubmissionORM
@@ -145,6 +144,11 @@ def permission_list_for_subject(model: Any, user: UserORM) -> dict[str, bool]:
                 subject=_make_entity("user", str(user.id)),
             ),
         )
+
+        if not result.results:
+            # This should not happen.
+            raise ValueError("No results found")
+
         return {
             permission: allowed == p.CheckResult.CHECK_RESULT_ALLOWED
             for permission, allowed in result.results.items()
@@ -247,7 +251,7 @@ def permission_update(old: Any, new: Any):
                     tuple_filter=p.TupleFilter(),
                     attribute_filter=p.AttributeFilter(
                         entity=p.EntityFilter(type=entity.type, ids=[entity.id]),
-                        attribute=attribute,
+                        attributes=[attribute],
                     ),
                 ),
             )
@@ -308,14 +312,17 @@ def _make_tuple(entity, relation, subject) -> p.Tuple:
     return result
 
 
-# TODO: fix these two once i add restricted attribute to problems
 def _get_permify_bool(bool: bool) -> p.Any:
-    value = p.Any.from_dict({"@type": "type.googleapis.com/base.v1.BooleanValue", "data": bool})
+    # I think the type error here is from a weird bug in p.Any where it collides with typing.Any (and should be fine)
+    value = p.Any.from_dict({"@type": "type.googleapis.com/base.v1.BooleanValue", "data": bool})  # type:ignore
     return value
 
 
 def _make_attribute(entity, attribute, value) -> p.Attribute:
-    return p.Attribute.from_dict({"entity": entity, "attribute": attribute, "value": value})
+    attribute = p.Attribute.from_dict({"entity": entity, "attribute": attribute, "value": value})
+    if not attribute:
+        raise ValueError("Failed to create attribute")
+    return attribute
 
 
 def _make_entity(type: str, id: str):
@@ -402,7 +409,7 @@ def _update_role(
 
 
 def _update_problem(
-    old_problem: Problem, new_problem: Problem
+    old_problem: ProblemORM, new_problem: ProblemORM
 ) -> tuple[tuple[list[p.Tuple], list[p.Attribute]], tuple[list[p.Tuple], list[p.Attribute]]]:
     """Return tuple to delete and tuple to create"""
     return _create_problem(old_problem), _create_problem(new_problem)

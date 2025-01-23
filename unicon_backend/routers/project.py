@@ -46,7 +46,7 @@ def get_all_projects(
     project_ids = permission_lookup(Project, "view", user)
     projects = db_session.exec(
         select(Project)
-        .where(Project.id.in_(project_ids))
+        .where(col(Project.id).in_(project_ids))
         .options(selectinload(Project.roles.and_(Role.users.any(col(UserORM.id) == user.id))))
     ).all()
 
@@ -113,7 +113,7 @@ def get_project_roles(
         .join(Project)
         .where(Project.id == id)
         .options(selectinload(Role.invitation_keys))
-        .order_by(Role.id)
+        .order_by(col(Role.id))
     ).all()
 
 
@@ -156,7 +156,7 @@ def get_project_submissions(
     query = (
         select(SubmissionORM)
         .where(SubmissionORM.problem.has(col(ProblemORM.project_id) == id))
-        .where(SubmissionORM.id.in_(accessible_submission_ids))
+        .where(col(SubmissionORM.id).in_(accessible_submission_ids))
         .options(
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),

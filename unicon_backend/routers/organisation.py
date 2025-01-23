@@ -2,7 +2,7 @@ from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
@@ -35,7 +35,7 @@ def get_all_organisations(
 ):
     accessible_organisation_ids = permission_lookup(Organisation, "view", user)
     organisations = db_session.exec(
-        select(Organisation).where(Organisation.id.in_(accessible_organisation_ids))
+        select(Organisation).where(col(Organisation.id).in_(accessible_organisation_ids))
     ).all()
     return organisations
 
