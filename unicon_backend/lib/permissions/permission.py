@@ -1,8 +1,10 @@
 from typing import Any
 
 import permify as p
+from rich import print
 
 from unicon_backend.constants import PERMIFY_HOST, SCHEMA_VERSION
+from unicon_backend.evaluator.problem import Problem
 from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import Organisation, Project, Role
 from unicon_backend.models.problem import ProblemORM, SubmissionORM
@@ -14,8 +16,28 @@ CONFIGURATION = p.Configuration(host=PERMIFY_HOST)
 TENANT_ID = "t1"
 
 
+def debug_list_tuples():
+    with p.ApiClient(CONFIGURATION) as api_client:
+        data_api = p.DataApi(api_client)
+        attributes = data_api.data_attributes_read(
+            TENANT_ID,
+            p.ReadAttributesBody(metadata={"schema_version": SCHEMA_VERSION}, filter={}),
+        )
+        print(attributes)
+
+        relations = data_api.data_relationships_read(
+            TENANT_ID,
+            p.ReadRelationshipsBody(
+                metadata={"schema_version": SCHEMA_VERSION},
+                filter={},
+            ),
+        )
+        print(relations)
+
+
 def init_schema(schemaFilePath: str) -> str:
     """Initialise the schema for the permission system. Returns the schema version."""
+
     with open(schemaFilePath) as schema_text:
         schema = schema_text.read()
 
@@ -134,17 +156,17 @@ def permission_create(model: Any):
     model_type = type(model)
 
     if model_type is Project:
-        tuples = _create_project(model)
+        tuples, attributes = _create_project(model)
     elif model_type is Role:
-        tuples = _create_role(model)
+        tuples, attributes = _create_role(model)
     elif model_type is ProblemORM:
-        tuples = _create_problem(model)
+        tuples, attributes = _create_problem(model)
     elif model_type is SubmissionORM:
-        tuples = _create_submission(model)
+        tuples, attributes = _create_submission(model)
     elif model_type is UserRole:
-        tuples = _create_user_role(model)
+        tuples, attributes = _create_user_role(model)
     elif model_type is Organisation:
-        tuples = _create_organisation(model)
+        tuples, attributes = _create_organisation(model)
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -157,7 +179,7 @@ def permission_create(model: Any):
         data_api = p.DataApi(api_client)
         data_api.data_write(
             TENANT_ID,
-            p.DataWriteBody(metadata=metadata, tuples=tuples),
+            p.DataWriteBody(metadata=metadata, tuples=tuples, attributes=attributes),
         )
 
 
@@ -167,7 +189,13 @@ def permission_update(old: Any, new: Any):
         raise ValueError("Old and new models must be of the same type")
 
     if type(old) is Role:
-        delete_tuples, create_tuples = _update_role(old, new)
+        (delete_tuples, delete_attributes), (create_tuples, create_attributes) = _update_role(
+            old, new
+        )
+    elif type(old) is ProblemORM:
+        (delete_tuples, delete_attributes), (create_tuples, create_attributes) = _update_problem(
+            old, new
+        )
     else:
         raise ValueError(f"Unsupported model type: {type(old)}")
 
@@ -206,10 +234,28 @@ def permission_update(old: Any, new: Any):
                 ),
             )
 
+        for old_attribute in delete_attributes:
+            entity = old_attribute.entity
+            attribute = old_attribute.attribute
+            if entity is None or attribute is None or entity.id is None:
+                # This should never happen.
+                raise ValueError("Failed to extract entity or attribute")
+
+            data_api.data_delete(
+                TENANT_ID,
+                p.DataDeleteBody(
+                    tuple_filter=p.TupleFilter(),
+                    attribute_filter=p.AttributeFilter(
+                        entity=p.EntityFilter(type=entity.type, ids=[entity.id]),
+                        attribute=attribute,
+                    ),
+                ),
+            )
+
         # recreate new tuples
         data_api.data_write(
             TENANT_ID,
-            p.DataWriteBody(metadata=metadata, tuples=create_tuples),
+            p.DataWriteBody(metadata=metadata, tuples=create_tuples, attributes=create_attributes),
         )
 
 
@@ -276,25 +322,25 @@ def _make_entity(type: str, id: str):
     return {"type": type, "id": id}
 
 
-def _create_organisation(organisation: Organisation):
+def _create_organisation(organisation: Organisation) -> tuple[list[p.Tuple], list[p.Attribute]]:
     owner_link = _make_tuple(
         _make_entity("organisation", str(organisation.id)),
         "owner",
         _make_entity("user", str(organisation.owner_id)),
     )
-    return [owner_link]
+    return [owner_link], []
 
 
-def _create_project(project: Project) -> list[p.Tuple]:
+def _create_project(project: Project) -> tuple[list[p.Tuple], list[p.Attribute]]:
     project_organisation_link = _make_tuple(
         _make_entity("project", str(project.id)),
         "org",
         _make_entity("organisation", str(project.organisation_id)),
     )
-    return [project_organisation_link]
+    return [project_organisation_link], []
 
 
-def _create_role(role: Role) -> list[p.Tuple]:
+def _create_role(role: Role) -> tuple[list[p.Tuple], list[p.Attribute]]:
     role_access_links = [
         _make_tuple(
             _make_entity("project", str(role.project_id)),
@@ -304,19 +350,25 @@ def _create_role(role: Role) -> list[p.Tuple]:
         for permission in PERMISSIONS
         if getattr(role, permission)
     ]
-    return role_access_links
+    return role_access_links, []
 
 
-def _create_problem(problem: ProblemORM) -> list[p.Tuple]:
+def _create_problem(problem: ProblemORM) -> tuple[list[p.Tuple], list[p.Attribute]]:
     problem_project_link = _make_tuple(
         _make_entity("problem", str(problem.id)),
         "project",
         _make_entity("project", str(problem.project_id)),
     )
-    return [problem_project_link]
+    restricted = problem.restricted
+    attribute = _make_attribute(
+        _make_entity("problem", str(problem.id)),
+        "restricted",
+        _get_permify_bool(restricted),
+    )
+    return [problem_project_link], [attribute]
 
 
-def _create_submission(submission: SubmissionORM) -> list[p.Tuple]:
+def _create_submission(submission: SubmissionORM) -> tuple[list[p.Tuple], list[p.Attribute]]:
     submission_problem_link = _make_tuple(
         _make_entity("submission", str(submission.id)),
         "problem",
@@ -329,19 +381,28 @@ def _create_submission(submission: SubmissionORM) -> list[p.Tuple]:
         "owner",
         _make_entity("user", str(submission.user_id)),
     )
-    return [submission_problem_link, submission_owner_link]
+    return [submission_problem_link, submission_owner_link], []
 
 
-def _create_user_role(userRole: UserRole):
+def _create_user_role(userRole: UserRole) -> tuple[list[p.Tuple], list[p.Attribute]]:
     """this is role assignment link"""
     assignee_link = _make_tuple(
         _make_entity("role", str(userRole.role_id)),
         "assignee",
         _make_entity("user", str(userRole.user_id)),
     )
-    return [assignee_link]
+    return [assignee_link], []
 
 
-def _update_role(old_role: Role, new_role: Role) -> tuple[list[p.Tuple], list[p.Tuple]]:
+def _update_role(
+    old_role: Role, new_role: Role
+) -> tuple[tuple[list[p.Tuple], list[p.Attribute]], tuple[list[p.Tuple], list[p.Attribute]]]:
     """Return tuple to delete and tuple to create"""
     return _create_role(old_role), _create_role(new_role)
+
+
+def _update_problem(
+    old_problem: Problem, new_problem: Problem
+) -> tuple[tuple[list[p.Tuple], list[p.Attribute]], tuple[list[p.Tuple], list[p.Attribute]]]:
+    """Return tuple to delete and tuple to create"""
+    return _create_problem(old_problem), _create_problem(new_problem)

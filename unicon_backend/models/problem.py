@@ -41,6 +41,7 @@ class ProblemORM(CustomSQLModel, table=True):
     id: int = Field(primary_key=True)
     name: str
     description: str
+    restricted: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
 
     project_id: int = Field(foreign_key="project.id")
 
@@ -59,6 +60,7 @@ class ProblemORM(CustomSQLModel, table=True):
 
         return Problem.model_validate(
             {
+                "restricted": self.restricted,
                 "name": self.name,
                 "description": self.description,
                 "tasks": [_serialize_task(task_orm) for task_orm in self.tasks],

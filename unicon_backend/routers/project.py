@@ -241,7 +241,8 @@ def join_project(
 
     permission_create(new_user_role)
 
-    return role.project
+    permissions = permission_list_for_subject(role.project, user)
+    return ProjectPublic.model_validate(role.project, update=permissions)
 
 
 @router.post("/{id}/problems", description="Create a new problem")

@@ -25,6 +25,7 @@ class Problem(CustomSQLModel):
     model_config = ConfigDict(from_attributes=True)
 
     name: str
+    restricted: bool
     description: str
     tasks: list[Annotated[Task, Field(discriminator="type")]]
 

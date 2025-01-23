@@ -6,6 +6,7 @@ from rich.syntax import Syntax
 from rich.table import Table
 
 from unicon_backend.lib.permissions.permission import (
+    debug_list_tuples,
     delete_all_permission_records,
     init_schema,
     permission_create,
@@ -45,6 +46,11 @@ def seed_permify():
                 permission_create(model)
 
     rich_console.print("Permissions seeded successfully 🌈")
+
+
+@permify_app.command(name="list")
+def list_permify():
+    debug_list_tuples()
 
 
 @app.command(name="seed")

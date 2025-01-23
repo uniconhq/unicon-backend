@@ -13,6 +13,7 @@ from unicon_backend.lib.permissions.permission import (
     permission_check,
     permission_create,
     permission_list_for_subject,
+    permission_update,
 )
 from unicon_backend.models import (
     ProblemORM,
@@ -39,12 +40,12 @@ def get_problem(
     problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
     user: Annotated[UserORM, Depends(get_current_user)],
 ) -> ProblemPublic:
+    permissions = permission_list_for_subject(problem_orm, user)
     if not permission_check(problem_orm, "view", user):
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN, detail="User does not have permission to view problem"
         )
 
-    permissions = permission_list_for_subject(problem_orm, user)
     return ProblemPublic.model_validate(problem_orm.to_problem(), update=permissions)
 
 
@@ -83,12 +84,17 @@ def update_problem(
             detail="User does not have permission to update problem",
         )
 
+    old_copy = existing_problem_orm.model_copy()
+
     existing_problem_orm.name = new_problem.name
     existing_problem_orm.description = new_problem.description
+    existing_problem_orm.restricted = new_problem.restricted
 
     db_session.add(existing_problem_orm)
     db_session.commit()
     db_session.refresh(existing_problem_orm)
+
+    permission_update(old_copy, existing_problem_orm)
 
     return existing_problem_orm.to_problem()
 
