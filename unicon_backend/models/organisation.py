@@ -6,7 +6,7 @@ import sqlalchemy.orm as sa_orm
 from sqlmodel import Field, Relationship
 
 from unicon_backend.lib.common import CustomSQLModel
-from unicon_backend.models.links import GroupMember, UserRole
+from unicon_backend.models.links import UserRole
 
 if TYPE_CHECKING:
     from unicon_backend.models.problem import ProblemORM
@@ -94,25 +94,6 @@ class Role(RoleBase, table=True):
 
     users: sa_orm.Mapped[list["UserORM"]] = Relationship(
         back_populates="roles", link_model=UserRole
-    )
-
-
-class GroupType(CustomSQLModel):
-    id: int | None = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id")
-    name: str
-
-
-class Group(CustomSQLModel):
-    id: int | None = Field(default=None, primary_key=True)
-    group_type_id: int = Field(foreign_key="group_type.id")
-    supervisor_id: int = Field(foreign_key="user.id")
-
-    # todo: check if this breaks since there are 2 relations to user
-    supervisor: sa_orm.Mapped["UserORM"] = Relationship(back_populates="supervised_groups")
-
-    members: sa_orm.Mapped[list["GroupMember"]] = Relationship(
-        back_populates="group", link_model=GroupMember
     )
 
 

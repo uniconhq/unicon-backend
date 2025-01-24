@@ -52,7 +52,12 @@ class ProblemORM(CustomSQLModel, table=True):
     @classmethod
     def from_problem(cls, problem: "Problem") -> "ProblemORM":
         tasks_orm: list[TaskORM] = [TaskORM.from_task(task) for task in problem.tasks]
-        return cls(name=problem.name, description=problem.description, tasks=tasks_orm)
+        return cls(
+            name=problem.name,
+            description=problem.description,
+            tasks=tasks_orm,
+            restricted=problem.restricted,
+        )
 
     def to_problem(self) -> "Problem":
         def _serialize_task(t: TaskORM):
