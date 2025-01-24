@@ -65,7 +65,6 @@ def get_project(
     if not permission_check(project, "view", user):
         raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
-    # TODO: update permission.py to make this work after adding restricted problems.
     accessible_problem_ids = permission_lookup(ProblemORM, "view", user)
 
     permissions = permission_list_for_subject(project, user)
