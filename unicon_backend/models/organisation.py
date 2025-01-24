@@ -6,7 +6,7 @@ import sqlalchemy.orm as sa_orm
 from sqlmodel import Field, Relationship
 
 from unicon_backend.lib.common import CustomSQLModel
-from unicon_backend.models.links import UserRole
+from unicon_backend.models.links import GroupMember, GroupSupervisor, UserRole
 
 if TYPE_CHECKING:
     from unicon_backend.models.problem import ProblemORM
@@ -36,6 +36,22 @@ class Project(ProjectBase, table=True):
     roles: sa_orm.Mapped[list["Role"]] = Relationship(back_populates="project")
     problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(
         back_populates="project", sa_relationship_kwargs={"order_by": "ProblemORM.id.desc()"}
+    )
+
+
+class Group(CustomSQLModel, table=True):
+    """This is closer to tutorial groups and not intended to be used for submitting problems."""
+
+    __tablename__ = "group"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+
+    members: sa_orm.Mapped[list["UserORM"]] = Relationship(
+        back_populates="groups", link_model=GroupMember
+    )
+    supervisors: sa_orm.Mapped[list["UserORM"]] = Relationship(
+        back_populates="supervised_groups", link_model=GroupSupervisor
     )
 
 

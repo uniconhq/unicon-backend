@@ -12,3 +12,17 @@ class UserRole(CustomSQLModel, table=True):
 
     user_id: int = Field(foreign_key="user.id", primary_key=True)
     role_id: int = Field(foreign_key="role.id", primary_key=True)
+
+
+class GroupMember(CustomSQLModel, table=True):
+    __tablename__ = "group_member"
+
+    user_id: int = Field(foreign_key="user.id", primary_key=True)
+    group_id: int = Field(foreign_key="group.id", primary_key=True)
+
+
+class GroupSupervisor(CustomSQLModel, table=True):
+    __tablename__ = "group_supervisor"
+
+    user_id: int = Field(foreign_key="user.id", primary_key=True)
+    group_id: int = Field(foreign_key="group.id", primary_key=True)
