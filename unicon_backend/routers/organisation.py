@@ -11,6 +11,7 @@ from unicon_backend.dependencies.project import create_project_with_defaults
 from unicon_backend.lib.permissions.permission import (
     permission_check,
     permission_create,
+    permission_list_for_subject,
     permission_lookup,
 )
 from unicon_backend.models import Organisation, UserORM
@@ -93,7 +94,14 @@ def get_organisation(
     if not permission_check(organisation, "view", user):
         raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
-    return organisation
+    projects = []
+    for project in organisation.projects:
+        permissions = permission_list_for_subject(project, user)
+        projects.append(ProjectPublic.model_validate(project, update=permissions))
+
+    return OrganisationPublicWithProjects.model_validate(
+        organisation, update={"projects": projects}
+    )
 
 
 @router.post("/{id}/projects", summary="Create a new project", response_model=ProjectPublic)
