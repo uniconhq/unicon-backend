@@ -37,6 +37,7 @@ class Project(ProjectBase, table=True):
     problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(
         back_populates="project", sa_relationship_kwargs={"order_by": "ProblemORM.id.desc()"}
     )
+    groups: sa_orm.Mapped[list["Group"]] = Relationship(back_populates="project")
 
 
 class Group(CustomSQLModel, table=True):
@@ -45,6 +46,8 @@ class Group(CustomSQLModel, table=True):
     __tablename__ = "group"
 
     id: int | None = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id")
+
     name: str
 
     members: sa_orm.Mapped[list["UserORM"]] = Relationship(
@@ -53,6 +56,7 @@ class Group(CustomSQLModel, table=True):
     supervisors: sa_orm.Mapped[list["UserORM"]] = Relationship(
         back_populates="supervised_groups", link_model=GroupSupervisor
     )
+    project: sa_orm.Mapped[Project] = Relationship(back_populates="groups")
 
 
 class RoleBase(CustomSQLModel):

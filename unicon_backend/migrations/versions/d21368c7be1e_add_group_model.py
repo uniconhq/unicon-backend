@@ -1,8 +1,8 @@
 """add group model
 
-Revision ID: bc5c0772d492
+Revision ID: d21368c7be1e
 Revises: 68c60f4de304
-Create Date: 2025-01-25 00:03:35.171604
+Create Date: 2025-01-25 10:21:13.922885
 
 """
 
@@ -13,7 +13,7 @@ import sqlmodel
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "bc5c0772d492"
+revision: str = "d21368c7be1e"
 down_revision: str | None = "68c60f4de304"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -24,7 +24,11 @@ def upgrade() -> None:
     op.create_table(
         "group",
         sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("project_id", sa.Integer(), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["project_id"], ["project.id"], name=op.f("fk_group_project_id_project")
+        ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_group")),
     )
     op.create_table(
