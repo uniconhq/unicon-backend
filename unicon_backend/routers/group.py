@@ -9,6 +9,7 @@ from sqlmodel import Session
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.group import get_group_by_id
+from unicon_backend.lib.permissions.permission import permission_delete, permission_update
 from unicon_backend.models.organisation import Group
 from unicon_backend.models.user import UserORM
 from unicon_backend.schemas.group import GroupPublic, GroupUpdate
@@ -32,6 +33,8 @@ def update_group(
 ):
     # TODO: check permission
 
+    old_group = group.model_copy()
+
     group.name = data.name
     users = db_session.scalars(
         select(UserORM)
@@ -52,6 +55,8 @@ def update_group(
 
     db_session.commit()
     db_session.refresh(group)
+
+    permission_update(old_group, group)
     return group
 
 
@@ -66,3 +71,4 @@ def delete_group(
     group.members.clear()
     db_session.delete(group)
     db_session.commit()
+    permission_delete(group)

@@ -32,7 +32,13 @@ entity project {
 
     relation make_submission_access @role#assignee
     relation view_own_submission_access @role#assignee
+    relation view_supervised_submission_access @role#assignee
     relation view_others_submission_access @role#assignee
+
+    relation view_groups_access @role#assignee
+    relation create_groups_access @role#assignee
+    relation edit_groups_access @role#assignee
+    relation delete_groups_access @role#assignee
 
     // actions from above roles (to combine with org permissions)
     action create_problems = org.edit or create_problems_access
@@ -48,12 +54,18 @@ entity project {
 
     action make_submission = org.edit or make_submission_access
     action view_others_submission = org.view or view_others_submission_access
+    action view_supervised_submission = org.view or view_supervised_submission_access
     action view_own_submission = view_others_submission or view_own_submission_access
 
     action view_roles = org.view
     action edit_roles = org.edit
     action add_roles = edit_roles
     action delete_roles = edit_roles
+
+    action view_groups = org.view or view_groups_access
+    action create_groups = org.edit or create_groups_access
+    action edit_groups = org.edit or edit_groups_access
+    action delete_groups = org.edit or delete_groups_access
 }
 
 
@@ -70,18 +82,25 @@ entity problem {
     permission make_submission = view and project.make_submission
     permission view_own_submission = view and project.view_own_submission
     permission view_others_submission = view and project.view_others_submission
+    permission view_supervised_submission = view and project.view_supervised_submission
 }
 
 entity group {
+    relation project @project
+
     relation member @user
+    relation supervisor @user
+
+    action view = project.view_groups
+    action edit = project.edit_groups
+    action delete = project.delete_groups
 }
 
 entity submission {
     relation problem @problem
-
-    // only one of these two should be non-empty
+ 
+    relation group @group // not related to a submission by a group, this is for the supervisor relationship
     relation owner @user
-    relation group_owner @group
-
-    action view = ((owner or group_owner.member) and problem.view_own_submission) or (problem.view_others_submission not owner)
+    
+    action view = (owner and problem.view_own_submission) or (group.supervisor and problem.view_supervised_submission) or (problem.view_others_submission not owner)
 }

@@ -68,6 +68,8 @@ class Role(RoleBase, table=True):
     project_id: int = Field(foreign_key="project.id")
 
     # Assignable permissions
+
+    # Normal problem permissions
     view_problems_access: bool = Field(
         default=False,
         sa_column=sa.Column(sa.Boolean(), server_default="0"),
@@ -84,6 +86,8 @@ class Role(RoleBase, table=True):
         default=False,
         sa_column=sa.Column(sa.Boolean(), server_default="0"),
     )
+
+    # Restricted problem permissions
     view_restricted_problems_access: bool = Field(
         default=False,
         sa_column=sa.Column(sa.Boolean(), server_default="0"),
@@ -96,6 +100,8 @@ class Role(RoleBase, table=True):
         default=False,
         sa_column=sa.Column(sa.Boolean(), server_default="0"),
     )
+
+    # Submission permissions
     make_submission_access: bool = Field(
         default=False,
         sa_column=sa.Column(sa.Boolean(), server_default="0"),
@@ -104,7 +110,29 @@ class Role(RoleBase, table=True):
         default=False,
         sa_column=sa.Column(sa.Boolean(), server_default="0"),
     )
+    view_supervised_submission_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
     view_others_submission_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+
+    # Group permissions
+    view_groups_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    create_groups_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    edit_groups_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    delete_groups_access: bool = Field(
         default=False,
         sa_column=sa.Column(sa.Boolean(), server_default="0"),
     )

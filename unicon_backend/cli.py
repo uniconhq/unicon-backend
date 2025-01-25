@@ -12,6 +12,7 @@ from unicon_backend.lib.permissions.permission import (
     init_schema,
     permission_create,
 )
+from unicon_backend.models.organisation import Group
 
 rich_console = Console()
 app = typer.Typer(name="Unicon 🦄 CLI")
@@ -39,7 +40,7 @@ def seed_permify():
 
     # assume schema is initialised (run init-permify if not)
     delete_all_permission_records()
-    model_classes = [Project, Role, ProblemORM, SubmissionORM, UserRole, Organisation]
+    model_classes = [Project, Role, ProblemORM, SubmissionORM, UserRole, Organisation, Group]
     with SessionLocal() as session:
         for model_class in model_classes:
             models = session.scalars(select(model_class)).all()

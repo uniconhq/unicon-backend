@@ -169,6 +169,8 @@ def create_group(
     db_session.add(new_group)
     db_session.commit()
     db_session.refresh(new_group)
+
+    permission_create(new_group)
     return new_group
 
 
