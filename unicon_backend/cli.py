@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
 
+from unicon_backend.dependencies.project import role_permissions
 from unicon_backend.lib.permissions.permission import (
     debug_list_tuples,
     delete_all_permission_records,
@@ -71,24 +72,6 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
     db_session.flush()
 
     organisation = Organisation(name="Unicon", description="Rainbows", owner_id=admin_user.id)
-
-    role_permissions = {}
-    role_permissions["member"] = [
-        "view_problems_access",
-        "make_submission_access",
-        "view_own_submission_access",
-    ]
-    role_permissions["helper"] = role_permissions["member"] + [
-        "create_problems_access",
-        "edit_problems_access",
-        "delete_problems_access",
-        "view_others_submission_access",
-    ]
-    role_permissions["admin"] = role_permissions["helper"] + [
-        "view_restricted_problems_access",
-        "edit_restricted_problems_access",
-        "delete_restricted_problems_access",
-    ]
 
     project = Project(
         name="Sparkles",
