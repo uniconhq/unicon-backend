@@ -46,7 +46,7 @@ class Group(CustomSQLModel, table=True):
     __tablename__ = "group"
 
     id: int | None = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id")
+    project_id: int | None = Field(foreign_key="project.id")
 
     name: str
 
