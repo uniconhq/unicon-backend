@@ -51,6 +51,9 @@ def create_organisation(
     db_session.add(organisation)
     db_session.commit()
     db_session.refresh(organisation)
+
+    permission_create(organisation)
+
     return organisation
 
 
@@ -125,4 +128,8 @@ def create_project(
     for role in project.roles:
         permission_create(role)
 
-    return project
+    # Return permission in project
+    permissions = permission_list_for_subject(project, user)
+    result = ProjectPublic.model_validate(project, update=permissions)
+
+    return result
