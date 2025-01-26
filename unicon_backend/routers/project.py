@@ -26,8 +26,7 @@ from unicon_backend.models.problem import (
     TaskAttemptORM,
 )
 from unicon_backend.models.user import UserORM
-from unicon_backend.schemas.auth import UserPublicWithRoles
-from unicon_backend.schemas.group import GroupCreate, GroupPublic
+from unicon_backend.schemas.group import GroupCreate, GroupPublic, UserPublicWithRolesAndGroups
 from unicon_backend.schemas.organisation import (
     ProjectPublic,
     ProjectPublicWithProblems,
@@ -119,7 +118,9 @@ def get_project_roles(
 
 
 @router.get(
-    "/{id}/users", summary="Get all users in a project", response_model=list[UserPublicWithRoles]
+    "/{id}/users",
+    summary="Get all users in a project",
+    response_model=list[UserPublicWithRolesAndGroups],
 )
 def get_project_users(
     id: int,
@@ -136,7 +137,12 @@ def get_project_users(
         .join(Role)
         .join(Project)
         .where(Project.id == id)
-        .options(selectinload(UserORM.roles.and_(col(Role.project_id) == id)))
+        .options(
+            selectinload(UserORM.roles.and_(col(Role.project_id) == id)),
+            selectinload(
+                UserORM.group_members.and_(GroupMember.group.has(col(Group.project_id) == id))
+            ).selectinload(GroupMember.group),
+        )
     ).all()
 
 
@@ -202,7 +208,12 @@ def get_project_submissions(
         .options(
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
-            selectinload(SubmissionORM.user),
+            selectinload(SubmissionORM.user)
+            .selectinload(
+                UserORM.group_members.and_(GroupMember.group.has(col(Group.project_id) == id))
+            )
+            .selectinload(GroupMember.group),
+            selectinload(SubmissionORM.problem),
         )
     )
 

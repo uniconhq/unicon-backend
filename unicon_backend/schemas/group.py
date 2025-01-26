@@ -1,16 +1,31 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
-from unicon_backend.schemas.auth import UserPublic
+from unicon_backend.schemas.auth import UserPublic, UserPublicWithRoles
 
 
 class MiniGroupPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
 
 
 class MiniGroupMemberPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     is_supervisor: bool
     user: UserPublic
+
+
+class GroupMemberPublicWithGroup(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    is_supervisor: bool
+    group: MiniGroupPublic
+
+
+class UserPublicWithRolesAndGroups(UserPublicWithRoles):
+    group_members: list[GroupMemberPublicWithGroup]
 
 
 class GroupPublic(MiniGroupPublic):
