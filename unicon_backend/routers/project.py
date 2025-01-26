@@ -13,10 +13,11 @@ from unicon_backend.evaluator.problem import Problem
 from unicon_backend.lib.permissions.permission import (
     permission_check,
     permission_create,
+    permission_delete,
     permission_list_for_subject,
     permission_lookup,
 )
-from unicon_backend.models.links import UserRole
+from unicon_backend.models.links import GroupMember, UserRole
 from unicon_backend.models.organisation import Group, InvitationKey, Project, Role
 from unicon_backend.models.problem import (
     ProblemORM,
@@ -148,11 +149,14 @@ def get_project_groups(
 ):
     # TODO: implement group permissions
     # accessible_group_ids = permission_lookup(Group, "view", user)
+    # print("got here", accessible_group_ids)
 
     return db_session.exec(
         select(Group)
-        .where(Group.project_id == id)  # .where(col(Group.id).in_(accessible_group_ids))
-        .options(selectinload(Group.members), selectinload(Group.supervisors))
+        .where(Group.project_id == id)
+        # .where(col(Group.id).in_(accessible_group_ids))]
+        .order_by(col(Group.name))
+        .options(selectinload(Group.members).selectinload(GroupMember.user))
     ).all()
 
 
@@ -161,8 +165,11 @@ def create_group(
     group: GroupCreate,
     project: Annotated[Project, Depends(get_project_by_id)],
     db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ):
-    # TODO: CHECK CREATE PERMISSION
+    if not permission_check(project, "create_groups", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
     new_group = Group(name=group.name)
     project.groups.append(new_group)
 
@@ -267,7 +274,7 @@ def join_project(
     ).first()
 
     if user_role:
-        # TODO(permission): delete user_role record
+        permission_delete(user_role)
         db_session.delete(user_role)
 
     new_user_role = UserRole(user_id=user.id, role_id=role.id)

@@ -6,7 +6,7 @@ import sqlalchemy.orm as sa_orm
 from sqlmodel import Field, Relationship
 
 from unicon_backend.lib.common import CustomSQLModel
-from unicon_backend.models.links import GroupMember, GroupSupervisor, UserRole
+from unicon_backend.models.links import GroupMember, UserRole
 
 if TYPE_CHECKING:
     from unicon_backend.models.problem import ProblemORM
@@ -50,12 +50,16 @@ class Group(CustomSQLModel, table=True):
 
     name: str
 
-    members: sa_orm.Mapped[list["UserORM"]] = Relationship(
-        back_populates="groups", link_model=GroupMember
+    members: sa_orm.Mapped[list["GroupMember"]] = Relationship(
+        back_populates="group",
+        sa_relationship_kwargs={
+            "order_by": "GroupMember.is_supervisor.desc()",
+            # This line is used to fix an error with updating group members.
+            # https://github.com/marshmallow-code/marshmallow-sqlalchemy/issues/250
+            "cascade": "all, delete-orphan",
+        },
     )
-    supervisors: sa_orm.Mapped[list["UserORM"]] = Relationship(
-        back_populates="supervised_groups", link_model=GroupSupervisor
-    )
+
     project: sa_orm.Mapped[Project] = Relationship(back_populates="groups")
 
 

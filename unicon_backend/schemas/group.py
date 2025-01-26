@@ -8,9 +8,13 @@ class MiniGroupPublic(BaseModel):
     name: str
 
 
+class MiniGroupMemberPublic(BaseModel):
+    is_supervisor: bool
+    user: UserPublic
+
+
 class GroupPublic(MiniGroupPublic):
-    members: list[UserPublic]
-    supervisors: list[UserPublic]
+    members: list[MiniGroupMemberPublic]
 
 
 class GroupCreate(BaseModel):

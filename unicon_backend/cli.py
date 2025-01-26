@@ -40,6 +40,7 @@ def seed_permify():
 
     # assume schema is initialised (run init-permify if not)
     delete_all_permission_records()
+
     model_classes = [Project, Role, ProblemORM, SubmissionORM, UserRole, Organisation, Group]
     with SessionLocal() as session:
         for model_class in model_classes:

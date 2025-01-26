@@ -51,6 +51,11 @@ class ProjectPublic(ProjectBase):
     edit_roles: bool
     create_problems: bool
 
+    view_groups: bool
+    create_groups: bool
+    edit_groups: bool
+    delete_groups: bool
+
 
 class ProjectPublicWithProblems(ProjectPublic):
     problems: list[ProblemBase]

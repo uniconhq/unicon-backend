@@ -2,12 +2,9 @@ from typing import Any
 
 import permify as p
 from rich import print
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 from unicon_backend.constants import PERMIFY_HOST, SCHEMA_VERSION
-from unicon_backend.database import SessionLocal
-from unicon_backend.models.links import GroupMember, GroupSupervisor, UserRole
+from unicon_backend.models.links import GroupMember, UserRole
 from unicon_backend.models.organisation import Group, Organisation, Project, Role
 from unicon_backend.models.problem import ProblemORM, SubmissionORM
 from unicon_backend.models.user import UserORM
@@ -18,36 +15,46 @@ CONFIGURATION = p.Configuration(host=PERMIFY_HOST)
 TENANT_ID = "t1"
 
 
-def debug_list_tuples():
+def _get_all_tuples_and_attributes() -> tuple[list[p.Tuple], list[p.Attribute]]:
+    tuples: list[p.Tuple] = []
+    attributes: list[p.Attribute] = []
+
     with p.ApiClient(CONFIGURATION) as api_client:
         data_api = p.DataApi(api_client)
 
         tokens = set()
         while True:
-            attributes = data_api.data_attributes_read(
+            response = data_api.data_attributes_read(
                 TENANT_ID,
                 p.ReadAttributesBody(metadata={"schema_version": SCHEMA_VERSION}, filter={}),
             )
 
-            print(attributes.attributes)
-            if not attributes.continuous_token or attributes.continuous_token in tokens:
+            attributes += response.attributes
+            if not response.continuous_token or response.continuous_token in tokens:
                 break
 
-            tokens.add(attributes.continuous_token)
+            tokens.add(response.continuous_token)
 
         tokens = set()
         while True:
-            relations = data_api.data_relationships_read(
+            response = data_api.data_relationships_read(
                 TENANT_ID,
                 p.ReadRelationshipsBody(
                     metadata={"schema_version": SCHEMA_VERSION},
                     filter={},
                 ),
             )
-            print(relations.tuples)
-            if not relations.continuous_token or relations.continuous_token in tokens:
+            tuples += response.tuples
+            if not response.continuous_token or response.continuous_token in tokens:
                 break
-            tokens.add(relations.continuous_token)
+            tokens.add(response.continuous_token)
+        return tuples, attributes
+
+
+def debug_list_tuples():
+    tuples, attributes = _get_all_tuples_and_attributes()
+    print(tuples)
+    print(attributes)
 
 
 def init_schema(schemaFilePath: str) -> str:
@@ -72,9 +79,8 @@ def init_schema(schemaFilePath: str) -> str:
 
 
 def delete_all_permission_records():
-    with p.ApiClient(CONFIGURATION) as api_client:
-        data_api = p.DataApi(api_client)
-        data_api.data_delete_without_preload_content(TENANT_ID, p.DataDeleteBody())
+    tuples, attributes = _get_all_tuples_and_attributes()
+    _delete_tuples_and_attributes(tuples, attributes)
 
 
 ##########################################
@@ -202,8 +208,6 @@ def _get_tuples_and_attributes(model: Any) -> tuple[list[p.Tuple], list[p.Attrib
         tuples, attributes = _create_group(model)
     elif model_type is GroupMember:
         tuples, attributes = _create_group_member(model)
-    elif model_type is GroupSupervisor:
-        tuples, attributes = _create_group_supervisor(model)
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -355,6 +359,8 @@ def _model_to_type(model: Any) -> str:
         return "submission"
     if model_type is UserORM:
         return "user"
+    if model_type is Group:
+        return "group"
     raise ValueError(f"Unsupported model type: {type(model)}")
 
 
@@ -466,32 +472,37 @@ def _create_submission(submission: SubmissionORM) -> tuple[list[p.Tuple], list[p
         _make_entity("user", str(submission.user_id)),
     )
 
+    group_ids = [
+        group_member
+        for group_member in submission.user.group_members
+        if group_member.group.project_id == submission.problem.project_id
+        and group_member.is_supervisor == False
+    ]
+    print("group ids:", group_ids)
+
     group_links = [
         _make_tuple(
             _make_entity("submission", str(submission.id)),
             "group",
-            _make_entity("group", str(group.id)),
+            _make_entity("group", str(group_member.group.id)),
         )
-        for group in submission.user.groups
-        if group.project_id == submission.problem.project_id
+        for group_member in submission.user.group_members
     ]
 
     return [submission_problem_link, submission_owner_link] + group_links, []
 
 
 def _create_group_member(groupMember: GroupMember) -> tuple[list[p.Tuple], list[p.Attribute]]:
-    with SessionLocal() as session:
-        group = session.get(Group, groupMember.group_id)
-        user = session.scalar(
-            select(UserORM)
-            .where(UserORM.id == groupMember.user_id)
-            .options(selectinload(UserORM.submissions).selectinload(SubmissionORM.problem))
-        )
-        submissions = [
-            submission
-            for submission in user.submissions
-            if submission.problem.project_id == group.project_id
-        ]
+    if groupMember.is_supervisor:
+        return _create_group_supervisor(groupMember)
+
+    group = groupMember.group
+    user = groupMember.user
+    submissions = [
+        submission
+        for submission in user.submissions
+        if submission.problem.project_id == group.project_id
+    ]
     group_member_relation_tuple = _make_tuple(
         _make_entity("group", str(groupMember.group_id)),
         "member",
@@ -509,7 +520,7 @@ def _create_group_member(groupMember: GroupMember) -> tuple[list[p.Tuple], list[
 
 
 def _create_group_supervisor(
-    groupSupervisor: GroupSupervisor,
+    groupSupervisor: GroupMember,
 ) -> tuple[list[p.Tuple], list[p.Attribute]]:
     group_supervisor_relation_tuple = _make_tuple(
         _make_entity("group", str(groupSupervisor.group_id)),
@@ -520,23 +531,18 @@ def _create_group_supervisor(
 
 
 def _create_group(group: Group) -> tuple[list[p.Tuple], list[p.Attribute]]:
-    group_members = [GroupMember(group_id=group.id, user_id=member.id) for member in group.members]
-    group_supervisors = [
-        GroupSupervisor(group_id=group.id, user_id=supervisor.id)
-        for supervisor in group.supervisors
+    tuples = [
+        _make_tuple(
+            _make_entity("group", str(group.id)),
+            "project",
+            _make_entity("project", str(group.project_id)),
+        )
     ]
-
-    tuples = []
     attributes = []
-    for member in group_members:
+    for member in group.members:
         member_tuples, member_attributes = _create_group_member(member)
         tuples.extend(member_tuples)
         attributes.extend(member_attributes)
-
-    for supervisor in group_supervisors:
-        supervisor_tuples, supervisor_attributes = _create_group_supervisor(supervisor)
-        tuples.extend(supervisor_tuples)
-        attributes.extend(supervisor_attributes)
 
     return tuples, attributes
 
