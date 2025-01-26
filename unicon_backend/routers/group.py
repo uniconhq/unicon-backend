@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session
+from sqlmodel import Session, col
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
@@ -48,7 +48,7 @@ def update_group(
     group.name = data.name
     users = db_session.scalars(
         select(UserORM)
-        .where(UserORM.id.in_(data.members + data.supervisors))
+        .where(col(UserORM.id).in_(data.members + data.supervisors))
         .options(selectinload(UserORM.roles))
     ).all()
 

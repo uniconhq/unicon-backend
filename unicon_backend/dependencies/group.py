@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session
+from sqlmodel import Session, col
 
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.models.links import GroupMember
@@ -19,7 +19,7 @@ def get_group_by_id(
 ):
     group = db_session.scalar(
         select(Group)
-        .where(Group.id == id)
+        .where(col(Group.id) == id)
         .options(
             selectinload(Group.members)
             .selectinload(GroupMember.user)

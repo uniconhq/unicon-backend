@@ -24,30 +24,41 @@ def _get_all_tuples_and_attributes() -> tuple[list[p.Tuple], list[p.Attribute]]:
 
         tokens = set()
         while True:
-            response = data_api.data_attributes_read(
+            attributes_response = data_api.data_attributes_read(
                 TENANT_ID,
-                p.ReadAttributesBody(metadata={"schema_version": SCHEMA_VERSION}, filter={}),
+                p.ReadAttributesBody(
+                    metadata=p.AttributeReadRequestMetadata.model_validate(
+                        {"schema_version": SCHEMA_VERSION}
+                    ),
+                    filter=p.AttributeFilter(),
+                ),
             )
-
-            attributes += response.attributes
-            if not response.continuous_token or response.continuous_token in tokens:
+            if attributes_response.attributes:
+                attributes += attributes_response.attributes
+            if (
+                not attributes_response.continuous_token
+                or attributes_response.continuous_token in tokens
+            ):
                 break
 
-            tokens.add(response.continuous_token)
+            tokens.add(attributes_response.continuous_token)
 
         tokens = set()
         while True:
-            response = data_api.data_relationships_read(
+            tuples_response = data_api.data_relationships_read(
                 TENANT_ID,
                 p.ReadRelationshipsBody(
-                    metadata={"schema_version": SCHEMA_VERSION},
-                    filter={},
+                    metadata=p.RelationshipReadRequestMetadata.model_validate(
+                        {"schema_version": SCHEMA_VERSION}
+                    ),
+                    filter=p.TupleFilter(),
                 ),
             )
-            tuples += response.tuples
-            if not response.continuous_token or response.continuous_token in tokens:
+            if tuples_response.tuples:
+                tuples += tuples_response.tuples
+            if not tuples_response.continuous_token or tuples_response.continuous_token in tokens:
                 break
-            tokens.add(response.continuous_token)
+            tokens.add(tuples_response.continuous_token)
         return tuples, attributes
 
 
