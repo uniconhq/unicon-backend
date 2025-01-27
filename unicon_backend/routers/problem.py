@@ -7,7 +7,10 @@ from sqlmodel import Session, col, select
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
-from unicon_backend.dependencies.problem import get_problem_by_id
+from unicon_backend.dependencies.problem import (
+    get_problem_by_id,
+    parse_python_functions_from_file_content,
+)
 from unicon_backend.evaluator.problem import Problem, Task, UserInput
 from unicon_backend.models import (
     ProblemORM,
@@ -21,6 +24,7 @@ from unicon_backend.models.problem import (
     TaskORM,
 )
 from unicon_backend.models.user import UserORM
+from unicon_backend.schemas.problem import ParsedFunction, ParseRequest
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import TaskEvalResult
@@ -177,3 +181,14 @@ def get_submission(
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Submission not found")
 
     return SubmissionPublic.model_validate(submission)
+
+
+@router.post(
+    "/parse-python-functions",
+    summary="Get python functions from a file",
+    response_model=list[ParsedFunction],
+)
+def parse_python_functions(
+    data: ParseRequest,
+):
+    return parse_python_functions_from_file_content(data.content)
