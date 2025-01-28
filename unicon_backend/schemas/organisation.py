@@ -12,6 +12,7 @@ class ProblemBase(CustomSQLModel):
     name: str
     description: str
     project_id: int
+    restricted: bool
 
 
 class OrganisationCreate(OrganisationBase):
@@ -49,6 +50,7 @@ class ProjectPublic(ProjectBase):
     view_roles: bool
     add_roles: bool
     edit_roles: bool
+
     create_problems: bool
 
     view_groups: bool
