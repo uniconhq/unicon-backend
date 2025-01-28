@@ -1,6 +1,7 @@
 {
   "name": "Contest: Breakthrough",
   "description": "Done with PS3, but want to improve on your AI further?",
+  "restricted": false,
   "tasks": [
     {
       "id": 0,

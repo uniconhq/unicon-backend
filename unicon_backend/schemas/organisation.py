@@ -1,10 +1,18 @@
+from unicon_backend.lib.common import CustomSQLModel
 from unicon_backend.models.organisation import (
     InvitationKeyBase,
     OrganisationBase,
     ProjectBase,
     RoleBase,
 )
-from unicon_backend.models.problem import ProblemBase
+
+
+class ProblemBase(CustomSQLModel):
+    id: int
+    name: str
+    description: str
+    project_id: int
+    restricted: bool
 
 
 class OrganisationCreate(OrganisationBase):
@@ -35,6 +43,15 @@ class ProjectPublic(ProjectBase):
     id: int
     roles: list["RolePublic"]
 
+    # permissions
+    view_own_submission: bool
+    view_others_submission: bool
+    view_roles: bool
+    add_roles: bool
+    edit_roles: bool
+
+    create_problems: bool
+
 
 class ProjectPublicWithProblems(ProjectPublic):
     problems: list[ProblemBase]
@@ -44,9 +61,39 @@ class RolePublic(RoleBase):
     id: int
     project_id: int
 
+    view_problems_access: bool
+    create_problems_access: bool
+    edit_problems_access: bool
+    delete_problems_access: bool
+
+    view_restricted_problems_access: bool
+    edit_restricted_problems_access: bool
+    delete_restricted_problems_access: bool
+
+    make_submission_access: bool
+    view_own_submission_access: bool
+    view_others_submission_access: bool
+
 
 class RoleCreate(RoleBase):
     name: str
+
+
+class RoleUpdate(RoleBase):
+    name: str
+
+    view_problems_access: bool
+    create_problems_access: bool
+    edit_problems_access: bool
+    delete_problems_access: bool
+
+    view_restricted_problems_access: bool
+    edit_restricted_problems_access: bool
+    delete_restricted_problems_access: bool
+
+    make_submission_access: bool
+    view_own_submission_access: bool
+    view_others_submission_access: bool
 
 
 class RolePublicWithInvitationKeys(RolePublic):

@@ -1,6 +1,7 @@
 import uuid
 from typing import TYPE_CHECKING
 
+import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 from sqlmodel import Field, Relationship
 
@@ -33,7 +34,9 @@ class Project(ProjectBase, table=True):
 
     organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="projects")
     roles: sa_orm.Mapped[list["Role"]] = Relationship(back_populates="project")
-    problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(back_populates="project")
+    problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(
+        back_populates="project", sa_relationship_kwargs={"order_by": "ProblemORM.id.desc()"}
+    )
 
 
 class RoleBase(CustomSQLModel):
@@ -43,6 +46,48 @@ class RoleBase(CustomSQLModel):
 class Role(RoleBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     project_id: int = Field(foreign_key="project.id")
+
+    # Assignable permissions
+    view_problems_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    create_problems_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    edit_problems_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    delete_problems_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    view_restricted_problems_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    edit_restricted_problems_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    delete_restricted_problems_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    make_submission_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    view_own_submission_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
+    view_others_submission_access: bool = Field(
+        default=False,
+        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+    )
 
     project: sa_orm.Mapped[Project] = Relationship(back_populates="roles")
     invitation_keys: sa_orm.Mapped[list["InvitationKey"]] = Relationship(back_populates="role")
