@@ -1,4 +1,5 @@
 import uuid
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 import sqlalchemy.orm as sa_orm
@@ -20,7 +21,39 @@ class OrganisationBase(CustomSQLModel):
 class Organisation(OrganisationBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     owner_id: int | None = Field(foreign_key="user.id", nullable=False)
+
     projects: sa_orm.Mapped[list["Project"]] = Relationship(back_populates="organisation")
+    owner: sa_orm.Mapped["UserORM"] = Relationship(back_populates="owned_organisations")
+    members: sa_orm.Mapped[list["OrganisationMember"]] = Relationship(back_populates="organisation")
+    invitation_keys: sa_orm.Mapped[list["OrganisationInvitationKey"]] = Relationship(
+        back_populates="organisation"
+    )
+
+
+class OrganisationRole(StrEnum):
+    EDITOR = "editor"
+    OBSERVER = "observer"
+
+
+class OrganisationInvitationKey(CustomSQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    organisation_id: int | None = Field(foreign_key="organisation.id", nullable=False)
+    role: OrganisationRole = Field(sa_column=sa.Column(sa.Enum(OrganisationRole), nullable=False))
+
+    organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="invitation_keys")
+
+
+class OrganisationMember(CustomSQLModel, table=True):
+    __tablename__ = "organisation_member"
+
+    id: int = Field(primary_key=True)
+
+    user_id: int = Field(foreign_key="user.id")
+    organisation_id: int = Field(foreign_key="organisation.id")
+    role: OrganisationRole = Field(sa_column=sa.Column(sa.Enum(OrganisationRole), nullable=False))
+
+    organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="members")
+    user: sa_orm.Mapped["UserORM"] = Relationship(back_populates="organisations")
 
 
 class ProjectBase(CustomSQLModel):
