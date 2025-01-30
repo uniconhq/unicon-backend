@@ -7,7 +7,7 @@ from unicon_backend.lib.common import CustomSQLModel
 from unicon_backend.models.links import GroupMember, UserRole
 
 if TYPE_CHECKING:
-    from unicon_backend.models.organisation import Role
+    from unicon_backend.models.organisation import Organisation, OrganisationMember, Role
     from unicon_backend.models.problem import SubmissionORM
 
 
@@ -19,6 +19,8 @@ class UserORM(CustomSQLModel, table=True):
     password: str
 
     roles: sa_orm.Mapped[list["Role"]] = Relationship(back_populates="users", link_model=UserRole)
+    owned_organisations: sa_orm.Mapped[list["Organisation"]] = Relationship(back_populates="owner")
+    organisations: sa_orm.Mapped[list["OrganisationMember"]] = Relationship(back_populates="user")
 
     submissions: sa_orm.Mapped[list["SubmissionORM"]] = Relationship(back_populates="user")
 
