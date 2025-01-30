@@ -31,15 +31,18 @@ class Organisation(OrganisationBase, table=True):
 
 
 class OrganisationRole(StrEnum):
-    EDITOR = "editor"
+    ADMIN = "admin"
     OBSERVER = "observer"
 
 
 class OrganisationInvitationKey(CustomSQLModel, table=True):
+    __tablename__ = "organisation_invitation_key"
+
     id: int | None = Field(default=None, primary_key=True)
     organisation_id: int | None = Field(foreign_key="organisation.id", nullable=False)
     role: OrganisationRole = Field(sa_column=sa.Column(sa.Enum(OrganisationRole), nullable=False))
 
+    key: str
     organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="invitation_keys")
 
 
