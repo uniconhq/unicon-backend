@@ -150,12 +150,12 @@ def get_project_users(
 def get_project_groups(
     id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
-    _: Annotated[Project, Depends(get_project_by_id)],
+    project: Annotated[Project, Depends(get_project_by_id)],
     user: Annotated[UserORM, Depends(get_current_user)],
 ):
     # TODO: implement group permissions
-    # accessible_group_ids = permission_lookup(Group, "view", user)
-    # print("got here", accessible_group_ids)
+    if not permission_check(project, "view_groups", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
     return db_session.exec(
         select(Group)
