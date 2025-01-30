@@ -1,10 +1,18 @@
+import uuid
+from enum import StrEnum
+from typing import TYPE_CHECKING
+
 from unicon_backend.lib.common import CustomSQLModel
 from unicon_backend.models.organisation import (
     InvitationKeyBase,
     OrganisationBase,
+    OrganisationRole,
     ProjectBase,
     RoleBase,
 )
+
+if TYPE_CHECKING:
+    from unicon_backend.schemas.auth import UserPublic
 
 
 class ProblemBase(CustomSQLModel):
@@ -29,6 +37,45 @@ class OrganisationPublic(OrganisationBase):
 
 class OrganisationPublicWithProjects(OrganisationPublic):
     projects: list["ProjectPublic"]
+
+
+class OrganisationMemberPublic(CustomSQLModel):
+    user: "UserPublic"
+    role: OrganisationRole
+
+
+class OrganisationInvitationKeyPublic(CustomSQLModel):
+    id: int
+    role: OrganisationRole
+    key: uuid.UUID
+
+
+class OrganisationPublicWithMembers(OrganisationPublic):
+    owner: "UserPublic"
+    members: list[OrganisationMemberPublic]
+    # """does not include owner - get this from the owner attribute"""
+    invitation_keys: list["OrganisationInvitationKeyPublic"] | None
+    # """it is null if user has no permission to edit_roles"""
+
+
+class OrganisationInvitationKeyCreate(CustomSQLModel):
+    role: OrganisationRole
+
+
+class OrganisationJoinRequest(CustomSQLModel):
+    key: str
+
+
+class RoleUpdate(StrEnum):
+    """this is OrganisationRole + owner"""
+
+    ADMIN = "admin"
+    OBSERVER = "observer"
+    OWNER = "owner"
+
+
+class OrganisationMemberUpdate(CustomSQLModel):
+    role: RoleUpdate
 
 
 class ProjectCreate(ProjectBase):
