@@ -12,10 +12,13 @@ from unicon_backend.evaluator.tasks import task_classes
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus, TaskType
 from unicon_backend.evaluator.tasks.programming.base import TestcaseResult
 from unicon_backend.lib.common import CustomSQLModel
+from unicon_backend.schemas.group import UserPublicWithRolesAndGroups
+from unicon_backend.schemas.problem import MiniProblemPublic
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import Task
     from unicon_backend.models.organisation import Project
+    from unicon_backend.models.user import UserORM
 
 
 # Factory function for creating a timestamp column (with timezone)
@@ -39,6 +42,7 @@ class ProblemORM(CustomSQLModel, table=True):
     id: int = Field(primary_key=True)
     name: str
     description: str
+    restricted: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
 
     project_id: int = Field(foreign_key="project.id")
 
@@ -49,7 +53,12 @@ class ProblemORM(CustomSQLModel, table=True):
     @classmethod
     def from_problem(cls, problem: "Problem") -> "ProblemORM":
         tasks_orm: list[TaskORM] = [TaskORM.from_task(task) for task in problem.tasks]
-        return cls(name=problem.name, description=problem.description, tasks=tasks_orm)
+        return cls(
+            name=problem.name,
+            description=problem.description,
+            tasks=tasks_orm,
+            restricted=problem.restricted,
+        )
 
     def to_problem(self) -> "Problem":
         def _serialize_task(t: TaskORM):
@@ -57,6 +66,7 @@ class ProblemORM(CustomSQLModel, table=True):
 
         return Problem.model_validate(
             {
+                "restricted": self.restricted,
                 "name": self.name,
                 "description": self.description,
                 "tasks": [_serialize_task(task_orm) for task_orm in self.tasks],
@@ -118,10 +128,13 @@ class SubmissionORM(SubmissionBase, table=True):
         link_model=SubmissionAttemptLink, back_populates="submissions"
     )
     problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="submissions")
+    user: sa_orm.Mapped["UserORM"] = Relationship(back_populates="submissions")
 
 
 class SubmissionPublic(SubmissionBase):
     task_attempts: list["TaskAttemptPublic"]
+    user: UserPublicWithRolesAndGroups
+    problem: MiniProblemPublic
 
 
 class TaskAttemptBase(CustomSQLModel):
