@@ -2,6 +2,8 @@ from http import HTTPStatus
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import DataError
+from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, select
 
 from unicon_backend.dependencies.auth import get_current_user
@@ -11,18 +13,29 @@ from unicon_backend.dependencies.project import create_project_with_defaults
 from unicon_backend.lib.permissions import (
     permission_check,
     permission_create,
+    permission_delete,
     permission_list_for_subject,
     permission_lookup,
+    permission_update,
 )
 from unicon_backend.models import Organisation, UserORM
+from unicon_backend.models.organisation import OrganisationInvitationKey, OrganisationMember
+from unicon_backend.schemas.auth import UserPublic  # noqa: F401
 from unicon_backend.schemas.organisation import (
     OrganisationCreate,
+    OrganisationInvitationKeyCreate,
+    OrganisationJoinRequest,
+    OrganisationMemberUpdate,
     OrganisationPublic,
+    OrganisationPublicWithMembers,
     OrganisationPublicWithProjects,
     OrganisationUpdate,
     ProjectCreate,
     ProjectPublic,
 )
+
+# TODO: refactor this to schemas/__init__.py
+OrganisationPublicWithMembers.model_rebuild()
 
 router = APIRouter(
     prefix="/organisations", tags=["organisation"], dependencies=[Depends(get_current_user)]
@@ -133,3 +146,155 @@ def create_project(
     result = ProjectPublic.model_validate(project, update=permissions)
 
     return result
+
+
+@router.get(
+    "/{id}/members",
+    summary="Get all users in an organisation",
+    response_model=OrganisationPublicWithMembers,
+)
+def get_organisation_members(
+    organisation: Annotated[Organisation, Depends(get_organisation_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+):
+    if not permission_check(organisation, "view", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
+    if not permission_check(organisation, "edit_roles", user):
+        return OrganisationPublicWithMembers.model_validate(
+            organisation, update={"invitation_keys": None}
+        )
+
+    return organisation
+
+
+@router.post("/{id}/invitation_key", summary="Create invitation key")
+def create_invitation_key(
+    id: int,
+    organisation: Annotated[Organisation, Depends(get_organisation_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+    data: OrganisationInvitationKeyCreate,
+):
+    if not permission_check(organisation, "edit_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
+    existing_key = db_session.scalar(
+        select(OrganisationInvitationKey)
+        .where(OrganisationInvitationKey.role == data.role)
+        .where(OrganisationInvitationKey.organisation_id == id)
+    )
+    if existing_key:
+        raise HTTPException(HTTPStatus.CONFLICT, "Invitation key for this role already exists")
+
+    key = OrganisationInvitationKey(
+        role=data.role,
+        organisation_id=id,
+    )
+    db_session.add(key)
+    db_session.commit()
+    return
+
+
+@router.delete("/{id}/invitation_key/{key_id}", summary="Delete invitation key")
+def delete_invitation_key(
+    id: int,
+    key_id: int,
+    organisation: Annotated[Organisation, Depends(get_organisation_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+):
+    if not permission_check(organisation, "edit_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
+    key = db_session.scalar(
+        select(OrganisationInvitationKey)
+        .where(OrganisationInvitationKey.id == key_id)
+        .where(OrganisationInvitationKey.organisation_id == id)
+    )
+
+    if key is None:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Invitation key not found")
+
+    db_session.delete(key)
+    db_session.commit()
+    return
+
+
+@router.post("/join", summary="Join an organisation")
+def join_organisation(
+    user: Annotated[UserORM, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+    data: OrganisationJoinRequest,
+):
+    try:
+        invitation_key = db_session.scalar(
+            select(OrganisationInvitationKey)
+            .where(OrganisationInvitationKey.key == data.key)
+            .options(
+                selectinload(OrganisationInvitationKey.organisation).selectinload(
+                    Organisation.members
+                )
+            )
+        )
+    except DataError:
+        invitation_key = None
+
+    if invitation_key is None:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Invitation key not found")
+
+    organisation = invitation_key.organisation
+    if user.id == organisation.owner_id:
+        raise HTTPException(HTTPStatus.BAD_REQUEST, "Owner cannot join their own organisation")
+
+    if user.id in [member.user_id for member in organisation.members]:
+        raise HTTPException(HTTPStatus.BAD_REQUEST, "User already in organisation")
+
+    new_member = OrganisationMember(user_id=user.id, role=invitation_key.role)
+    organisation.members.append(new_member)
+    db_session.commit()
+
+    permission_create(new_member)
+
+
+@router.put("/{id}/members/{user_id}", summary="Update member role")
+def update_member(
+    id: int,
+    user_id: int,
+    user: Annotated[UserORM, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+    organisation: Annotated[Organisation, Depends(get_organisation_by_id)],
+    data: OrganisationMemberUpdate,
+):
+    if not permission_check(organisation, "edit_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
+    is_owner_change = data.role == "owner"
+
+    member = db_session.scalar(
+        select(OrganisationMember)
+        .where(OrganisationMember.organisation_id == id)
+        .where(OrganisationMember.user_id == user_id)
+    )
+    if not member:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Member not found")
+
+    if not is_owner_change:
+        old_member = member.model_copy()
+        member.role = data.role
+        db_session.add(member)
+        db_session.commit()
+        permission_update(old_member, member)
+        return
+
+    old_organisation = organisation.model_copy()
+    organisation.owner_id = user_id
+    new_member = OrganisationMember(user_id=user.id, organisation_id=organisation.id, role="admin")
+    db_session.add(new_member)
+    db_session.add(organisation)
+    db_session.delete(member)
+    db_session.commit()
+
+    permission_update(old_organisation, organisation)
+    permission_create(new_member)
+    permission_delete(member)

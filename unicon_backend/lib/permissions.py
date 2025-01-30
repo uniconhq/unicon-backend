@@ -4,8 +4,15 @@ import permify as p
 from rich import print
 
 from unicon_backend.constants import PERMIFY_HOST, PERMIFY_SCHEMA_VERSION, PERMIFY_TENANT_ID
-from unicon_backend.models.links import UserRole
-from unicon_backend.models.organisation import Group, GroupMember, Organisation, Project, Role
+from unicon_backend.models.links import GroupMember, UserRole
+from unicon_backend.models.organisation import (
+    Group,
+    Organisation,
+    OrganisationMember,
+    OrganisationRole,
+    Project,
+    Role,
+)
 from unicon_backend.models.problem import ProblemORM, SubmissionORM
 from unicon_backend.models.user import UserORM
 
@@ -212,6 +219,9 @@ def _get_tuples_and_attributes(model: Any) -> tuple[list[p.Tuple], list[p.Attrib
         tuples, attributes = _create_group(model)
     elif model_type is GroupMember:
         tuples, attributes = _create_group_member(model)
+    elif model_type is OrganisationMember:
+        tuples, attributes = _create_organisation_member(model)
+
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -296,20 +306,8 @@ def permission_update(old: Any, new: Any):
     if type(old) != type(new):
         raise ValueError("Old and new models must be of the same type")
 
-    if type(old) is Role:
-        (delete_tuples, delete_attributes), (create_tuples, create_attributes) = _update_role(
-            old, new
-        )
-    elif type(old) is ProblemORM:
-        (delete_tuples, delete_attributes), (create_tuples, create_attributes) = _update_problem(
-            old, new
-        )
-    elif type(old) is Group:
-        (delete_tuples, delete_attributes), (create_tuples, create_attributes) = _update_group(
-            old, new
-        )
-    else:
-        raise ValueError(f"Unsupported model type: {type(old)}")
+    delete_tuples, delete_attributes = _get_tuples_and_attributes(old)
+    create_tuples, create_attributes = _get_tuples_and_attributes(new)
 
     metadata = p.DataWriteRequestMetadata.from_dict({"schema_version": SCHEMA_VERSION})
     if not metadata:
@@ -434,6 +432,18 @@ def _create_organisation(organisation: Organisation) -> tuple[list[p.Tuple], lis
         _make_entity("user", str(organisation.owner_id)),
     )
     return [owner_link], []
+
+
+def _create_organisation_member(
+    organisationMember: OrganisationMember,
+) -> tuple[list[p.Tuple], list[p.Attribute]]:
+    relation = "admin" if organisationMember.role == OrganisationRole.ADMIN else "observer"
+    member_link = _make_tuple(
+        _make_entity("organisation", str(organisationMember.organisation_id)),
+        relation,
+        _make_entity("user", str(organisationMember.user_id)),
+    )
+    return [member_link], []
 
 
 def _create_project(project: Project) -> tuple[list[p.Tuple], list[p.Attribute]]:
@@ -562,24 +572,3 @@ def _create_user_role(userRole: UserRole) -> tuple[list[p.Tuple], list[p.Attribu
         _make_entity("user", str(userRole.user_id)),
     )
     return [assignee_link], []
-
-
-def _update_role(
-    old_role: Role, new_role: Role
-) -> tuple[tuple[list[p.Tuple], list[p.Attribute]], tuple[list[p.Tuple], list[p.Attribute]]]:
-    """Return tuple to delete and tuple to create"""
-    return _create_role(old_role), _create_role(new_role)
-
-
-def _update_problem(
-    old_problem: ProblemORM, new_problem: ProblemORM
-) -> tuple[tuple[list[p.Tuple], list[p.Attribute]], tuple[list[p.Tuple], list[p.Attribute]]]:
-    """Return tuple to delete and tuple to create"""
-    return _create_problem(old_problem), _create_problem(new_problem)
-
-
-def _update_group(
-    old_group: Group, new_group: Group
-) -> tuple[tuple[list[p.Tuple], list[p.Attribute]], tuple[list[p.Tuple], list[p.Attribute]]]:
-    """Return tuple to delete and tuple to create"""
-    return _create_group(old_group), _create_group(new_group)

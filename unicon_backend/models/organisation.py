@@ -2,6 +2,7 @@ import uuid
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 from sqlmodel import Field, Relationship
 
@@ -42,7 +43,7 @@ class OrganisationInvitationKey(CustomSQLModel, table=True):
     organisation_id: int | None = Field(foreign_key="organisation.id", nullable=False)
     role: OrganisationRole = Field(sa_column=sa.Column(sa.Enum(OrganisationRole), nullable=False))
 
-    key: str
+    key: uuid.UUID = Field(default_factory=uuid.uuid4, unique=True)
     organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="invitation_keys")
 
 
