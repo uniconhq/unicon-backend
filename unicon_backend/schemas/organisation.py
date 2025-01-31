@@ -57,6 +57,8 @@ class OrganisationPublicWithMembers(OrganisationPublic):
     invitation_keys: list["OrganisationInvitationKeyPublic"] | None
     # """it is null if user has no permission to edit_roles"""
 
+    edit_roles: bool
+
 
 class OrganisationInvitationKeyCreate(CustomSQLModel):
     role: OrganisationRole
