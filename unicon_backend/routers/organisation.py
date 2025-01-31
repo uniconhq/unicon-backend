@@ -24,23 +24,19 @@ from unicon_backend.models.organisation import (
     OrganisationMember,
     OrganisationRole,
 )
-from unicon_backend.schemas.auth import UserPublic  # noqa: F401
+from unicon_backend.schemas import OrganisationPublicWithMembers
 from unicon_backend.schemas.organisation import (
     OrganisationCreate,
     OrganisationInvitationKeyCreate,
     OrganisationJoinRequest,
     OrganisationMemberUpdate,
     OrganisationPublic,
-    OrganisationPublicWithMembers,
     OrganisationPublicWithProjects,
     OrganisationUpdate,
     ProjectCreate,
     ProjectPublic,
     UpdatableRole,
 )
-
-# TODO: refactor this to schemas/__init__.py
-OrganisationPublicWithMembers.model_rebuild()
 
 router = APIRouter(
     prefix="/organisations", tags=["organisation"], dependencies=[Depends(get_current_user)]
