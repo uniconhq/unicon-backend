@@ -19,7 +19,11 @@ from unicon_backend.lib.permissions import (
     permission_update,
 )
 from unicon_backend.models import Organisation, UserORM
-from unicon_backend.models.organisation import OrganisationInvitationKey, OrganisationMember
+from unicon_backend.models.organisation import (
+    OrganisationInvitationKey,
+    OrganisationMember,
+    OrganisationRole,
+)
 from unicon_backend.schemas.auth import UserPublic  # noqa: F401
 from unicon_backend.schemas.organisation import (
     OrganisationCreate,
@@ -32,6 +36,7 @@ from unicon_backend.schemas.organisation import (
     OrganisationUpdate,
     ProjectCreate,
     ProjectPublic,
+    UpdatableRole,
 )
 
 # TODO: refactor this to schemas/__init__.py
@@ -161,7 +166,6 @@ def get_organisation_members(
         raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
     can_edit_roles = permission_check(organisation, "edit_roles", user)
-    print(can_edit_roles)
     assert isinstance(can_edit_roles, bool)
     if not can_edit_roles:
         return OrganisationPublicWithMembers.model_validate(
@@ -289,7 +293,13 @@ def update_member(
 
     if not is_owner_change:
         old_member = member.model_copy()
-        member.role = data.role
+        match data.role:
+            case UpdatableRole.ADMIN:
+                member.role = OrganisationRole.ADMIN
+            case UpdatableRole.OBSERVER:
+                member.role = OrganisationRole.OBSERVER
+            case _:
+                raise ValueError("Should not happen.")
         db_session.add(member)
         db_session.commit()
         permission_update(old_member, member)

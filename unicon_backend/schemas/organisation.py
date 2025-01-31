@@ -68,7 +68,7 @@ class OrganisationJoinRequest(CustomSQLModel):
     key: str
 
 
-class RoleUpdate(StrEnum):
+class UpdatableRole(StrEnum):
     """this is OrganisationRole + owner"""
 
     ADMIN = "admin"
@@ -77,7 +77,7 @@ class RoleUpdate(StrEnum):
 
 
 class OrganisationMemberUpdate(CustomSQLModel):
-    role: RoleUpdate
+    role: UpdatableRole
 
 
 class ProjectCreate(ProjectBase):
