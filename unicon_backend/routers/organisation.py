@@ -169,7 +169,7 @@ def get_organisation_members(
 
 
 @router.post("/{id}/invitation_key", summary="Create invitation key")
-def create_invitation_key(
+def create_organisation_invitation_key(
     id: int,
     organisation: Annotated[Organisation, Depends(get_organisation_by_id)],
     user: Annotated[UserORM, Depends(get_current_user)],
@@ -197,7 +197,7 @@ def create_invitation_key(
 
 
 @router.delete("/{id}/invitation_key/{key_id}", summary="Delete invitation key")
-def delete_invitation_key(
+def delete_organisation_invitation_key(
     id: int,
     key_id: int,
     organisation: Annotated[Organisation, Depends(get_organisation_by_id)],
@@ -221,7 +221,7 @@ def delete_invitation_key(
     return
 
 
-@router.post("/join", summary="Join an organisation")
+@router.post("/join", summary="Join an organisation", response_model=OrganisationPublic)
 def join_organisation(
     user: Annotated[UserORM, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_db_session)],
@@ -255,6 +255,9 @@ def join_organisation(
     db_session.commit()
 
     permission_create(new_member)
+    db_session.refresh(organisation)
+
+    return organisation
 
 
 @router.put("/{id}/members/{user_id}", summary="Update member role")
@@ -298,3 +301,28 @@ def update_member(
     permission_update(old_organisation, organisation)
     permission_create(new_member)
     permission_delete(member)
+
+
+@router.delete("/{id}/members/{user_id}", summary="Delete member")
+def delete_member(
+    id: int,
+    user_id: int,
+    user: Annotated[UserORM, Depends(get_current_user)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+    organisation: Annotated[Organisation, Depends(get_organisation_by_id)],
+):
+    if not permission_check(organisation, "edit_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
+    member = db_session.scalar(
+        select(OrganisationMember)
+        .where(OrganisationMember.organisation_id == id)
+        .where(OrganisationMember.user_id == user_id)
+    )
+    if not member:
+        raise HTTPException(HTTPStatus.NOT_FOUND, "Member not found")
+
+    db_session.delete(member)
+    db_session.commit()
+    permission_delete(member)
+    return
