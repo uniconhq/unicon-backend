@@ -160,12 +160,17 @@ def get_organisation_members(
     if not permission_check(organisation, "view", user):
         raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
-    if not permission_check(organisation, "edit_roles", user):
+    can_edit_roles = permission_check(organisation, "edit_roles", user)
+    print(can_edit_roles)
+    assert isinstance(can_edit_roles, bool)
+    if not can_edit_roles:
         return OrganisationPublicWithMembers.model_validate(
-            organisation, update={"invitation_keys": None}
+            organisation, update={"invitation_keys": None, "edit_roles": can_edit_roles}
         )
 
-    return organisation
+    return OrganisationPublicWithMembers.model_validate(
+        organisation, update={"edit_roles": can_edit_roles}
+    )
 
 
 @router.post("/{id}/invitation_key", summary="Create invitation key")
