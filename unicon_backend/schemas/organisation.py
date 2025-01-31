@@ -37,6 +37,7 @@ class OrganisationPublic(OrganisationBase):
 
 class OrganisationPublicWithProjects(OrganisationPublic):
     projects: list["ProjectPublic"]
+    delete: bool
 
 
 class OrganisationMemberPublic(CustomSQLModel):

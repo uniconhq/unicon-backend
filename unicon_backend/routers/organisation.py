@@ -116,8 +116,9 @@ def get_organisation(
         permissions = permission_list_for_subject(project, user)
         projects.append(ProjectPublic.model_validate(project, update=permissions))
 
+    permissions = permission_list_for_subject(organisation, user)
     return OrganisationPublicWithProjects.model_validate(
-        organisation, update={"projects": projects}
+        organisation, update={**permissions, "projects": projects}
     )
 
 

@@ -23,11 +23,15 @@ class Organisation(OrganisationBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     owner_id: int | None = Field(foreign_key="user.id", nullable=False)
 
-    projects: sa_orm.Mapped[list["Project"]] = Relationship(back_populates="organisation")
+    projects: sa_orm.Mapped[list["Project"]] = Relationship(
+        back_populates="organisation", cascade_delete=True
+    )
     owner: sa_orm.Mapped["UserORM"] = Relationship(back_populates="owned_organisations")
-    members: sa_orm.Mapped[list["OrganisationMember"]] = Relationship(back_populates="organisation")
+    members: sa_orm.Mapped[list["OrganisationMember"]] = Relationship(
+        back_populates="organisation", cascade_delete=True
+    )
     invitation_keys: sa_orm.Mapped[list["OrganisationInvitationKey"]] = Relationship(
-        back_populates="organisation"
+        back_populates="organisation", cascade_delete=True
     )
 
 
@@ -69,11 +73,15 @@ class Project(ProjectBase, table=True):
     organisation_id: int | None = Field(foreign_key="organisation.id", nullable=False)
 
     organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="projects")
-    roles: sa_orm.Mapped[list["Role"]] = Relationship(back_populates="project")
+    roles: sa_orm.Mapped[list["Role"]] = Relationship(back_populates="project", cascade_delete=True)
     problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(
-        back_populates="project", sa_relationship_kwargs={"order_by": "ProblemORM.id.desc()"}
+        back_populates="project",
+        sa_relationship_kwargs={"order_by": "ProblemORM.id.desc()"},
+        cascade_delete=True,
     )
-    groups: sa_orm.Mapped[list["Group"]] = Relationship(back_populates="project")
+    groups: sa_orm.Mapped[list["Group"]] = Relationship(
+        back_populates="project", cascade_delete=True
+    )
 
 
 class Group(CustomSQLModel, table=True):
@@ -178,7 +186,9 @@ class Role(RoleBase, table=True):
     )
 
     project: sa_orm.Mapped[Project] = Relationship(back_populates="roles")
-    invitation_keys: sa_orm.Mapped[list["InvitationKey"]] = Relationship(back_populates="role")
+    invitation_keys: sa_orm.Mapped[list["InvitationKey"]] = Relationship(
+        back_populates="role", cascade_delete=True
+    )
 
     users: sa_orm.Mapped[list["UserORM"]] = Relationship(
         back_populates="roles", link_model=UserRole
