@@ -33,6 +33,7 @@ class Task(BaseModel, abc.ABC, Generic[TaskUserInput, TaskResult]):
     id: int
     type: TaskType
     autograde: bool = True
+    order_index: int
 
     @abc.abstractmethod
     def run(self, user_input: TaskUserInput) -> TaskEvalResult[TaskResult]:
