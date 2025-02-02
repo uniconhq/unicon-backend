@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Any, Literal, Self
 
 from pydantic import BaseModel, RootModel, model_validator
@@ -5,16 +6,22 @@ from pydantic import BaseModel, RootModel, model_validator
 from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalStatus, TaskType
 
 
+class Choice(BaseModel):
+    id: int
+    order_index: int
+    text: str
+
+
 class MultipleChoiceTask(Task[int, RootModel[bool]]):
     type: Literal[TaskType.MULTIPLE_CHOICE]
     question: str
-    choices: list[str]
+    choices: list[Choice]
     expected_answer: int
 
     @model_validator(mode="after")
     def check_expected_answer_is_valid(self) -> Self:
-        if self.expected_answer < 0 or self.expected_answer >= len(self.choices):
-            raise ValueError("Expected answer must be within the range of choices")
+        if not self.expected_answer in [choice.id for choice in self.choices]:
+            raise ValueError("The answer must match one of the provided choice IDs.")
         return self
 
     def run(self, user_input: int) -> TaskEvalResult[RootModel[bool]]:
@@ -37,20 +44,31 @@ class MultipleResponseTaskResult(BaseModel):
 class MultipleResponseTask(Task[set[int], MultipleResponseTaskResult]):
     type: Literal[TaskType.MULTIPLE_RESPONSE]
     question: str
-    choices: list[str]
+    choices: list[Choice]
     expected_answer: list[int]
+
+    @cached_property
+    def valid_choice_ids(self) -> set[int]:
+        return {choice.id for choice in self.choices}
 
     @model_validator(mode="after")
     def check_correct_choices_is_valid(self) -> Self:
         if len(self.expected_answer) != len(set(self.expected_answer)):
             raise ValueError("Correct choices must be unique")
 
-        if not all(0 <= choice < len(self.choices) for choice in self.expected_answer):
-            raise ValueError("Expected answer must be within the range of choices")
+        expected_answer = set(self.expected_answer)
+
+        if not expected_answer.issubset(self.valid_choice_ids):
+            raise ValueError("The answer(s) must be within the given choice IDs.")
         return self
 
     def run(self, user_input: set[int]) -> TaskEvalResult[MultipleResponseTaskResult]:
         expected_answer = set(self.expected_answer)
+
+        # This is necessary as formerly valid user input may no longer be valid after a task update.
+        # e.g. deleting of a choice that the user picked.
+        user_input = user_input & self.valid_choice_ids
+
         return TaskEvalResult(
             task_id=self.id,
             status=TaskEvalStatus.SUCCESS,
