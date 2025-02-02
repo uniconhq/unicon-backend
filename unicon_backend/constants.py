@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-from unicon_backend.lib.permissions.get_schema_version import get_schema_version
+from unicon_backend.lib.permissions.init_schema import get_schema_version
 
 load_dotenv()
 
