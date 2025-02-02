@@ -143,7 +143,6 @@ class SubmissionORM(SubmissionBase, table=True):
     task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(
         link_model=SubmissionAttemptLink,
         back_populates="submissions",
-        sa_relationship_kwargs={"order_by": "TaskORM.order_index"},
     )
     problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="submissions")
     user: sa_orm.Mapped["UserORM"] = Relationship(back_populates="submissions")
