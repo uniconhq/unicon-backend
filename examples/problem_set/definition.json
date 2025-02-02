@@ -1,6 +1,7 @@
 {
   "name": "Problem Set & Lecture Training",
   "description": "Collection of questions from CS2109S problem sets and lecture trainings",
+  "restricted": false,
   "tasks": [
     {
       "id": 0,

@@ -10,6 +10,12 @@ from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.project import get_project_by_id
 from unicon_backend.evaluator.problem import Problem
+from unicon_backend.lib.permissions.permission import (
+    permission_check,
+    permission_create,
+    permission_list_for_subject,
+    permission_lookup,
+)
 from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import InvitationKey, Project, Role
 from unicon_backend.models.problem import (
@@ -37,21 +43,37 @@ def get_all_projects(
     user: Annotated[UserORM, Depends(get_current_user)],
     db_session: Annotated[Session, Depends(get_db_session)],
 ):
-    return db_session.exec(
+    project_ids = permission_lookup(Project, "view", user)
+    projects = db_session.exec(
         select(Project)
-        .join(Role)
-        .join(UserRole)
-        .where(UserRole.user_id == user.id)
-        .where(UserRole.role_id == Role.id)
+        .where(col(Project.id).in_(project_ids))
         .options(selectinload(Project.roles.and_(Role.users.any(col(UserORM.id) == user.id))))
     ).all()
+
+    result = []
+    for project in projects:
+        permissions = permission_list_for_subject(project, user)
+        result.append(ProjectPublic.model_validate(project, update=permissions))
+    return result
 
 
 @router.get("/{id}", summary="Get a project", response_model=ProjectPublicWithProblems)
 def get_project(
     project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ):
-    return project
+    if not permission_check(project, "view", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
+    accessible_problem_ids = permission_lookup(ProblemORM, "view", user)
+
+    permissions = permission_list_for_subject(project, user)
+    result = ProjectPublicWithProblems.model_validate(project, update=permissions)
+    result.problems = [
+        problem for problem in result.problems if problem.id in accessible_problem_ids
+    ]
+
+    return result
 
 
 @router.put("/{id}", summary="Update a project", response_model=ProjectPublic)
@@ -59,8 +81,10 @@ def update_project(
     db_session: Annotated[Session, Depends(get_db_session)],
     update_data: ProjectUpdate,
     project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ):
-    # TODO: Add permissions here - currently just checking if user is part of project
+    if not permission_check(project, "edit", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
     project.sqlmodel_update(update_data)
     db_session.commit()
@@ -77,13 +101,18 @@ def update_project(
 def get_project_roles(
     id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
-    _: Annotated[Project, Depends(get_project_by_id)],
+    project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ):
+    if not permission_check(project, "view_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
     return db_session.exec(
         select(Role)
         .join(Project)
         .where(Project.id == id)
         .options(selectinload(Role.invitation_keys))
+        .order_by(col(Role.id))
     ).all()
 
 
@@ -93,8 +122,12 @@ def get_project_roles(
 def get_project_users(
     id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
-    _: Annotated[Project, Depends(get_project_by_id)],
+    project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ):
+    if not permission_check(project, "view", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
     return db_session.exec(
         select(UserORM)
         .join(UserRole)
@@ -114,14 +147,19 @@ def get_project_submissions(
     id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
     _: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
     all_users: bool = False,
 ):
+    accessible_submission_ids = permission_lookup(SubmissionORM, "view", user)
+
     query = (
         select(SubmissionORM)
         .where(SubmissionORM.problem.has(col(ProblemORM.project_id) == id))
+        .where(col(SubmissionORM.id).in_(accessible_submission_ids))
         .options(
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
+            selectinload(SubmissionORM.user),
         )
     )
 
@@ -136,14 +174,20 @@ def get_project_submissions(
 def create_role(
     id: int,
     db_session: Annotated[Session, Depends(get_db_session)],
-    _: Annotated[Project, Depends(get_project_by_id)],
+    project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
     role_data: RoleCreate,
 ):
+    if not permission_check(project, "add_roles", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
     role = Role(**role_data.model_dump())
     role.project_id = id
     db_session.add(role)
     db_session.commit()
     db_session.refresh(role)
+
+    permission_create(role)
 
     return role
 
@@ -187,12 +231,17 @@ def join_project(
     ).first()
 
     if user_role:
+        # TODO(permission): delete user_role record
         db_session.delete(user_role)
 
-    db_session.add(UserRole(user_id=user.id, role_id=role.id))
+    new_user_role = UserRole(user_id=user.id, role_id=role.id)
+    db_session.add(new_user_role)
     db_session.commit()
 
-    return role.project
+    permission_create(new_user_role)
+
+    permissions = permission_list_for_subject(role.project, user)
+    return ProjectPublic.model_validate(role.project, update=permissions)
 
 
 @router.post("/{id}/problems", description="Create a new problem")
@@ -200,8 +249,10 @@ def create_problem(
     problem: Problem,
     db_session: Annotated[Session, Depends(get_db_session)],
     project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
 ) -> ProblemORM:
-    # TODO: Add permissions here - currently just checking if project exists
+    if not permission_check(project, "create_problems", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
     new_problem = ProblemORM.from_problem(problem)
     project.problems.append(new_problem)
@@ -209,5 +260,7 @@ def create_problem(
     db_session.add(project)
     db_session.commit()
     db_session.refresh(new_problem)
+
+    permission_create(new_problem)
 
     return new_problem

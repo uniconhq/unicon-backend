@@ -33,7 +33,9 @@ class Project(ProjectBase, table=True):
 
     organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="projects")
     roles: sa_orm.Mapped[list["Role"]] = Relationship(back_populates="project")
-    problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(back_populates="project")
+    problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(
+        back_populates="project", sa_relationship_kwargs={"order_by": "ProblemORM.id.desc()"}
+    )
 
 
 class RoleBase(CustomSQLModel):
@@ -43,6 +45,36 @@ class RoleBase(CustomSQLModel):
 class Role(RoleBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     project_id: int = Field(foreign_key="project.id")
+
+    # Assignable permissions
+    view_problems_access: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
+    create_problems_access: bool = Field(
+        default=False, sa_column_kwargs={"server_default": "false"}
+    )
+    edit_problems_access: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
+    delete_problems_access: bool = Field(
+        default=False, sa_column_kwargs={"server_default": "false"}
+    )
+
+    view_restricted_problems_access: bool = Field(
+        default=False, sa_column_kwargs={"server_default": "false"}
+    )
+    edit_restricted_problems_access: bool = Field(
+        default=False, sa_column_kwargs={"server_default": "false"}
+    )
+    delete_restricted_problems_access: bool = Field(
+        default=False, sa_column_kwargs={"server_default": "false"}
+    )
+
+    make_submission_access: bool = Field(
+        default=False, sa_column_kwargs={"server_default": "false"}
+    )
+    view_own_submission_access: bool = Field(
+        default=False, sa_column_kwargs={"server_default": "false"}
+    )
+    view_others_submission_access: bool = Field(
+        default=False, sa_column_kwargs={"server_default": "false"}
+    )
 
     project: sa_orm.Mapped[Project] = Relationship(back_populates="roles")
     invitation_keys: sa_orm.Mapped[list["InvitationKey"]] = Relationship(back_populates="role")

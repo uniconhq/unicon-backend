@@ -2,12 +2,14 @@ from functools import cached_property
 from logging import getLogger
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
+from sqlmodel._compat import SQLModelConfig
 
 from unicon_backend.evaluator.tasks.base import TaskEvalResult
 from unicon_backend.evaluator.tasks.multiple_choice import MultipleChoiceTask, MultipleResponseTask
 from unicon_backend.evaluator.tasks.programming.base import ProgrammingTask
 from unicon_backend.evaluator.tasks.short_answer import ShortAnswerTask
+from unicon_backend.lib.common import CustomSQLModel
 
 logger = getLogger(__name__)
 
@@ -20,10 +22,11 @@ class UserInput(BaseModel):
 Task = ProgrammingTask | MultipleChoiceTask | MultipleResponseTask | ShortAnswerTask
 
 
-class Problem(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class Problem(CustomSQLModel):
+    model_config = SQLModelConfig(from_attributes=True)
 
     name: str
+    restricted: bool
     description: str
     tasks: list[Annotated[Task, Field(discriminator="type")]]
 
