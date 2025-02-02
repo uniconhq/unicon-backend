@@ -1,7 +1,6 @@
 import uuid
 from typing import TYPE_CHECKING
 
-import sqlalchemy as sa
 import sqlalchemy.orm as sa_orm
 from sqlmodel import Field, Relationship
 
@@ -76,69 +75,69 @@ class Role(RoleBase, table=True):
     # Normal problem permissions
     view_problems_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
     create_problems_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
     edit_problems_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
     delete_problems_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
 
     # Restricted problem permissions
     view_restricted_problems_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
     edit_restricted_problems_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
     delete_restricted_problems_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
 
     # Submission permissions
     make_submission_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
     view_own_submission_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
     view_supervised_submission_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
     view_others_submission_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
 
     # Group permissions
     view_groups_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
     create_groups_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
     edit_groups_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
     delete_groups_access: bool = Field(
         default=False,
-        sa_column=sa.Column(sa.Boolean(), server_default="0"),
+        sa_column_kwargs={"server_default": "0"},
     )
 
     project: sa_orm.Mapped[Project] = Relationship(back_populates="roles")

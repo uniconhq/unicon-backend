@@ -63,16 +63,26 @@ def _get_all_tuples_and_attributes() -> tuple[list[p.Tuple], list[p.Attribute]]:
 
 
 def debug_list_tuples():
-    tuples, attributes = _get_all_tuples_and_attributes()
-    print(tuples)
-    print(attributes)
+    with p.ApiClient(CONFIGURATION) as api_client:
+        data_api = p.DataApi(api_client)
+        attributes = data_api.data_attributes_read(
+            TENANT_ID,
+            p.ReadAttributesBody(metadata={"schema_version": SCHEMA_VERSION}, filter={}),
+        )
+        print(attributes)
+
+        relations = data_api.data_relationships_read(
+            TENANT_ID,
+            p.ReadRelationshipsBody(
+                metadata={"schema_version": SCHEMA_VERSION},
+                filter={},
+            ),
+        )
+        print(relations)
 
 
-def init_schema(schemaFilePath: str) -> str:
+def init_schema(schema: str) -> str:
     """Initialise the schema for the permission system. Returns the schema version."""
-
-    with open(schemaFilePath) as schema_text:
-        schema = schema_text.read()
 
     schema_write_body = p.SchemaWriteBody.from_dict({"schema": str(schema)})
     if schema_write_body is None:
@@ -482,14 +492,6 @@ def _create_submission(submission: SubmissionORM) -> tuple[list[p.Tuple], list[p
         "owner",
         _make_entity("user", str(submission.user_id)),
     )
-
-    group_ids = [
-        group_member
-        for group_member in submission.user.group_members
-        if group_member.group.project_id == submission.problem.project_id
-        and group_member.is_supervisor == False
-    ]
-    print("group ids:", group_ids)
 
     group_links = [
         _make_tuple(
