@@ -45,7 +45,9 @@ class ProblemORM(CustomSQLModel, table=True):
 
     project_id: int = Field(foreign_key="project.id")
 
-    tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(back_populates="problem")
+    tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(
+        back_populates="problem", sa_relationship_kwargs={"order_by": "TaskORM.order_index"}
+    )
     project: sa_orm.Mapped["Project"] = Relationship(back_populates="problems")
     submissions: sa_orm.Mapped[list["SubmissionORM"]] = Relationship(back_populates="problem")
 
