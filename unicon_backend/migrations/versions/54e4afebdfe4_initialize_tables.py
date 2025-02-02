@@ -1,8 +1,8 @@
 """initialize tables
 
-Revision ID: 412a1b074446
+Revision ID: 54e4afebdfe4
 Revises:
-Create Date: 2025-02-02 19:32:34.772030
+Create Date: 2025-02-02 21:30:20.772811
 
 """
 
@@ -14,7 +14,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "412a1b074446"
+revision: str = "54e4afebdfe4"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -54,6 +54,16 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_project")),
     )
     op.create_table(
+        "group",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("project_id", sa.Integer(), nullable=True),
+        sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["project_id"], ["project.id"], name=op.f("fk_group_project_id_project")
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_group")),
+    )
+    op.create_table(
         "problem",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
@@ -74,6 +84,19 @@ def upgrade() -> None:
             ["project_id"], ["project.id"], name=op.f("fk_role_project_id_project")
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_role")),
+    )
+    op.create_table(
+        "group_member",
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("group_id", sa.Integer(), nullable=False),
+        sa.Column("is_supervisor", sa.Boolean(), server_default="0", nullable=False),
+        sa.ForeignKeyConstraint(
+            ["group_id"], ["group.id"], name=op.f("fk_group_member_group_id_group")
+        ),
+        sa.ForeignKeyConstraint(
+            ["user_id"], ["user.id"], name=op.f("fk_group_member_user_id_user")
+        ),
+        sa.PrimaryKeyConstraint("user_id", "group_id", name=op.f("pk_group_member")),
     )
     op.create_table(
         "invitationkey",
@@ -236,8 +259,10 @@ def downgrade() -> None:
     op.drop_table("task")
     op.drop_table("submission")
     op.drop_table("invitationkey")
+    op.drop_table("group_member")
     op.drop_table("role")
     op.drop_table("problem")
+    op.drop_table("group")
     op.drop_table("project")
     op.drop_table("organisation")
     op.drop_index(op.f("ix_user_username"), table_name="user")
