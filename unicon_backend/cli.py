@@ -1,4 +1,5 @@
 import importlib.resources
+import os
 from typing import Annotated
 
 import typer
@@ -25,6 +26,8 @@ app.add_typer(permify_app, name="permify")
 def init_permify():
     """Sends the schema file to permify."""
 
+    # This prevents SCHEMA_VERSION from erroring out in constants.py (it is required)
+    os.environ["SCHEMA_VERSION"] = "PLACEHOLDER"
     schema = (
         importlib.resources.files("unicon_backend.lib.permissions")
         .joinpath("unicon.perm")
