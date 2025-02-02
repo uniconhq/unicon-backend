@@ -34,11 +34,8 @@ def debug_list_tuples():
         print(relations)
 
 
-def init_schema(schemaFilePath: str) -> str:
+def init_schema(schema: str) -> str:
     """Initialise the schema for the permission system. Returns the schema version."""
-
-    with open(schemaFilePath) as schema_text:
-        schema = schema_text.read()
 
     schema_write_body = p.SchemaWriteBody.from_dict({"schema": str(schema)})
     if schema_write_body is None:
