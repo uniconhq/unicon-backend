@@ -200,7 +200,6 @@ def get_project_submissions(
     all_users: bool = False,
 ):
     accessible_submission_ids = permission_lookup(SubmissionORM, "view", user)
-
     query = (
         select(SubmissionORM)
         .where(SubmissionORM.problem.has(col(ProblemORM.project_id) == id))
