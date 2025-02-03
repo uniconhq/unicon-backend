@@ -183,6 +183,16 @@ class TaskAttemptORM(CustomSQLModel, table=True):
     task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_attempts")
     task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task_attempt")
 
+    def clone(self, new_task_id: int) -> "TaskAttemptORM":
+        return TaskAttemptORM(
+            user_id=self.user_id,
+            task_id=new_task_id,
+            problem_id=self.problem_id,
+            submitted_at=self.submitted_at,
+            task_type=self.task_type,
+            other_fields=self.other_fields,
+        )
+
 
 class TaskResultBase(CustomSQLModel):
     __tablename__ = "task_result"

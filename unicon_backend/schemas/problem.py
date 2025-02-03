@@ -1,4 +1,6 @@
-from unicon_backend.evaluator.problem import Problem
+from pydantic import BaseModel
+
+from unicon_backend.evaluator.problem import Problem, Task
 
 
 class ProblemPublic(Problem):
@@ -6,3 +8,8 @@ class ProblemPublic(Problem):
 
     edit: bool
     make_submission: bool
+
+
+class TaskUpdate(BaseModel):
+    task: Task
+    rerun: bool
