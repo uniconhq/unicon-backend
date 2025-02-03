@@ -3,13 +3,12 @@ from typing import Any, Final
 import permify as p
 from rich import print
 
-from unicon_backend.constants import PERMIFY_HOST, PERMIFY_SCHEMA_VERSION
+from unicon_backend.constants import PERMIFY_HOST, PERMIFY_SCHEMA_VERSION, PERMIFY_TENANT_ID
 from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import Organisation, Project, Role
 from unicon_backend.models.problem import ProblemORM, SubmissionORM
 from unicon_backend.models.user import UserORM
 
-TENANT_ID = "t1"  # We don't have tenancy, so this is the same for all requests.
 CONFIGURATION = p.Configuration(host=PERMIFY_HOST)
 
 _api_client = p.ApiClient(p.Configuration(host=PERMIFY_HOST))
@@ -20,7 +19,7 @@ _perms_api = p.PermissionApi(_api_client)
 
 def _get_latest_schema_version() -> str | None:
     """Get the latest schema version from Permify."""
-    return _schema_api.schemas_list(TENANT_ID, p.SchemaListBody()).head
+    return _schema_api.schemas_list(PERMIFY_TENANT_ID, p.SchemaListBody()).head
 
 
 SCHEMA_VERSION: str | None = PERMIFY_SCHEMA_VERSION or _get_latest_schema_version()
@@ -34,32 +33,18 @@ DEFAULT_METADATA: Final = {"schema_version": SCHEMA_VERSION}
 
 def debug_list_tuples():
     attributes = _data_api.data_attributes_read(
-        TENANT_ID, p.ReadAttributesBody(metadata=DEFAULT_METADATA, filter={})
+        PERMIFY_TENANT_ID, p.ReadAttributesBody(metadata=DEFAULT_METADATA, filter={})
     )
     print(attributes)
 
     relations = _data_api.data_relationships_read(
-        TENANT_ID, p.ReadRelationshipsBody(metadata=DEFAULT_METADATA, filter={})
+        PERMIFY_TENANT_ID, p.ReadRelationshipsBody(metadata=DEFAULT_METADATA, filter={})
     )
     print(relations)
 
 
-def init_schema(schema: str) -> str:
-    """Initialise the schema for the permission system. Returns the schema version."""
-    if (schema_write_body := p.SchemaWriteBody.from_dict({"schema": schema})) is None:
-        # This should not happen.
-        raise ValueError("Failed to create schema write body")
-
-    response = _schema_api.schemas_write(TENANT_ID, schema_write_body)
-
-    if (schema_version := response.schema_version) is None:
-        raise ValueError("Schema version is unexpectedly none. Is the schema valid?")
-
-    return schema_version
-
-
 def delete_all_permission_records():
-    _data_api.data_delete_without_preload_content(TENANT_ID, p.DataDeleteBody())
+    _data_api.data_delete_without_preload_content(PERMIFY_TENANT_ID, p.DataDeleteBody())
 
 
 ##########################################
@@ -101,7 +86,7 @@ def permission_lookup(model_class: Any, permission: str, user: UserORM) -> list[
 
     results: list[int] = []
     result = _perms_api.permissions_lookup_entity(
-        TENANT_ID,
+        PERMIFY_TENANT_ID,
         p.LookupEntityBody(
             metadata=metadata,
             entity_type=_model_to_type(model_class),
@@ -116,7 +101,7 @@ def permission_lookup(model_class: Any, permission: str, user: UserORM) -> list[
         # Handles the weird case where `result.continous_token` is duplicated
         tokens.add(result.continuous_token)
         result = _perms_api.permissions_lookup_entity(
-            TENANT_ID,
+            PERMIFY_TENANT_ID,
             p.LookupEntityBody(
                 metadata=metadata,
                 entity_type=_model_to_type(model_class),
@@ -138,7 +123,7 @@ def permission_list_for_subject(model: Any, user: UserORM) -> dict[str, bool]:
     )
 
     result = _perms_api.permissions_subject_permission(
-        TENANT_ID,
+        PERMIFY_TENANT_ID,
         p.SubjectPermissionBody(
             metadata=metadata,
             entity=_make_entity(_model_to_type(model), str(model.id)),
@@ -180,7 +165,7 @@ def permission_create(model: Any):
         raise ValueError("Failed to create metadata")
 
     _data_api.data_write(
-        TENANT_ID,
+        PERMIFY_TENANT_ID,
         p.DataWriteBody(metadata=metadata, tuples=tuples, attributes=attributes),
     )
 
@@ -221,7 +206,7 @@ def permission_update(old: Any, new: Any):
             raise ValueError("Failed to extract entity, relation, or subject")
 
         _data_api.data_delete(
-            TENANT_ID,
+            PERMIFY_TENANT_ID,
             p.DataDeleteBody(
                 tuple_filter=p.TupleFilter(
                     entity=p.EntityFilter(type=entity.type, ids=[entity.id]),
@@ -240,7 +225,7 @@ def permission_update(old: Any, new: Any):
             raise ValueError("Failed to extract entity or attribute")
 
         _data_api.data_delete(
-            TENANT_ID,
+            PERMIFY_TENANT_ID,
             p.DataDeleteBody(
                 tuple_filter=p.TupleFilter(),
                 attribute_filter=p.AttributeFilter(
@@ -252,7 +237,7 @@ def permission_update(old: Any, new: Any):
 
     # recreate new tuples
     _data_api.data_write(
-        TENANT_ID,
+        PERMIFY_TENANT_ID,
         p.DataWriteBody(metadata=metadata, tuples=create_tuples, attributes=create_attributes),
     )
 
@@ -284,7 +269,7 @@ def permission_check(entity, permission, subject) -> bool:
         raise ValueError("Failed to create metadata")
 
     result = _perms_api.permissions_check(
-        TENANT_ID,
+        PERMIFY_TENANT_ID,
         p.CheckBody(
             metadata=metadata,
             entity=_make_entity(_model_to_type(entity), str(entity.id)),

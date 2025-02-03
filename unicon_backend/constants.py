@@ -26,3 +26,4 @@ RESULT_QUEUE_NAME: Final[str] = _get_env_var("RESULT_QUEUE_NAME", "unicon.result
 
 PERMIFY_HOST: Final[str] = _get_env_var("PERMIFY_HOST", "http://localhost:3476")
 PERMIFY_SCHEMA_VERSION: Final[str | None] = _get_env_var("PERMIFY_SCHEMA_VERSION", required=False)
+PERMIFY_TENANT_ID: Final[str] = _get_env_var("PERMIFY_TENANT_ID", "t1")
