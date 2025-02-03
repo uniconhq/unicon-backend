@@ -9,6 +9,7 @@ from unicon_backend.models.organisation import Group, Organisation, Project, Rol
 from unicon_backend.models.problem import ProblemORM, SubmissionORM
 from unicon_backend.models.user import UserORM
 
+SCHEMA_VERSION = SCHEMA_VERSION
 CONFIGURATION = p.Configuration(host=PERMIFY_HOST)
 # We don't have tenancy, so this is the same for all requests.
 TENANT_ID = "t1"
@@ -146,48 +147,41 @@ def permission_lookup(model_class: Any, permission: str, user: UserORM) -> list[
         {"schema_version": SCHEMA_VERSION, "depth": 200}
     )
 
-    model_type = _model_to_type(model_class)
-
     with p.ApiClient(CONFIGURATION) as api_client:
         permission_api = p.PermissionApi(api_client)
-        results: list[str] = []
-
+        results: list[int] = []
         result = permission_api.permissions_lookup_entity(
             TENANT_ID,
             p.LookupEntityBody(
                 metadata=metadata,
-                # CURRENT BUG: ITS RETURNING IDS OF PROBLEMS + SUBMISSIONS instead of JUST SUBMISSIONS
-                # entity_type is basicaly ignored
-                entity_type=model_type,
+                entity_type=_model_to_type(model_class),
                 permission=permission,
-                subject=p.Subject(type="user", id="user-" + str(user.id)),
+                subject=p.Subject(type="user", id=str(user.id)),
             ),
         )
 
         tokens = set()
         while True:
-            results.extend(result.entity_ids or [])
+            results.extend([int(entity_id) for entity_id in result.entity_ids or []])
             # Handles the weird case where result.continous_token is duplicated
             if not result.continuous_token or result.continuous_token in tokens:
                 break
             tokens.add(result.continuous_token)
-
             result = permission_api.permissions_lookup_entity(
                 TENANT_ID,
                 p.LookupEntityBody(
                     metadata=metadata,
-                    entity_type=model_type,
+                    entity_type=_model_to_type(model_class),
                     permission=permission,
                     subject=p.Subject(type="user", id=str(user.id)),
                     continuous_token=result.continuous_token,
                 ),
             )
-
-        return [int(s.split("-")[1]) for s in set(results) if s.split("-")[0] == model_type]
+        return results
 
 
 def permission_list_for_subject(model: Any, user: UserORM) -> dict[str, bool]:
-    """Which permissions user can perform on entity?
+    """Which permissions user:x can perform on entity:y?
 
     This function users the Subject Permission List route (https://docs.permify.co/api-reference/permission/subject-permission)
     """
@@ -436,7 +430,7 @@ def _make_attribute(entity, attribute, value) -> p.Attribute:
 
 
 def _make_entity(type: str, id: str):
-    return {"type": type, "id": f"{type}-{id}"}
+    return {"type": type, "id": id}
 
 
 def _create_organisation(organisation: Organisation) -> tuple[list[p.Tuple], list[p.Attribute]]:
@@ -506,7 +500,6 @@ def _create_submission(submission: SubmissionORM) -> tuple[list[p.Tuple], list[p
             _make_entity("group", str(group_member.group.id)),
         )
         for group_member in submission.user.group_members
-        if submission.problem.project_id == group_member.group.project_id
     ]
 
     return [submission_problem_link, submission_owner_link] + group_links, []
