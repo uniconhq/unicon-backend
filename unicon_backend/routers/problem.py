@@ -24,7 +24,7 @@ from unicon_backend.models.problem import (
     TaskORM,
 )
 from unicon_backend.models.user import UserORM
-from unicon_backend.schemas.problem import ProblemPublic
+from unicon_backend.schemas.problem import ProblemPublic, TaskUpdate
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import TaskEvalResult
@@ -66,6 +66,68 @@ def add_task_to_problem(
     db_session.add(problem_orm)
     db_session.commit()
     return
+
+
+@router.put("/{id}/tasks/{task_id}", summary="Update a task in a problem")
+def update_task(
+    data: TaskUpdate,
+    problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+    task_id: int,
+):
+    # Only allow a task update if:
+    # 1. The user has edit permission on the problem
+    # 2. The task exists and is of the same task type.
+    if not permission_check(problem_orm, "edit", user):
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to add task to problem",
+        )
+
+    old_task_list = [task for task in problem_orm.tasks if task.id == task_id]
+    if len(old_task_list) == 0:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Task not found in problem definition",
+        )
+
+    old_task_orm = old_task_list[0]
+    if old_task_orm.type != data.task.type:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Task type cannot be changed",
+        )
+
+    new_task_orm = TaskORM.from_task(data.task)
+    new_task_orm.id = max((task.id for task in problem_orm.tasks), default=-1) + 1
+    new_task_orm.problem_id = old_task_orm.problem_id
+
+    db_session.add(new_task_orm)
+    db_session.commit()
+    db_session.refresh(new_task_orm)
+
+    # Ensure the old task is "soft deleted" by updating the updated_version_id to the new task id
+    # Then, duplicate the task attempts to the new task
+    old_task_orm.updated_version_id = new_task_orm.id
+    new_task_orm.order_index = old_task_orm.order_index
+    new_task_orm.task_attempts = [
+        task_attempt.clone(new_task_orm.id) for task_attempt in old_task_orm.task_attempts
+    ]
+
+    problem = problem_orm.to_problem()
+
+    if data.rerun:
+        for task_attempt in old_task_orm.task_attempts:
+            user_input = task_attempt.other_fields.get("user_input")
+            task_result: TaskEvalResult = problem.run_task(new_task_orm.id, user_input)
+            task_result_orm: TaskResultORM = TaskResultORM.from_task_eval_result(
+                task_result, attempt_id=task_attempt.id, task_type=new_task_orm.type
+            )
+            task_attempt.task_results.append(task_result_orm)
+
+    db_session.add_all([old_task_orm, new_task_orm])
+    db_session.commit()
 
 
 @router.patch("/{id}", summary="Update a problem definition")

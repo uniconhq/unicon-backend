@@ -197,6 +197,16 @@ class TaskAttemptORM(CustomSQLModel, table=True):
         back_populates="task_attempt", cascade_delete=True
     )
 
+    def clone(self, new_task_id: int) -> "TaskAttemptORM":
+        return TaskAttemptORM(
+            user_id=self.user_id,
+            task_id=new_task_id,
+            problem_id=self.problem_id,
+            submitted_at=self.submitted_at,
+            task_type=self.task_type,
+            other_fields=self.other_fields,
+        )
+
 
 class TaskResultBase(CustomSQLModel):
     __tablename__ = "task_result"
