@@ -7,6 +7,15 @@ from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
 
+from unicon_backend.dependencies.project import role_permissions
+from unicon_backend.lib.permissions.permission import (
+    debug_list_tuples,
+    delete_all_permission_records,
+    init_schema,
+    permission_create,
+)
+from unicon_backend.models.organisation import Group
+
 rich_console = Console()
 app = typer.Typer(name="Unicon 🦄 CLI")
 
@@ -19,20 +28,13 @@ def init_permify():
     """Sends the schema file to permify."""
 
     # This prevents SCHEMA_VERSION from erroring out in constants.py (it is required)
-    from dotenv import load_dotenv
-
-    from unicon_backend.lib.permissions.init_schema import init_schema
-
-    load_dotenv()
-    permify_host = os.getenv("PERMIFY_HOST") or "http://localhost:3476"
-
+    os.environ["SCHEMA_VERSION"] = "PLACEHOLDER"
     schema = (
         importlib.resources.files("unicon_backend.lib.permissions")
         .joinpath("unicon.perm")
         .read_text()
     )
-
-    schema_version = init_schema(permify_host, schema)
+    schema_version = init_schema(schema)
     print(f"Schema version: {schema_version}. Please update your .env file.")
 
 
@@ -42,12 +44,8 @@ def seed_permify():
     from sqlalchemy import select
 
     from unicon_backend.database import SessionLocal
-    from unicon_backend.lib.permissions.permission import (
-        delete_all_permission_records,
-        permission_create,
-    )
     from unicon_backend.models.links import UserRole
-    from unicon_backend.models.organisation import Group, Organisation, Project, Role
+    from unicon_backend.models.organisation import Organisation, Project, Role
     from unicon_backend.models.problem import ProblemORM, SubmissionORM
 
     # assume schema is initialised (run init-permify if not)
@@ -65,8 +63,6 @@ def seed_permify():
 
 @permify_app.command(name="list")
 def list_permify():
-    from unicon_backend.lib.permissions.permission import debug_list_tuples
-
     debug_list_tuples()
 
 
@@ -75,7 +71,6 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
     """Seed the database with initial admin user, organisation, roles, projects and problems."""
     from unicon_backend.database import SessionLocal
     from unicon_backend.dependencies.auth import AUTH_PWD_CONTEXT
-    from unicon_backend.dependencies.project import role_permissions
     from unicon_backend.evaluator.problem import Problem
     from unicon_backend.models.organisation import Organisation, Project, Role
     from unicon_backend.models.problem import ProblemORM
