@@ -3,16 +3,27 @@ from typing import Any
 import permify as p
 from rich import print
 
-from unicon_backend.constants import PERMIFY_HOST, SCHEMA_VERSION
+from unicon_backend.constants import PERMIFY_HOST, PERMIFY_SCHEMA_VERSION
 from unicon_backend.models.links import UserRole
 from unicon_backend.models.organisation import Organisation, Project, Role
 from unicon_backend.models.problem import ProblemORM, SubmissionORM
 from unicon_backend.models.user import UserORM
 
-SCHEMA_VERSION = SCHEMA_VERSION
+TENANT_ID = "t1"  # We don't have tenancy, so this is the same for all requests.
 CONFIGURATION = p.Configuration(host=PERMIFY_HOST)
-# We don't have tenancy, so this is the same for all requests.
-TENANT_ID = "t1"
+
+_api_client = p.ApiClient(p.Configuration(host=PERMIFY_HOST))
+
+
+def _get_latest_schema_version() -> str | None:
+    """Get the latest schema version from Permify."""
+    return p.SchemaApi(_api_client).schemas_list(TENANT_ID, p.SchemaListBody()).head
+
+
+SCHEMA_VERSION: str | None = PERMIFY_SCHEMA_VERSION or _get_latest_schema_version()
+
+if SCHEMA_VERSION is None:
+    raise RuntimeError("Failed to get Permify schema version!")
 
 
 def debug_list_tuples():

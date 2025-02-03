@@ -1,8 +1,7 @@
 import os
+from typing import Final
 
 from dotenv import load_dotenv
-
-from unicon_backend.lib.permissions.get_schema_version import get_schema_version
 
 load_dotenv()
 
@@ -14,14 +13,16 @@ def _get_env_var(name: str, default: str | None = None, required: bool = True):
     return value
 
 
-DATABASE_URL: str = _get_env_var("DATABASE_URL")
-RABBITMQ_URL: str = _get_env_var("RABBITMQ_URL")
-SECRET_KEY: str = _get_env_var("SECRET_KEY", "", required=False)
-FRONTEND_URL: str = _get_env_var("FRONTEND_URL", required=False)
+DATABASE_URL: Final[str] = _get_env_var("DATABASE_URL")
 
-EXCHANGE_NAME = _get_env_var("EXCHANGE_NAME", "unicon")
-TASK_QUEUE_NAME = _get_env_var("WORK_QUEUE_NAME", "unicon.tasks")
-RESULT_QUEUE_NAME = _get_env_var("RESULT_QUEUE_NAME", "unicon.results")
+FRONTEND_URL: Final[str] = _get_env_var("FRONTEND_URL", "http://localhost:5173")
 
-PERMIFY_HOST = _get_env_var("PERMIFY_HOST", "http://localhost:3476")
-SCHEMA_VERSION = _get_env_var("SCHEMA_VERSION", get_schema_version(PERMIFY_HOST))
+SECRET_KEY: Final[str] = _get_env_var("SECRET_KEY", "")
+
+RABBITMQ_URL: Final[str] = _get_env_var("RABBITMQ_URL")
+EXCHANGE_NAME: Final[str] = _get_env_var("EXCHANGE_NAME", "unicon")
+TASK_QUEUE_NAME: Final[str] = _get_env_var("WORK_QUEUE_NAME", "unicon.tasks")
+RESULT_QUEUE_NAME: Final[str] = _get_env_var("RESULT_QUEUE_NAME", "unicon.results")
+
+PERMIFY_HOST: Final[str] = _get_env_var("PERMIFY_HOST", "http://localhost:3476")
+PERMIFY_SCHEMA_VERSION: Final[str | None] = _get_env_var("PERMIFY_SCHEMA_VERSION", required=False)
