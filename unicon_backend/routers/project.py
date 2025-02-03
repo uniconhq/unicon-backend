@@ -10,7 +10,7 @@ from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.project import get_project_by_id
 from unicon_backend.evaluator.problem import Problem
-from unicon_backend.lib.permissions.permission import (
+from unicon_backend.lib.permissions import (
     permission_check,
     permission_create,
     permission_list_for_subject,
