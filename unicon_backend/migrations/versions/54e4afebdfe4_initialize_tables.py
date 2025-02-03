@@ -121,6 +121,8 @@ def upgrade() -> None:
         ),
         sa.Column("autograde", sa.Boolean(), nullable=False),
         sa.Column("other_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("updated_version_id", sa.Integer(), nullable=True),
+        sa.Column("order_index", sa.Integer(), nullable=False),
         sa.Column("problem_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
             ["problem_id"], ["problem.id"], name=op.f("fk_task_problem_id_problem")
