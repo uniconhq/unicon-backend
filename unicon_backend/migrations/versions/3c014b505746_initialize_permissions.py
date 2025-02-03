@@ -1,8 +1,8 @@
 """initialize permissions
 
-Revision ID: 8552946a2abb
-Revises: 412a1b074446
-Create Date: 2025-02-02 19:47:53.318225
+Revision ID: 3c014b505746
+Revises: 3c42e67230eb
+Create Date: 2025-02-03 10:06:21.799793
 
 """
 
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "8552946a2abb"
-down_revision: str | None = "412a1b074446"
+revision: str = "3c014b505746"
+down_revision: str | None = "3c42e67230eb"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
