@@ -85,14 +85,13 @@ def update_task(
             detail="User does not have permission to add task to problem",
         )
 
-    old_task_list = [task for task in problem_orm.tasks if task.id == task_id]
-    if len(old_task_list) == 0:
+    old_task_orm = next((task for task in problem_orm.tasks if task.id == task_id), None)
+    if not old_task_orm or old_task_orm.updated_version_id is not None:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
             detail="Task not found in problem definition",
         )
 
-    old_task_orm = old_task_list[0]
     if old_task_orm.type != data.task.type:
         raise HTTPException(
             status_code=HTTPStatus.BAD_REQUEST,
@@ -172,7 +171,7 @@ def delete_task(
         )
 
     task = next((task for task in problem_orm.tasks if task.id == task_id), None)
-    if task is None:
+    if task is None or task.updated_version_id is not None:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail="Task not found in problem definition"
         )
