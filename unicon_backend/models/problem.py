@@ -86,7 +86,9 @@ class TaskORM(CustomSQLModel, table=True):
     problem_id: int = Field(foreign_key="problem.id", primary_key=True)
 
     problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="tasks")
-    task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(back_populates="task")
+    task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(
+        back_populates="task", cascade_delete=True
+    )
 
     @classmethod
     def from_task(cls, task: "Task") -> "TaskORM":
@@ -185,7 +187,9 @@ class TaskAttemptORM(CustomSQLModel, table=True):
         link_model=SubmissionAttemptLink,
     )
     task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_attempts")
-    task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task_attempt")
+    task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(
+        back_populates="task_attempt", cascade_delete=True
+    )
 
     def clone(self, new_task_id: int) -> "TaskAttemptORM":
         return TaskAttemptORM(
@@ -209,8 +213,7 @@ class TaskResultBase(CustomSQLModel):
     started_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
     completed_at: datetime | None = Field(sa_column=_timestamp_column(nullable=True, default=False))
 
-    # NOTE: Unique identifier for a worker job that evaluates the task
-    job_id: str | None = Field(nullable=True, unique=True)
+    job_id: str | None = Field(nullable=True)
 
     status: TaskEvalStatus = Field(sa_column=sa.Column(pg.ENUM(TaskEvalStatus), nullable=False))
     # TODO: Handle non-JSON result types for non-programming tasks
@@ -251,6 +254,17 @@ class TaskResultORM(TaskResultBase, table=True):
             error=eval_result.error,
             result=result,
             job_id=job_id,
+        )
+
+    def clone(self):
+        return TaskResultORM(
+            task_type=self.task_type,
+            started_at=self.started_at,
+            completed_at=self.completed_at,
+            status=self.status,
+            error=self.error,
+            result=self.result,
+            job_id=self.job_id,
         )
 
 
