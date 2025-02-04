@@ -4,7 +4,7 @@ from collections import deque
 from collections.abc import MutableSequence, Sequence
 from enum import Enum, StrEnum
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 import libcst as cst
 from pydantic import model_validator
@@ -220,18 +220,12 @@ class Step[SocketT: StepSocket](
 
             subgraph_node_ids.add(frontier_node.id)
             for out_edge in graph.out_edges_index[frontier_node.id]:
-                from_socket_id = out_edge.from_socket_id
-                to_socket_id = out_edge.to_socket_id
-
-                if from_socket_id == "CONTROL.OUT" and to_socket_id == "CONTROL.IN":
+                if graph.link_type(out_edge) == StepSocketType.CONTROL:
                     bfs_queue.append(graph.node_index[out_edge.to_node_id])
 
             for in_edge in graph.in_edges_index[frontier_node.id]:
-                to_socket_id = in_edge.to_socket_id
-                from_socket_id = in_edge.from_socket_id
-
-                if to_socket_id == "CONTROL.IN" and from_socket_id == "CONTROL.OUT":
-                    bfs_queue.append(graph.node_index[out_edge.from_node_id])
+                if graph.link_type(in_edge) == StepSocketType.CONTROL:
+                    bfs_queue.append(graph.node_index[in_edge.from_node_id])
 
         return subgraph_node_ids
 
@@ -262,11 +256,14 @@ class Step[SocketT: StepSocket](
 class InputStep(Step[StepSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (1, -1))
 
+    is_user: bool  # Whether the input is provided by the user
+
     @model_validator(mode="after")
     def check_non_empty_data_outputs(self) -> Self:
-        for socket in self.data_out:
-            if socket.data is None:
-                raise ValueError(f"Missing data for output socket {socket.id}")
+        if not self.is_user and (
+            empty_socket_ids := [socket.id for socket in self.data_out if socket.data is None]
+        ):
+            raise ValueError(f"Missing data for output sockets {','.join(empty_socket_ids)}")
         return self
 
     def run(self, *_) -> ProgramFragment:
@@ -565,27 +562,32 @@ class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
         """
         return from_node.get_output_variable(from_socket)
 
-    def run(
-        self,
-        user_input_step: Optional["InputStep"] = None,
-        debug: bool = True,
-        node_ids: set[str] | None = None,
-    ) -> Program:
+    def link_type(self, edge: GraphEdge[str]) -> StepSocketType:
+        def get_step_socket(step_id: str, socket_id: str) -> StepSocket | None:
+            if node := self.node_index.get(step_id):
+                return node.get_socket(socket_id)
+            return None
+
+        from_socket = get_step_socket(edge.from_node_id, edge.from_socket_id)
+        to_socket = get_step_socket(edge.to_node_id, edge.to_socket_id)
+        assert from_socket is not None and to_socket is not None
+
+        if from_socket.type == to_socket.type and from_socket.direction != to_socket.direction:
+            return from_socket.type
+
+        raise ValueError(f"Invalid link between {from_socket.id} and {to_socket.id}")
+
+    def run(self, debug: bool = True, node_ids: set[str] | None = None) -> Program:
         """
         Run the compute graph with the given user input.
 
         Args:
-            user_input_step (InputStep, optional): The input step (id = 0) that contains the user input
             debug (bool, optional): Whether to include debug statements in the program. Defaults to True.
             node_ids (set[int], optional): The node ids to run. Defaults to None.
 
         Returns:
             Program: The program that is generated from the compute graph
         """
-        # Add user input step (node) to compute graph
-        if user_input_step is not None:
-            self.nodes.append(user_input_step)
-
         # If node_ids is provided, we exclude all other nodes
         # This is useful when we want to run only a subset of the compute graph
         node_ids_to_exclude: set[str] = set()

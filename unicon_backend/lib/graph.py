@@ -77,11 +77,6 @@ class Graph(BaseModel, Generic[GraphNodeType, GraphEdgeType]):
         return create_multi_index(self.edges, lambda e: e.to_node_id, lambda e: e.from_node_id)
 
     @cached_property
-    def edge_index(self) -> dict[str, GraphEdgeType]:
-        """Return a map of edge id to edge object"""
-        return {edge.id: edge for edge in self.edges}
-
-    @cached_property
     def out_edges_index(self) -> defaultdict[str, list[GraphEdgeType]]:
         """Return a map of node id to a list of ids of edges that are outgoing from the node"""
         return create_multi_index(self.edges, lambda e: e.from_node_id, lambda e: e)
