@@ -140,37 +140,29 @@ def permission_lookup(model_class: Any, permission: str, user: UserORM) -> list[
         {**DEFAULT_METADATA, "depth": DEPTH}
     )
 
-    results: list[int] = []
-    result = _perms_api.permissions_lookup_entity(
-        PERMIFY_TENANT_ID,
-        p.LookupEntityBody(
-            metadata=metadata,
-            entity_type=_model_to_type(model_class),
-            permission=permission,
-            subject=p.Subject(type="user", id=str(user.id)),
-        ),
-    )
-
-    tokens = set()
-    while True:
-        results.extend([int(entity_id) for entity_id in result.entity_ids or []])
-
-        # Handles the weird case where `result.continous_token` is duplicated
-        if not (result.continuous_token and result.continuous_token not in tokens):
-            break
-        tokens.add(result.continuous_token)
-
-        result = _perms_api.permissions_lookup_entity(
+    def fetch_entity_ids(cont_token: str | None = None) -> tuple[list[int], str | None]:
+        resp = _perms_api.permissions_lookup_entity(
             PERMIFY_TENANT_ID,
             p.LookupEntityBody(
                 metadata=metadata,
                 entity_type=_model_to_type(model_class),
                 permission=permission,
                 subject=p.Subject(type="user", id=str(user.id)),
-                continuous_token=result.continuous_token,
+                continuous_token=cont_token,
             ),
         )
-    return results
+        ids = [int(entity_id) for entity_id in resp.entity_ids or []]
+        return ids, resp.continuous_token
+
+    cont_tokens: set[str] = set()
+    entity_ids, cont_token = fetch_entity_ids()
+
+    while cont_token and cont_token not in cont_tokens:
+        cont_tokens.add(cont_token)
+        more_entity_ids, cont_token = fetch_entity_ids(cont_token)
+        entity_ids.extend(more_entity_ids)
+
+    return entity_ids
 
 
 def permission_list_for_subject(model: Any, user: UserORM) -> dict[str, bool]:
