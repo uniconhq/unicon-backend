@@ -14,7 +14,7 @@ app.add_typer(permify_app, name="permify")
 
 
 @permify_app.command(name="init")
-def init_permify():
+def init_permify() -> None:
     """Sends the schema file to permify."""
     import importlib.resources
 
@@ -146,9 +146,9 @@ def assemble(defn_file: Annotated[typer.FileText, typer.Option("--defn", mode="r
         # NOTE: We use the templates to generate the input step
         # This is so that we do not need to take in any user input and can simply assemble
         # the task directly from the given definition for a quick test
-        user_input_step = task.create_input_step(task.required_inputs)
         for testcase in task.testcases:
-            assembled_prog = testcase.run(user_input_step)
+            testcase.attach_user_inputs(task.required_inputs)
+            assembled_prog = testcase.run()
 
             syntax_highlighted_code = Syntax(
                 assembled_prog.code, "python", theme="material", line_numbers=True, word_wrap=True
