@@ -24,7 +24,7 @@ from unicon_backend.models.problem import (
     TaskORM,
 )
 from unicon_backend.models.user import UserORM
-from unicon_backend.schemas.problem import ProblemPublic, TaskUpdate
+from unicon_backend.schemas.problem import ProblemPublic, ProblemUpdate, TaskUpdate
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import TaskEvalResult
@@ -132,7 +132,7 @@ def update_task(
 @router.patch("/{id}", summary="Update a problem definition")
 def update_problem(
     existing_problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
-    new_problem: Problem,
+    new_problem: ProblemUpdate,
     db_session: Annotated[Session, Depends(get_db_session)],
     user: Annotated[UserORM, Depends(get_current_user)],
 ) -> Problem:
@@ -147,6 +147,23 @@ def update_problem(
     existing_problem_orm.name = new_problem.name
     existing_problem_orm.description = new_problem.description
     existing_problem_orm.restricted = new_problem.restricted
+
+    # Update task order
+    if not set(task_order.id for task_order in new_problem.task_order) == set(
+        task.id for task in existing_problem_orm.tasks
+    ):
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Task order does not match problem tasks",
+        )
+
+    map_task_id_to_order_index = {
+        task_order.id: task_order.order_index for task_order in new_problem.task_order
+    }
+
+    for task in existing_problem_orm.tasks:
+        task.order_index = map_task_id_to_order_index[task.id]
+        db_session.add(task)
 
     db_session.add(existing_problem_orm)
     db_session.commit()

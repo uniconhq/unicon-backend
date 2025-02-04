@@ -17,6 +17,18 @@ class ProblemPublic(Problem):
     make_submission: bool
 
 
+class TaskOrder(BaseModel):
+    id: int
+    order_index: int
+
+
+class ProblemUpdate(BaseModel):
+    name: str
+    restricted: bool
+    description: str
+    task_order: list[TaskOrder]
+
+
 class TaskUpdate(BaseModel):
     task: Task
     rerun: bool
