@@ -8,7 +8,7 @@ from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.organisation import get_organisation_by_id
 from unicon_backend.dependencies.project import create_project_with_defaults
-from unicon_backend.lib.permissions.permission import (
+from unicon_backend.lib.permissions import (
     permission_check,
     permission_create,
     permission_list_for_subject,
