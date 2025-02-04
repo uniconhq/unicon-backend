@@ -219,8 +219,7 @@ class TaskResultBase(CustomSQLModel):
     started_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
     completed_at: datetime | None = Field(sa_column=_timestamp_column(nullable=True, default=False))
 
-    # NOTE: Unique identifier for a worker job that evaluates the task
-    job_id: str | None = Field(nullable=True, unique=True)
+    job_id: str | None = Field(nullable=True)
 
     status: TaskEvalStatus = Field(sa_column=sa.Column(pg.ENUM(TaskEvalStatus), nullable=False))
     # TODO: Handle non-JSON result types for non-programming tasks
@@ -261,6 +260,17 @@ class TaskResultORM(TaskResultBase, table=True):
             error=eval_result.error,
             result=result,
             job_id=job_id,
+        )
+
+    def clone(self):
+        return TaskResultORM(
+            task_type=self.task_type,
+            started_at=self.started_at,
+            completed_at=self.completed_at,
+            status=self.status,
+            error=self.error,
+            result=self.result,
+            job_id=self.job_id,
         )
 
 

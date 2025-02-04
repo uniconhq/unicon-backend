@@ -158,6 +158,30 @@ def update_problem(
     return existing_problem_orm.to_problem()
 
 
+@router.delete("/{id}/tasks/{task_id}", summary="Delete a task from a problem")
+def delete_task(
+    problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+    task_id: int,
+):
+    if not permission_check(problem_orm, "edit", user):
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to delete task from problem",
+        )
+
+    task = next((task for task in problem_orm.tasks if task.id == task_id), None)
+    if task is None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Task not found in problem definition"
+        )
+
+    db_session.delete(task)
+    db_session.commit()
+    return
+
+
 @router.post(
     "/{id}/tasks/{task_id}", summary="Submit a task attempt", response_model=TaskAttemptPublic
 )
