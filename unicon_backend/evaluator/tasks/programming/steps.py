@@ -12,7 +12,7 @@ from pydantic import model_validator
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
 from unicon_backend.evaluator.tasks.programming.transforms import hoist_imports
 from unicon_backend.lib.common import CustomBaseModel, CustomSQLModel
-from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
+from unicon_backend.lib.graph import Graph, GraphEdge, GraphNode, NodeSocket
 from unicon_backend.lib.helpers import partition
 
 if TYPE_CHECKING:
@@ -62,32 +62,25 @@ class StepType(str, Enum):
     STRING_MATCH = "STRING_MATCH_STEP"
 
 
-class StepSocket(NodeSocket):
-    """
-    A socket that is used to connect steps to each other.
+class StepSocketType(str, Enum):
+    DATA = "DATA"
+    CONTROL = "CONTROL"
 
-    Socket ID Format: <TYPE>.<NAME>.<INDEX>
-    - <NAME>.<INDEX> is optional and is used to differentiate between multiple sockets of the same type
-        - Collectively, <NAME>.<INDEX> is referred to as the "label"
 
-    There can be 2 types of sockets:
+class StepSocketDirection(str, Enum):
+    IN = "IN"
+    OUT = "OUT"
 
-    1. Control Sockets: Used to control the flow of the program
-        - e.g. CONTROL.<NAME>.<INDEX>
-    2. Data Sockets: Used to pass data between steps
-        - e.g. DATA.<NAME>.<INDEX>
-    """
+
+class StepSocket(NodeSocket[str]):
+    type: StepSocketType
+    direction: StepSocketDirection
+
+    # User facing name of the socket
+    label: str
 
     # The data that the socket holds
     data: PrimitiveData | File | None = None
-
-    @cached_property
-    def type(self) -> str:
-        return self.id.split(".")[0]
-
-    @cached_property
-    def label(self) -> str:
-        return self.id.split(".", 2)[-1]
 
 
 class Operator(StrEnum):
@@ -127,22 +120,18 @@ class Comparison(CustomSQLModel):
 
 
 class OutputSocket(StepSocket):
-    user_label: str | None = None
-    """User facing label of the socket. Optional."""
     comparison: Comparison | None = None
     """Comparison to be made with the output of the socket. Optional."""
     public: bool = True
     """Whether output of the socket should be shown to less priviledged users."""
 
-    def model_post_init(self, __context):
-        self.label = self.label or self.id
-
 
 Range = tuple[int, int]
 
 
-class Step[SocketT: StepSocket](CustomBaseModel, GraphNode[SocketT], abc.ABC, polymorphic=True):
-    id: int
+class Step[SocketT: StepSocket](
+    CustomBaseModel, GraphNode[str, SocketT], abc.ABC, polymorphic=True
+):
     type: StepType
 
     _debug: bool = False
@@ -169,10 +158,11 @@ class Step[SocketT: StepSocket](CustomBaseModel, GraphNode[SocketT], abc.ABC, po
                 case (lower_bound, upper_bound):
                     return lower_bound <= got <= upper_bound
                 case _:
-                    # This should never happen
-                    return False
+                    return False  # This should never happen
 
-        is_data_socket: Callable[[StepSocket], bool] = lambda socket: socket.type == "DATA"
+        is_data_socket: Callable[[StepSocket], bool] = (
+            lambda socket: socket.type == StepSocketType.DATA
+        )
 
         num_data_in, num_control_in = list(map(len, partition(is_data_socket, self.inputs)))
         num_data_out, num_control_out = list(map(len, partition(is_data_socket, self.outputs)))
@@ -189,22 +179,14 @@ class Step[SocketT: StepSocket](CustomBaseModel, GraphNode[SocketT], abc.ABC, po
         return self
 
     @cached_property
-    def control_in(self) -> Sequence[SocketT]:
-        return [socket for socket in self.inputs if socket.type == "CONTROL"]
-
-    @cached_property
-    def control_out(self) -> Sequence[SocketT]:
-        return [socket for socket in self.outputs if socket.type == "CONTROL"]
-
-    @cached_property
     def data_in(self) -> Sequence[SocketT]:
-        return [socket for socket in self.inputs if socket.type == "DATA"]
+        return [socket for socket in self.inputs if socket.type == StepSocketType.DATA]
 
     @cached_property
     def data_out(self) -> Sequence[SocketT]:
-        return [socket for socket in self.outputs if socket.type == "DATA"]
+        return [socket for socket in self.outputs if socket.type == StepSocketType.DATA]
 
-    def get_subgraph_node_ids(self, subgraph_socket_id: str, graph: "ComputeGraph") -> set[int]:
+    def get_subgraph_node_ids(self, subgraph_socket_id: str, graph: "ComputeGraph") -> set[str]:
         subgraph_socket: StepSocket | None = self.get_socket(subgraph_socket_id)
         if subgraph_socket is None:
             raise ValueError(f"Subgraph socket {subgraph_socket_id} not found!")
@@ -229,7 +211,7 @@ class Step[SocketT: StepSocket](CustomBaseModel, GraphNode[SocketT], abc.ABC, po
             # This can happen if the a step allows an empty subgraph - we defer the check to the step
             return set()
 
-        subgraph_node_ids: set[int] = set()
+        subgraph_node_ids: set[str] = set()
         bfs_queue: deque[Step] = deque([subgraph_start_node])
         while len(bfs_queue):
             frontier_node = bfs_queue.popleft()
@@ -253,9 +235,8 @@ class Step[SocketT: StepSocket](CustomBaseModel, GraphNode[SocketT], abc.ABC, po
 
         return subgraph_node_ids
 
-    def get_all_subgraph_node_ids(self, graph: "ComputeGraph") -> set[int]:
-        subgraph_node_ids: set[int] = set()
-
+    def get_all_subgraph_node_ids(self, graph: "ComputeGraph") -> set[str]:
+        subgraph_node_ids: set[str] = set()
         for socket_id in self.subgraph_socket_ids:
             subgraph_node_ids |= self.get_subgraph_node_ids(socket_id, graph)
 
@@ -573,7 +554,7 @@ StepClasses = (
 )
 
 
-class ComputeGraph(Graph[StepClasses]):
+class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
     def _create_link_variable(self, from_node: Step, from_socket: str) -> ProgramVariable:
         """
         Create a variable name for the output of a node. The variable name must be unique across all nodes and sockets.
@@ -588,7 +569,7 @@ class ComputeGraph(Graph[StepClasses]):
         self,
         user_input_step: Optional["InputStep"] = None,
         debug: bool = True,
-        node_ids: set[int] | None = None,
+        node_ids: set[str] | None = None,
     ) -> Program:
         """
         Run the compute graph with the given user input.
@@ -607,11 +588,11 @@ class ComputeGraph(Graph[StepClasses]):
 
         # If node_ids is provided, we exclude all other nodes
         # This is useful when we want to run only a subset of the compute graph
-        node_ids_to_exclude: set[int] = set()
+        node_ids_to_exclude: set[str] = set()
         if node_ids is not None:
             node_ids_to_exclude = set(self.node_index.keys()) - node_ids
 
-        subgraph_node_ids: set[int] = set()
+        subgraph_node_ids: set[str] = set()
         for node in self.nodes:
             if node.id not in node_ids_to_exclude:
                 subgraph_node_ids |= node.get_all_subgraph_node_ids(self)
