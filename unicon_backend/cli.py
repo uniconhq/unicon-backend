@@ -24,11 +24,7 @@ def init_permify():
 
     from unicon_backend.constants import PERMIFY_HOST, PERMIFY_TENANT_ID
 
-    schema: str = (
-        importlib.resources.files("unicon_backend.lib.permissions")
-        .joinpath("unicon.perm")
-        .read_text()
-    )
+    schema: str = importlib.resources.files("unicon_backend").joinpath("../unicon.perm").read_text()
 
     if (schema_write_body := p.SchemaWriteBody.from_dict({"schema": schema})) is None:
         # This should not happen.
