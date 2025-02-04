@@ -96,10 +96,14 @@ def permission_lookup(model_class: Any, permission: str, user: UserORM) -> list[
     )
 
     tokens = set()
-    while result.continuous_token and result.continuous_token not in tokens:
+    while True:
         results.extend([int(entity_id) for entity_id in result.entity_ids or []])
+
         # Handles the weird case where `result.continous_token` is duplicated
+        if not (result.continuous_token and result.continuous_token not in tokens):
+            break
         tokens.add(result.continuous_token)
+
         result = _perms_api.permissions_lookup_entity(
             PERMIFY_TENANT_ID,
             p.LookupEntityBody(
