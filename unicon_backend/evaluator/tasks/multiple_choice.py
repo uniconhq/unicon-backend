@@ -7,7 +7,7 @@ from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalSt
 
 
 class Choice(BaseModel):
-    id: int
+    id: str  # uuid generated on the frontend
     order_index: int
     text: str
 
@@ -16,7 +16,7 @@ class MultipleChoiceTask(Task[int, RootModel[bool]]):
     type: Literal[TaskType.MULTIPLE_CHOICE]
     question: str
     choices: list[Choice]
-    expected_answer: int
+    expected_answer: str
 
     @model_validator(mode="after")
     def check_expected_answer_is_valid(self) -> Self:
@@ -32,7 +32,7 @@ class MultipleChoiceTask(Task[int, RootModel[bool]]):
         )
 
     def validate_user_input(self, user_input: Any) -> int:
-        return RootModel[int].model_validate(user_input).root
+        return RootModel[str].model_validate(user_input).root
 
 
 class MultipleResponseTaskResult(BaseModel):
@@ -45,7 +45,7 @@ class MultipleResponseTask(Task[set[int], MultipleResponseTaskResult]):
     type: Literal[TaskType.MULTIPLE_RESPONSE]
     question: str
     choices: list[Choice]
-    expected_answer: list[int]
+    expected_answer: list[str]
 
     @cached_property
     def valid_choice_ids(self) -> set[int]:
@@ -62,7 +62,7 @@ class MultipleResponseTask(Task[set[int], MultipleResponseTaskResult]):
             raise ValueError("The answer(s) must be within the given choice IDs.")
         return self
 
-    def run(self, user_input: set[int]) -> TaskEvalResult[MultipleResponseTaskResult]:
+    def run(self, user_input: set[str]) -> TaskEvalResult[MultipleResponseTaskResult]:
         expected_answer = set(self.expected_answer)
 
         # This is necessary as formerly valid user input may no longer be valid after a task update.
