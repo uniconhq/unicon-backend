@@ -243,6 +243,48 @@ def submit_problem_task_attempt(
     return task_attempt_orm
 
 
+@router.post(
+    "/attempts/{attempt_id}/rerun",
+    summary="Rerun a task attempt",
+)
+def rerun_task_attempt(
+    attempt_id: int,
+    db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+):
+    task_attempt = db_session.scalar(
+        select(TaskAttemptORM)
+        .where(TaskAttemptORM.id == attempt_id)
+        .options(
+            selectinload(TaskAttemptORM.task_results),
+            selectinload(TaskAttemptORM.task).selectinload(TaskORM.problem),
+        )
+    )
+
+    if not task_attempt:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Task attempt not found in database"
+        )
+
+    # TODO: proper permission check
+    if task_attempt.user_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to rerun task attempt",
+        )
+
+    problem: Problem = task_attempt.task.problem.to_problem()
+    task_result: TaskEvalResult = problem.run_task(
+        task_attempt.task_id, task_attempt.other_fields["user_input"]
+    )
+    task_result_orm: TaskResultORM = TaskResultORM.from_task_eval_result(
+        task_result, attempt_id=task_attempt.id, task_type=task_attempt.task_type
+    )
+    task_attempt.task_results.append(task_result_orm)
+    db_session.add(task_result_orm)
+    db_session.commit()
+
+
 @router.get(
     "/{id}/tasks/{task_id}/attempts",
     summary="Get results of all task attempts for a task",
@@ -254,8 +296,6 @@ def get_problem_task_attempt_results(
     db_session: Annotated[Session, Depends(get_db_session)],
     user: Annotated[UserORM, Depends(get_current_user)],
 ) -> list[TaskAttemptResult]:
-    # NOTE: For now, we maintain a 1:1 relation between task attempt and task result
-    # However, this may change in the future once we are able to support attempts with multiple results (e.g. rerun attempt)
     task_attempts = db_session.scalars(
         select(TaskAttemptORM)
         .where(TaskAttemptORM.problem_id == problem_orm.id)
