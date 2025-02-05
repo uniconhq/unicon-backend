@@ -61,6 +61,7 @@ def add_task_to_problem(
 
     taskOrm = TaskORM.from_task(task)
     taskOrm.id = max((task.id for task in problem_orm.tasks), default=-1) + 1
+    taskOrm.order_index = max((task.order_index for task in problem_orm.tasks), default=-1) + 1
 
     problem_orm.tasks.append(taskOrm)
     db_session.add(problem_orm)
