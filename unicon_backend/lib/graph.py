@@ -5,7 +5,7 @@ from typing import Generic, Self, TypeVar
 
 from pydantic import BaseModel, model_validator
 
-from unicon_backend.lib.common import create_multi_index
+from unicon_backend.lib.helpers import create_multi_index
 
 IdType = TypeVar("IdType", bound=str)
 
