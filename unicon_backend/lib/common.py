@@ -8,11 +8,14 @@ from sqlmodel import MetaData, SQLModel
 
 
 def create_multi_index[T, K, V](
-    items: list[T], key_fn: Callable[[T], K], value_fn: Callable[[T], V]
+    items: list[T],
+    key_fn: Callable[[T], K],
+    value_fn: Callable[[T], V],
+    filter_fn: Callable[[T], bool] = lambda _: True,
 ) -> defaultdict[K, list[V]]:
     """Create a one-to-many mapping index from a single list of items"""
     index = defaultdict(list)
-    for item in items:
+    for item in filter(filter_fn, items):
         index[key_fn(item)].append(value_fn(item))
     return index
 

@@ -86,6 +86,13 @@ class Graph(BaseModel, Generic[GraphNodeType, GraphEdgeType]):
         """Return a map of node id to a list of ids of edges that are incoming to the node"""
         return create_multi_index(self.edges, lambda e: e.to_node_id, lambda e: e)
 
+    def get_connected_nodes(self, node_id: str, socket_id: str) -> list[str]:
+        edges = [*self.out_edges_index.get(node_id, []), *self.in_edges_index.get(node_id, [])]
+        return [
+            *[e.to_node_id for e in edges if e.from_socket_id == socket_id],
+            *[e.from_node_id for e in edges if e.to_socket_id == socket_id],
+        ]
+
     def topological_sort(self, ignored_node_ids: set[str] | None = None) -> list[GraphNodeType]:
         """
         Perform topological sort on the graph
