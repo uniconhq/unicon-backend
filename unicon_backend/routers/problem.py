@@ -115,18 +115,23 @@ def update_task(
         task_attempt.clone(new_task_orm.id) for task_attempt in old_task_orm.task_attempts
     ]
 
+    # If code below this throws an error, ensure that the old task will at least be hidden
+    db_session.add(old_task_orm)
+    db_session.commit()
+
     problem = problem_orm.to_problem()
 
     if data.rerun:
-        for task_attempt in old_task_orm.task_attempts:
+        for task_attempt in new_task_orm.task_attempts:
             user_input = task_attempt.other_fields.get("user_input")
             task_result: TaskEvalResult = problem.run_task(new_task_orm.id, user_input)
             task_result_orm: TaskResultORM = TaskResultORM.from_task_eval_result(
                 task_result, attempt_id=task_attempt.id, task_type=new_task_orm.type
             )
             task_attempt.task_results.append(task_result_orm)
+            db_session.add(task_result_orm)
 
-    db_session.add_all([old_task_orm, new_task_orm])
+    db_session.add(new_task_orm)
     db_session.commit()
 
 
