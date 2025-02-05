@@ -9,11 +9,7 @@ from sqlmodel import Session, col
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.group import get_group_by_id
-from unicon_backend.lib.permissions.permission import (
-    permission_check,
-    permission_delete,
-    permission_update,
-)
+from unicon_backend.lib.permissions import permission_check, permission_delete, permission_update
 from unicon_backend.models.links import GroupMember
 from unicon_backend.models.organisation import Group
 from unicon_backend.models.user import UserORM

@@ -9,7 +9,7 @@ from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.problem import get_problem_by_id
 from unicon_backend.evaluator.problem import Problem, Task, UserInput
-from unicon_backend.lib.permissions.permission import (
+from unicon_backend.lib.permissions import (
     permission_check,
     permission_create,
     permission_list_for_subject,
@@ -24,6 +24,7 @@ from unicon_backend.models.problem import (
     SubmissionPublic,
     TaskAttemptORM,
     TaskAttemptPublic,
+    TaskAttemptResult,
     TaskORM,
 )
 from unicon_backend.models.user import UserORM
@@ -142,6 +143,30 @@ def submit_problem_task_attempt(
     db_session.refresh(task_attempt_orm)
 
     return task_attempt_orm
+
+
+@router.get(
+    "/{id}/tasks/{task_id}/attempts",
+    summary="Get results of all task attempts for a task",
+    response_model=list[TaskAttemptResult],
+)
+def get_problem_task_attempt_results(
+    task_id: int,
+    problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+) -> list[TaskAttemptResult]:
+    # NOTE: For now, we maintain a 1:1 relation between task attempt and task result
+    # However, this may change in the future once we are able to support attempts with multiple results (e.g. rerun attempt)
+    task_attempts = db_session.scalars(
+        select(TaskAttemptORM)
+        .where(TaskAttemptORM.problem_id == problem_orm.id)
+        .where(TaskAttemptORM.task_id == task_id)
+        .where(TaskAttemptORM.user_id == user.id)
+        .options(selectinload(TaskAttemptORM.task_results))
+    ).all()
+
+    return [TaskAttemptResult.model_validate(task_attempt) for task_attempt in task_attempts]
 
 
 @router.post("/{id}/submit", summary="Make a problem submission", response_model=SubmissionPublic)

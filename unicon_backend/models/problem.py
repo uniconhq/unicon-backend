@@ -150,6 +150,10 @@ class TaskAttemptPublic(TaskAttemptBase):
     task: "TaskORM"
 
 
+class TaskAttemptResult(TaskAttemptBase):
+    task_results: list["TaskResult"]
+
+
 class TaskAttemptORM(CustomSQLModel, table=True):
     __tablename__ = "task_attempt"
     __table_args__ = (

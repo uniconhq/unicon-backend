@@ -1,5 +1,3 @@
-import importlib.resources
-import os
 from typing import Annotated
 
 import typer
@@ -7,16 +5,8 @@ from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
 
-from unicon_backend.dependencies.project import role_permissions
-from unicon_backend.lib.permissions.permission import (
-    debug_list_tuples,
-    delete_all_permission_records,
-    init_schema,
-    permission_create,
-)
-from unicon_backend.models.organisation import Group
-
 rich_console = Console()
+
 app = typer.Typer(name="Unicon 🦄 CLI")
 
 permify_app = typer.Typer()
@@ -26,16 +16,25 @@ app.add_typer(permify_app, name="permify")
 @permify_app.command(name="init")
 def init_permify():
     """Sends the schema file to permify."""
+    import importlib.resources
 
-    # This prevents SCHEMA_VERSION from erroring out in constants.py (it is required)
-    os.environ["SCHEMA_VERSION"] = "PLACEHOLDER"
-    schema = (
-        importlib.resources.files("unicon_backend.lib.permissions")
-        .joinpath("unicon.perm")
-        .read_text()
-    )
-    schema_version = init_schema(schema)
-    print(f"Schema version: {schema_version}. Please update your .env file.")
+    import permify as p
+
+    from unicon_backend.constants import PERMIFY_HOST, PERMIFY_TENANT_ID
+
+    schema: str = importlib.resources.files("unicon_backend").joinpath("../unicon.perm").read_text()
+
+    if (schema_write_body := p.SchemaWriteBody.from_dict({"schema": schema})) is None:
+        # This should not happen.
+        raise ValueError("Failed to create schema write body")
+
+    schema_api = p.SchemaApi(p.ApiClient(p.Configuration(host=PERMIFY_HOST)))
+    response = schema_api.schemas_write(PERMIFY_TENANT_ID, schema_write_body)
+
+    if (schema_version := response.schema_version) is None:
+        raise ValueError("Failed to create schema, is the schema valid?")
+
+    rich_console.print(f"Initialized schema version: [bold green]{schema_version}[/bold green]")
 
 
 @permify_app.command(name="seed")
@@ -44,8 +43,9 @@ def seed_permify():
     from sqlalchemy import select
 
     from unicon_backend.database import SessionLocal
+    from unicon_backend.lib.permissions import delete_all_permission_records, permission_create
     from unicon_backend.models.links import UserRole
-    from unicon_backend.models.organisation import Organisation, Project, Role
+    from unicon_backend.models.organisation import Group, Organisation, Project, Role
     from unicon_backend.models.problem import ProblemORM, SubmissionORM
 
     # assume schema is initialised (run init-permify if not)
@@ -57,13 +57,11 @@ def seed_permify():
             models = session.scalars(select(model_class)).all()
             for model in models:
                 permission_create(model)
+            rich_console.print(
+                f"Seeded permissions for [bold magenta]{model_class.__name__}[/bold magenta] (count: {len(models)})"
+            )
 
     rich_console.print("Permissions seeded successfully 🌈")
-
-
-@permify_app.command(name="list")
-def list_permify():
-    debug_list_tuples()
 
 
 @app.command(name="seed")
@@ -71,6 +69,7 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
     """Seed the database with initial admin user, organisation, roles, projects and problems."""
     from unicon_backend.database import SessionLocal
     from unicon_backend.dependencies.auth import AUTH_PWD_CONTEXT
+    from unicon_backend.dependencies.project import role_permissions
     from unicon_backend.evaluator.problem import Problem
     from unicon_backend.models.organisation import Organisation, Project, Role
     from unicon_backend.models.problem import ProblemORM
@@ -108,8 +107,6 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
     db_session.add_all([organisation, project])
     db_session.commit()
 
-    seed_permify()
-
     rich_console.print("Database seeded successfully 🌈")
 
     table = Table(show_header=True, show_lines=True)
@@ -124,6 +121,9 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
     # fmt: on
 
     rich_console.print(table)
+
+    rich_console.print("Seeding permissions...")
+    seed_permify()
 
 
 @app.command(name="assemble")

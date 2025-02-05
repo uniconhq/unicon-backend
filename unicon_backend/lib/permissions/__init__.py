@@ -1,18 +1,34 @@
-from typing import Any
+from typing import Any, Final
 
 import permify as p
 from rich import print
 
-from unicon_backend.constants import PERMIFY_HOST, SCHEMA_VERSION
-from unicon_backend.models.links import GroupMember, UserRole
-from unicon_backend.models.organisation import Group, Organisation, Project, Role
+from unicon_backend.constants import PERMIFY_HOST, PERMIFY_SCHEMA_VERSION, PERMIFY_TENANT_ID
+from unicon_backend.models.links import UserRole
+from unicon_backend.models.organisation import Group, GroupMember, Organisation, Project, Role
 from unicon_backend.models.problem import ProblemORM, SubmissionORM
 from unicon_backend.models.user import UserORM
 
-SCHEMA_VERSION = SCHEMA_VERSION
 CONFIGURATION = p.Configuration(host=PERMIFY_HOST)
-# We don't have tenancy, so this is the same for all requests.
-TENANT_ID = "t1"
+
+_api_client = p.ApiClient(p.Configuration(host=PERMIFY_HOST))
+_data_api = p.DataApi(_api_client)
+_schema_api = p.SchemaApi(_api_client)
+_perms_api = p.PermissionApi(_api_client)
+
+
+def _get_latest_schema_version() -> str | None:
+    """Get the latest schema version from Permify."""
+    return _schema_api.schemas_list(PERMIFY_TENANT_ID, p.SchemaListBody()).head
+
+
+SCHEMA_VERSION: str | None = PERMIFY_SCHEMA_VERSION or _get_latest_schema_version()
+
+if SCHEMA_VERSION is None:
+    raise RuntimeError("Failed to get Permify schema version!")
+
+
+DEFAULT_METADATA: Final = {"schema_version": SCHEMA_VERSION}
 
 
 def _get_all_tuples_and_attributes() -> tuple[list[p.Tuple], list[p.Attribute]]:
@@ -25,7 +41,7 @@ def _get_all_tuples_and_attributes() -> tuple[list[p.Tuple], list[p.Attribute]]:
         tokens = set()
         while True:
             attributes_response = data_api.data_attributes_read(
-                TENANT_ID,
+                PERMIFY_TENANT_ID,
                 p.ReadAttributesBody(
                     metadata=p.AttributeReadRequestMetadata.model_validate(
                         {"schema_version": SCHEMA_VERSION}
@@ -46,7 +62,7 @@ def _get_all_tuples_and_attributes() -> tuple[list[p.Tuple], list[p.Attribute]]:
         tokens = set()
         while True:
             tuples_response = data_api.data_relationships_read(
-                TENANT_ID,
+                PERMIFY_TENANT_ID,
                 p.ReadRelationshipsBody(
                     metadata=p.RelationshipReadRequestMetadata.model_validate(
                         {"schema_version": SCHEMA_VERSION}
@@ -63,40 +79,15 @@ def _get_all_tuples_and_attributes() -> tuple[list[p.Tuple], list[p.Attribute]]:
 
 
 def debug_list_tuples():
-    with p.ApiClient(CONFIGURATION) as api_client:
-        data_api = p.DataApi(api_client)
-        attributes = data_api.data_attributes_read(
-            TENANT_ID,
-            p.ReadAttributesBody(metadata={"schema_version": SCHEMA_VERSION}, filter={}),
-        )
-        print(attributes)
+    attributes = _data_api.data_attributes_read(
+        PERMIFY_TENANT_ID, p.ReadAttributesBody(metadata=DEFAULT_METADATA, filter={})
+    )
+    print(attributes)
 
-        relations = data_api.data_relationships_read(
-            TENANT_ID,
-            p.ReadRelationshipsBody(
-                metadata={"schema_version": SCHEMA_VERSION},
-                filter={},
-            ),
-        )
-        print(relations)
-
-
-def init_schema(schema: str) -> str:
-    """Initialise the schema for the permission system. Returns the schema version."""
-
-    schema_write_body = p.SchemaWriteBody.from_dict({"schema": str(schema)})
-    if schema_write_body is None:
-        # This should not happen.
-        raise ValueError("Failed to create schema write body")
-
-    with p.ApiClient(CONFIGURATION) as api_client:
-        schema_api = p.SchemaApi(api_client)
-        response = schema_api.schemas_write("t1", schema_write_body)
-
-        schema_version = response.schema_version
-        if not schema_version:
-            raise ValueError("Schema version is unexpectedly none. Is the schema valid?")
-        return schema_version
+    relations = _data_api.data_relationships_read(
+        PERMIFY_TENANT_ID, p.ReadRelationshipsBody(metadata=DEFAULT_METADATA, filter={})
+    )
+    print(relations)
 
 
 def delete_all_permission_records():
@@ -138,46 +129,48 @@ PERMISSIONS = [
     "delete_groups_access",
 ]
 
+DEPTH: Final[int] = 200
+
 
 def permission_lookup(model_class: Any, permission: str, user: UserORM) -> list[int]:
     """Given a model class, return all ids that the user can do PERMISSION on.
 
     This function uses the Lookup Entity route (https://docs.permify.co/api-reference/permission/lookup-entity)"""
     metadata = p.PermissionLookupEntityRequestMetadata.from_dict(
-        {"schema_version": SCHEMA_VERSION, "depth": 200}
+        {**DEFAULT_METADATA, "depth": DEPTH}
     )
 
-    with p.ApiClient(CONFIGURATION) as api_client:
-        permission_api = p.PermissionApi(api_client)
-        results: list[int] = []
-        result = permission_api.permissions_lookup_entity(
-            TENANT_ID,
+    results: list[int] = []
+    result = _perms_api.permissions_lookup_entity(
+        PERMIFY_TENANT_ID,
+        p.LookupEntityBody(
+            metadata=metadata,
+            entity_type=_model_to_type(model_class),
+            permission=permission,
+            subject=p.Subject(type="user", id=str(user.id)),
+        ),
+    )
+
+    tokens = set()
+    while True:
+        results.extend([int(entity_id) for entity_id in result.entity_ids or []])
+
+        # Handles the weird case where `result.continous_token` is duplicated
+        if not (result.continuous_token and result.continuous_token not in tokens):
+            break
+        tokens.add(result.continuous_token)
+
+        result = _perms_api.permissions_lookup_entity(
+            PERMIFY_TENANT_ID,
             p.LookupEntityBody(
                 metadata=metadata,
                 entity_type=_model_to_type(model_class),
                 permission=permission,
                 subject=p.Subject(type="user", id=str(user.id)),
+                continuous_token=result.continuous_token,
             ),
         )
-
-        tokens = set()
-        while True:
-            results.extend([int(entity_id) for entity_id in result.entity_ids or []])
-            # Handles the weird case where result.continous_token is duplicated
-            if not result.continuous_token or result.continuous_token in tokens:
-                break
-            tokens.add(result.continuous_token)
-            result = permission_api.permissions_lookup_entity(
-                TENANT_ID,
-                p.LookupEntityBody(
-                    metadata=metadata,
-                    entity_type=_model_to_type(model_class),
-                    permission=permission,
-                    subject=p.Subject(type="user", id=str(user.id)),
-                    continuous_token=result.continuous_token,
-                ),
-            )
-        return results
+    return results
 
 
 def permission_list_for_subject(model: Any, user: UserORM) -> dict[str, bool]:
@@ -186,28 +179,26 @@ def permission_list_for_subject(model: Any, user: UserORM) -> dict[str, bool]:
     This function users the Subject Permission List route (https://docs.permify.co/api-reference/permission/subject-permission)
     """
     metadata = p.PermissionSubjectPermissionRequestMetadata.from_dict(
-        {"schema_version": SCHEMA_VERSION, "depth": 200}
+        {**DEFAULT_METADATA, "depth": DEPTH}
     )
 
-    with p.ApiClient(CONFIGURATION) as api_client:
-        permission_api = p.PermissionApi(api_client)
-        result = permission_api.permissions_subject_permission(
-            TENANT_ID,
-            p.SubjectPermissionBody(
-                metadata=metadata,
-                entity=_make_entity(_model_to_type(model), str(model.id)),
-                subject=_make_entity("user", str(user.id)),
-            ),
-        )
+    result = _perms_api.permissions_subject_permission(
+        PERMIFY_TENANT_ID,
+        p.SubjectPermissionBody(
+            metadata=metadata,
+            entity=_make_entity(_model_to_type(model), str(model.id)),
+            subject=_make_entity("user", str(user.id)),
+        ),
+    )
 
-        if not result.results:
-            # This should not happen.
-            raise ValueError("No results found")
+    if not result.results:
+        # This should not happen.
+        raise ValueError("No results found")
 
-        return {
-            permission: allowed == p.CheckResult.CHECK_RESULT_ALLOWED
-            for permission, allowed in result.results.items()
-        }
+    return {
+        permission: allowed == p.CheckResult.CHECK_RESULT_ALLOWED
+        for permission, allowed in result.results.items()
+    }
 
 
 def _get_tuples_and_attributes(model: Any) -> tuple[list[p.Tuple], list[p.Attribute]]:
@@ -244,20 +235,17 @@ def permission_create(model: Any):
         # This should not happen.
         raise ValueError("Failed to create metadata")
 
-    with p.ApiClient(CONFIGURATION) as api_client:
-        data_api = p.DataApi(api_client)
-        data_api.data_write(
-            TENANT_ID,
-            p.DataWriteBody(metadata=metadata, tuples=tuples, attributes=attributes),
-        )
+    _data_api.data_write(
+        PERMIFY_TENANT_ID,
+        p.DataWriteBody(metadata=metadata, tuples=tuples, attributes=attributes),
+    )
 
 
 def permission_delete(model: Any):
     """given a model, delete permission records for it"""
     tuples, attributes = _get_tuples_and_attributes(model)
 
-    metadata = p.DataWriteRequestMetadata.from_dict({"schema_version": SCHEMA_VERSION})
-    if not metadata:
+    if p.DataWriteRequestMetadata.from_dict(DEFAULT_METADATA) is None:
         # This should not happen.
         raise ValueError("Failed to create metadata")
 
@@ -267,53 +255,48 @@ def permission_delete(model: Any):
 def _delete_tuples_and_attributes(
     delete_tuples: list[p.Tuple], delete_attributes: list[p.Attribute]
 ):
-    with p.ApiClient(CONFIGURATION) as api_client:
-        data_api = p.DataApi(api_client)
-
-        # delete old tuples
-        for old_tuple in delete_tuples:
-            entity = old_tuple.entity
-            relation = old_tuple.relation
-            subject = old_tuple.subject
-            if (
-                entity is None
-                or relation is None
-                or subject is None
-                or entity.id is None
-                or subject.id is None
-            ):
-                # This should never happen.
-                raise ValueError("Failed to extract entity, relation, or subject")
-
-            data_api.data_delete(
-                TENANT_ID,
-                p.DataDeleteBody(
-                    tuple_filter=p.TupleFilter(
-                        entity=p.EntityFilter(type=entity.type, ids=[entity.id]),
-                        relation=relation,
-                        subject=p.SubjectFilter(type=subject.type, ids=[subject.id]),
-                    ),
-                    attribute_filter=p.AttributeFilter(),
+    # delete old tuples
+    for old_tuple in delete_tuples:
+        entity = old_tuple.entity
+        relation = old_tuple.relation
+        subject = old_tuple.subject
+        if (
+            entity is None
+            or relation is None
+            or subject is None
+            or entity.id is None
+            or subject.id is None
+        ):
+            # This should never happen.
+            raise ValueError("Failed to extract entity, relation, or subject")
+        _data_api.data_delete(
+            PERMIFY_TENANT_ID,
+            p.DataDeleteBody(
+                tuple_filter=p.TupleFilter(
+                    entity=p.EntityFilter(type=entity.type, ids=[entity.id]),
+                    relation=relation,
+                    subject=p.SubjectFilter(type=subject.type, ids=[subject.id]),
                 ),
-            )
+                attribute_filter=p.AttributeFilter(),
+            ),
+        )
 
-        for old_attribute in delete_attributes:
-            entity = old_attribute.entity
-            attribute = old_attribute.attribute
-            if entity is None or attribute is None or entity.id is None:
-                # This should never happen.
-                raise ValueError("Failed to extract entity or attribute")
-
-            data_api.data_delete(
-                TENANT_ID,
-                p.DataDeleteBody(
-                    tuple_filter=p.TupleFilter(),
-                    attribute_filter=p.AttributeFilter(
-                        entity=p.EntityFilter(type=entity.type, ids=[entity.id]),
-                        attributes=[attribute],
-                    ),
+    for old_attribute in delete_attributes:
+        entity = old_attribute.entity
+        attribute = old_attribute.attribute
+        if entity is None or attribute is None or entity.id is None:
+            # This should never happen.
+            raise ValueError("Failed to extract entity or attribute")
+        _data_api.data_delete(
+            PERMIFY_TENANT_ID,
+            p.DataDeleteBody(
+                tuple_filter=p.TupleFilter(),
+                attribute_filter=p.AttributeFilter(
+                    entity=p.EntityFilter(type=entity.type, ids=[entity.id]),
+                    attributes=[attribute],
                 ),
-            )
+            ),
+        )
 
 
 def permission_update(old: Any, new: Any, optimised=True):
@@ -360,9 +343,33 @@ def permission_update(old: Any, new: Any, optimised=True):
     with p.ApiClient(CONFIGURATION) as api_client:
         data_api = p.DataApi(api_client)
         data_api.data_write(
-            TENANT_ID,
+            PERMIFY_TENANT_ID,
             p.DataWriteBody(metadata=metadata, tuples=create_tuples, attributes=create_attributes),
         )
+
+    for old_attribute in delete_attributes:
+        entity = old_attribute.entity
+        attribute = old_attribute.attribute
+        if entity is None or attribute is None or entity.id is None:
+            # This should never happen.
+            raise ValueError("Failed to extract entity or attribute")
+
+        _data_api.data_delete(
+            PERMIFY_TENANT_ID,
+            p.DataDeleteBody(
+                tuple_filter=p.TupleFilter(),
+                attribute_filter=p.AttributeFilter(
+                    entity=p.EntityFilter(type=entity.type, ids=[entity.id]),
+                    attributes=[attribute],
+                ),
+            ),
+        )
+
+    # recreate new tuples
+    _data_api.data_write(
+        PERMIFY_TENANT_ID,
+        p.DataWriteBody(metadata=metadata, tuples=create_tuples, attributes=create_attributes),
+    )
 
 
 def _model_to_type(model: Any) -> str:
@@ -387,39 +394,37 @@ def _model_to_type(model: Any) -> str:
 
 def permission_check(entity, permission, subject) -> bool:
     """can SUBJECT (probably the user) do PERMISSION on ENTITY?"""
-    metadata = p.PermissionCheckRequestMetadata.from_dict(
-        {"schema_version": SCHEMA_VERSION, "depth": 200}
-    )
-    if not metadata:
+    if (
+        metadata := p.PermissionCheckRequestMetadata.from_dict({**DEFAULT_METADATA, "depth": DEPTH})
+    ) is None:
         # This should not happen.
         raise ValueError("Failed to create metadata")
 
-    with p.ApiClient(CONFIGURATION) as api_client:
-        permissions_api = p.PermissionApi(api_client)
-        result = permissions_api.permissions_check(
-            TENANT_ID,
-            p.CheckBody(
-                metadata=metadata,
-                entity=_make_entity(_model_to_type(entity), str(entity.id)),
-                permission=permission,
-                subject=_make_entity(_model_to_type(subject), str(subject.id)),
-            ),
-        )
-        return result.can == p.CheckResult.CHECK_RESULT_ALLOWED
+    result = _perms_api.permissions_check(
+        PERMIFY_TENANT_ID,
+        p.CheckBody(
+            metadata=metadata,
+            entity=_make_entity(_model_to_type(entity), str(entity.id)),
+            permission=permission,
+            subject=_make_entity(_model_to_type(subject), str(subject.id)),
+        ),
+    )
+    return result.can == p.CheckResult.CHECK_RESULT_ALLOWED
 
 
 def _make_tuple(entity, relation, subject) -> p.Tuple:
-    result = p.Tuple.from_dict({"entity": entity, "relation": relation, "subject": subject})
-    if result is None:
+    if (
+        result := p.Tuple.from_dict({"entity": entity, "relation": relation, "subject": subject})
+    ) is None:
         # This should never happen.
         raise ValueError("Failed to create tuple")
+
     return result
 
 
 def _get_permify_bool(bool: bool) -> p.Any:
     # I think the type error here is from a weird bug in p.Any where it collides with typing.Any (and should be fine)
-    value = p.Any.from_dict({"@type": "type.googleapis.com/base.v1.BooleanValue", "data": bool})  # type:ignore
-    return value
+    return p.Any.from_dict({"@type": "type.googleapis.com/base.v1.BooleanValue", "data": bool})  # type:ignore
 
 
 def _make_attribute(entity, attribute, value) -> p.Attribute:

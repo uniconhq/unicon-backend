@@ -268,3 +268,7 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_user_username"), table_name="user")
     op.drop_table("user")
     # ### end Alembic commands ###
+
+    # Manually remove ENUM types
+    op.execute("DROP TYPE IF EXISTS tasktype")
+    op.execute("DROP TYPE IF EXISTS taskevalstatus")
