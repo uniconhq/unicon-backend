@@ -290,8 +290,8 @@ class MultipleChoiceTaskResult(TaskResultPublic):
 
 
 class MultipleResponseTaskResultType(CustomSQLModel):
-    correct_choices: list[int]
-    incorrect_choices: list[int]
+    correct_choices: list[str]
+    incorrect_choices: list[str]
     num_choices: int
 
 
