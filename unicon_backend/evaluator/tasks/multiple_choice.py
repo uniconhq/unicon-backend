@@ -12,7 +12,7 @@ class Choice(BaseModel):
     text: str
 
 
-class MultipleChoiceTask(Task[int, RootModel[bool]]):
+class MultipleChoiceTask(Task[str, RootModel[bool]]):
     type: Literal[TaskType.MULTIPLE_CHOICE]
     question: str
     choices: list[Choice]
@@ -24,14 +24,14 @@ class MultipleChoiceTask(Task[int, RootModel[bool]]):
             raise ValueError("The answer must match one of the provided choice IDs.")
         return self
 
-    def run(self, user_input: int) -> TaskEvalResult[RootModel[bool]]:
+    def run(self, user_input: str) -> TaskEvalResult[RootModel[bool]]:
         return TaskEvalResult(
             task_id=self.id,
             status=TaskEvalStatus.SUCCESS,
             result=RootModel[bool](user_input == self.expected_answer),
         )
 
-    def validate_user_input(self, user_input: Any) -> int:
+    def validate_user_input(self, user_input: Any) -> str:
         return RootModel[str].model_validate(user_input).root
 
 
@@ -41,14 +41,14 @@ class MultipleResponseTaskResult(BaseModel):
     num_choices: int
 
 
-class MultipleResponseTask(Task[set[int], MultipleResponseTaskResult]):
+class MultipleResponseTask(Task[set[str], MultipleResponseTaskResult]):
     type: Literal[TaskType.MULTIPLE_RESPONSE]
     question: str
     choices: list[Choice]
     expected_answer: list[str]
 
     @cached_property
-    def valid_choice_ids(self) -> set[int]:
+    def valid_choice_ids(self) -> set[str]:
         return {choice.id for choice in self.choices}
 
     @model_validator(mode="after")
@@ -79,5 +79,5 @@ class MultipleResponseTask(Task[set[int], MultipleResponseTaskResult]):
             ),
         )
 
-    def validate_user_input(self, user_input: Any) -> set[int]:
+    def validate_user_input(self, user_input: Any) -> set[str]:
         return RootModel[set[str]].model_validate(user_input).root
