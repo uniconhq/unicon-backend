@@ -36,8 +36,8 @@ class MultipleChoiceTask(Task[int, RootModel[bool]]):
 
 
 class MultipleResponseTaskResult(BaseModel):
-    correct_choices: set[int]
-    incorrect_choices: set[int]
+    correct_choices: set[str]
+    incorrect_choices: set[str]
     num_choices: int
 
 
@@ -80,4 +80,4 @@ class MultipleResponseTask(Task[set[int], MultipleResponseTaskResult]):
         )
 
     def validate_user_input(self, user_input: Any) -> set[int]:
-        return RootModel[set[int]].model_validate(user_input).root
+        return RootModel[set[str]].model_validate(user_input).root
