@@ -12,7 +12,8 @@ from unicon_backend.evaluator.tasks import task_classes
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus, TaskType
 from unicon_backend.evaluator.tasks.programming.base import TestcaseResult
 from unicon_backend.lib.common import CustomSQLModel
-from unicon_backend.schemas.auth import UserPublic
+from unicon_backend.schemas.group import UserPublicWithRolesAndGroups
+from unicon_backend.schemas.problem import MiniProblemPublic
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import Task
@@ -132,7 +133,8 @@ class SubmissionORM(SubmissionBase, table=True):
 
 class SubmissionPublic(SubmissionBase):
     task_attempts: list["TaskAttemptPublic"]
-    user: UserPublic
+    user: UserPublicWithRolesAndGroups
+    problem: MiniProblemPublic
 
 
 class TaskAttemptBase(CustomSQLModel):
