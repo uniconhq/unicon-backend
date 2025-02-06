@@ -524,15 +524,18 @@ StepClasses = (
 class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
     VAR_PREFIX: ClassVar[str] = "var_"
     _var_id: int = PrivateAttr(default=0)
+    _var_id_map: dict[str, int] = PrivateAttr(default={})
 
-    def _get_uniq_var_id(self) -> int:
-        ret_var_id = self._var_id
+    def _get_uniq_var_id(self, node_id: str) -> int:
+        if (var_id := self._var_id_map.get(node_id)) is not None:
+            return var_id
         self._var_id += 1
-        return ret_var_id
+        self._var_id_map[node_id] = self._var_id
+        return self._var_id
 
     def get_link_var(self, from_node: Step, from_socket: StepSocket) -> ProgramVariable:
         return cst.Name(
-            f"{self.VAR_PREFIX}{self._get_uniq_var_id()}_{from_node.type.value}_{from_socket.label}"
+            f"{self.VAR_PREFIX}{self._get_uniq_var_id(from_node.id)}_{from_node.type.value}_{from_socket.label}"
         )
 
     def link_type(self, edge: GraphEdge[str]) -> SocketType:
