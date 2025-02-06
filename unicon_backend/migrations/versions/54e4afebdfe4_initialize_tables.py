@@ -53,16 +53,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_project")),
     )
-    op.create_table(
-        "group",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("project_id", sa.Integer(), nullable=True),
-        sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["project_id"], ["project.id"], name=op.f("fk_group_project_id_project")
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_group")),
-    )
+
     op.create_table(
         "problem",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -84,19 +75,6 @@ def upgrade() -> None:
             ["project_id"], ["project.id"], name=op.f("fk_role_project_id_project")
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_role")),
-    )
-    op.create_table(
-        "group_member",
-        sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("group_id", sa.Integer(), nullable=False),
-        sa.Column("is_supervisor", sa.Boolean(), server_default="0", nullable=False),
-        sa.ForeignKeyConstraint(
-            ["group_id"], ["group.id"], name=op.f("fk_group_member_group_id_group")
-        ),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["user.id"], name=op.f("fk_group_member_user_id_user")
-        ),
-        sa.PrimaryKeyConstraint("user_id", "group_id", name=op.f("pk_group_member")),
     )
     op.create_table(
         "invitationkey",
@@ -259,10 +237,8 @@ def downgrade() -> None:
     op.drop_table("task")
     op.drop_table("submission")
     op.drop_table("invitationkey")
-    op.drop_table("group_member")
     op.drop_table("role")
     op.drop_table("problem")
-    op.drop_table("group")
     op.drop_table("project")
     op.drop_table("organisation")
     op.drop_index(op.f("ix_user_username"), table_name="user")
