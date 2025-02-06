@@ -32,7 +32,6 @@
               "id": "__USER_INPUT__",
               "type": "INPUT_STEP",
               "is_user": true,
-              "inputs": [],
               "outputs": [
                 {
                   "id": "__ADD_PY_FILE__",
@@ -44,7 +43,6 @@
             {
               "id": "__ARG_INPUT__",
               "type": "INPUT_STEP",
-              "inputs": [],
               "outputs": [
                 {
                   "id": "__ARG_A__",
@@ -123,8 +121,7 @@
                   },
                   "public": true
                 }
-              ],
-              "outputs": []
+              ]
             }
           ],
           "edges": [

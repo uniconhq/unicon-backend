@@ -196,6 +196,7 @@ class Step[SocketT: StepSocket](
 class InputStep(Step[StepSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (1, -1))
 
+    inputs: list[StepSocket] = []
     is_user: bool = False  # Whether the input is provided by the user
 
     @model_validator(mode="after")
@@ -275,6 +276,8 @@ class OutputSocket(StepSocket):
 
 class OutputStep(Step[OutputSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (0, 0))
+
+    outputs: list[OutputSocket] = []
 
     def run(
         self, _graph: "ComputeGraph", in_vars: dict[SocketId, ProgramVariable], *_

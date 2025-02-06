@@ -57,7 +57,6 @@
               "id": "__USER_INPUT__",
               "type": "INPUT_STEP",
               "is_user": true,
-              "inputs": [],
               "outputs": [
                 {
                   "id": "__TREE_SEARCH_FILE__",
@@ -69,7 +68,6 @@
             {
               "id": "__INPUT__",
               "type": "INPUT_STEP",
-              "inputs": [],
               "outputs": [
                 {
                   "id": "__ARG_m__",
@@ -146,7 +144,6 @@
             {
               "id": "__OUTPUT__",
               "type": "OUTPUT_STEP",
-              "outputs": [],
               "inputs": [
                 {
                   "id": "__RESULT__",
