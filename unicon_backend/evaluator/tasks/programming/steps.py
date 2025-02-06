@@ -288,7 +288,7 @@ class OutputStep(Step[OutputSocket]):
     ) -> ProgramFragment:
         result_dict = cst.Dict(
             [
-                cst.DictElement(key=cst.SimpleString(socket.label), value=in_vars[socket.id])
+                cst.DictElement(key=cst.SimpleString(repr(socket.label)), value=in_vars[socket.id])
                 for socket in self.data_in
             ]
         )
