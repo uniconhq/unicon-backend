@@ -429,13 +429,13 @@ class PyRunFunctionStep(Step[StepSocket]):
         ]
 
         if error_socket := self.alias_map.get(self._error_socket_alias):
-            non_error_sockets = [socket for socket in self.data_out if socket.id != error_socket.id]
+            out_var = graph.get_link_var(
+                self, [socket for socket in self.data_out if socket.id != error_socket.id][0]
+            )
             error_var = graph.get_link_var(self, error_socket)
         else:
-            non_error_sockets = self.data_out
+            out_var = graph.get_link_var(self, self.data_out[0])
             error_var = cst.Name("_")
-
-        out_var = graph.get_link_var(self, non_error_sockets[0])
 
         return (
             [
