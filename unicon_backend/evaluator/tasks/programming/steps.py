@@ -598,15 +598,16 @@ class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
                 if (from_s := from_s_lst[0] if from_s_lst else None) is None:
                     continue
 
-                # Find the socket that the link is connected to
-                for to_s in filter(lambda in_: in_.id == from_s.id, curr_node.inputs):
-                    if from_s.data is not None and isinstance(from_s.data, File):
-                        # NOTE: File objects are passed directly to the next step and not serialized as a variable
-                        in_files[to_s.id] = from_s.data
-                    else:
-                        in_vars[to_s.id] = self.get_link_var(from_n, from_s)
+                if (to_s := curr_node.get_socket(in_edge.to_socket_id)) is None:
+                    continue
 
-            node._debug = debug
-            program_body.extend(assemble_fragment(node.run(self, in_vars, in_files)))
+                if from_s.data is not None and isinstance(from_s.data, File):
+                    # NOTE: File objects are passed directly to the next step and not serialized as a variable
+                    in_files[to_s.id] = from_s.data
+                else:
+                    in_vars[to_s.id] = self.get_link_var(from_n, from_s)
+
+            curr_node._debug = debug
+            program_body.extend(assemble_fragment(curr_node.run(self, in_vars, in_files)))
 
         return hoist_imports(cst.Module(body=program_body))
