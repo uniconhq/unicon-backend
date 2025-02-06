@@ -1,6 +1,6 @@
 {
   "name": "Simple addition",
-  "description": "Just add two numbers. No comparison.",
+  "description": "Add 2 integers (output matching)",
   "restricted": false,
   "tasks": [
     {
@@ -9,7 +9,7 @@
       "question": "Implement addition",
       "environment": {
         "language": "PYTHON",
-        "options": {
+        "extra_options": {
           "version": "3.12"
         },
         "time_limit_secs": 5,
@@ -17,9 +17,9 @@
       },
       "required_inputs": [
         {
-          "id": "DATA.OUT.ADD",
+          "id": "__ADD_PY_FILE__",
           "data": {
-            "name": "tree_search.py",
+            "name": "add.py",
             "content": "def add(a, b):\n\traise NotImplememented()"
           }
         }
@@ -29,51 +29,74 @@
           "id": 0,
           "nodes": [
             {
-              "id": 1,
+              "id": "__USER_INPUT__",
+              "type": "INPUT_STEP",
+              "is_user": true,
+              "inputs": [],
+              "outputs": [
+                {
+                  "id": "__ADD_PY_FILE__",
+                  "type": "DATA",
+                  "label": "ADD_FILE"
+                }
+              ]
+            },
+            {
+              "id": "__ARG_INPUT__",
               "type": "INPUT_STEP",
               "inputs": [],
               "outputs": [
                 {
-                  "id": "DATA.OUT.ARG.a",
+                  "id": "__ARG_A__",
+                  "type": "DATA",
+                  "label": "ARG_A",
                   "data": 2
                 },
                 {
-                  "id": "DATA.OUT.ARG.b",
+                  "id": "__ARG_B__",
+                  "type": "DATA",
+                  "label": "ARG_B",
                   "data": 1
                 }
               ]
             },
             {
-              "id": 2,
+              "id": "__PY_RUN__",
               "type": "PY_RUN_FUNCTION_STEP",
               "function_identifier": "add",
               "inputs": [
                 {
-                  "id": "DATA.IN.FILE"
+                  "id": "__MODULE__",
+                  "type": "DATA",
+                  "label": "FILE"
                 },
                 {
-                  "id": "DATA.IN.ARG.0.a"
+                  "id": "__ARG_0__",
+                  "type": "DATA",
+                  "label": "ARG.0.a"
                 },
                 {
-                  "id": "DATA.IN.ARG.1.b"
+                  "id": "__ARG_1__",
+                  "type": "DATA",
+                  "label": "ARG.0.b"
                 }
               ],
               "outputs": [
                 {
-                  "id": "CONTROL.OUT"
-                },
-                {
-                  "id": "DATA.OUT"
+                  "id": "__RESULT__",
+                  "type": "DATA",
+                  "label": "RESULT"
                 }
               ]
             },
             {
-              "id": 3,
+              "id": "__OUTPUT__",
               "type": "OUTPUT_STEP",
               "inputs": [
                 {
-                  "id": "DATA.OUT",
-                  "user_label": "Addition output",
+                  "id": "__OUT_1__",
+                  "type": "DATA",
+                  "label": "Addition Output 1",
                   "comparison": {
                     "operator": "=",
                     "value": 3
@@ -81,8 +104,9 @@
                   "public": true
                 },
                 {
-                  "id": "DATA.OUT.1",
-                  "user_label": "Addition output again",
+                  "id": "__OUT_2__",
+                  "type": "DATA",
+                  "label": "Addition Output 2",
                   "comparison": {
                     "operator": "<",
                     "value": 1
@@ -90,8 +114,9 @@
                   "public": true
                 },
                 {
-                  "id": "DATA.OUT.2",
-                  "user_label": "Addition output again",
+                  "id": "__OUT_3__",
+                  "type": "DATA",
+                  "label": "Addition Output 3",
                   "comparison": {
                     "operator": ">",
                     "value": 5
@@ -104,46 +129,46 @@
           ],
           "edges": [
             {
-              "id": 1,
-              "from_node_id": 0,
-              "from_socket_id": "DATA.OUT.ADD",
-              "to_node_id": 2,
-              "to_socket_id": "DATA.IN.FILE"
+              "id": "1",
+              "from_node_id": "__USER_INPUT__",
+              "from_socket_id": "__ADD_PY_FILE__",
+              "to_node_id": "__PY_RUN__",
+              "to_socket_id": "__MODULE__"
             },
             {
-              "id": 2,
-              "from_node_id": 1,
-              "from_socket_id": "DATA.OUT.ARG.a",
-              "to_node_id": 2,
-              "to_socket_id": "DATA.IN.ARG.0.a"
+              "id": "2",
+              "from_node_id": "__ARG_INPUT__",
+              "from_socket_id": "__ARG_A__",
+              "to_node_id": "__PY_RUN__",
+              "to_socket_id": "__ARG_0__"
             },
             {
-              "id": 3,
-              "from_node_id": 1,
-              "from_socket_id": "DATA.OUT.ARG.b",
-              "to_node_id": 2,
-              "to_socket_id": "DATA.IN.ARG.1.b"
+              "id": "3",
+              "from_node_id": "__ARG_INPUT__",
+              "from_socket_id": "__ARG_B__",
+              "to_node_id": "__PY_RUN__",
+              "to_socket_id": "__ARG_1__"
             },
             {
-              "id": 4,
-              "from_node_id": 2,
-              "from_socket_id": "DATA.OUT",
-              "to_node_id": 3,
-              "to_socket_id": "DATA.OUT"
+              "id": "4",
+              "from_node_id": "__PY_RUN__",
+              "from_socket_id": "__RESULT__",
+              "to_node_id": "__OUTPUT__",
+              "to_socket_id": "__OUT_1__"
             },
             {
-              "id": 5,
-              "from_node_id": 2,
-              "from_socket_id": "DATA.OUT",
-              "to_node_id": 3,
-              "to_socket_id": "DATA.OUT.1"
+              "id": "5",
+              "from_node_id": "__PY_RUN__",
+              "from_socket_id": "__RESULT__",
+              "to_node_id": "__OUTPUT__",
+              "to_socket_id": "__OUT_2__"
             },
             {
-              "id": 6,
-              "from_node_id": 2,
-              "from_socket_id": "DATA.OUT",
-              "to_node_id": 3,
-              "to_socket_id": "DATA.OUT.2"
+              "id": "6",
+              "from_node_id": "__PY_RUN__",
+              "from_socket_id": "__RESULT__",
+              "to_node_id": "__OUTPUT__",
+              "to_socket_id": "__OUT_3__"
             }
           ]
         }

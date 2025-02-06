@@ -1,6 +1,6 @@
 {
   "name": "Simple addition",
-  "description": "Just add two numbers. No comparison.",
+  "description": "Add 2 integers (display result)",
   "restricted": false,
   "tasks": [
     {
@@ -97,7 +97,6 @@
                   "id": "__OUT__",
                   "type": "DATA",
                   "label": "RESULT",
-                  "user_label": "Addition output",
                   "comparison": {
                     "operator": "=",
                     "value": 3
