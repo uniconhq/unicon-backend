@@ -203,11 +203,15 @@ class Step[SocketT: StepSocket](
 class InputStep(Step[StepSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (1, -1))
 
-    is_user: bool  # Whether the input is provided by the user
+    is_user: bool = False  # Whether the input is provided by the user
 
     @model_validator(mode="after")
     def check_non_empty_data_outputs(self) -> Self:
-        if empty_socket_ids := [socket.id for socket in self.data_out if socket.data is None]:
+        if (
+            not self.is_user
+            and (empty_socket_ids := [socket.id for socket in self.data_out if socket.data is None])
+            is None
+        ):
             raise ValueError(f"Missing data for output sockets {','.join(empty_socket_ids)}")
         return self
 
