@@ -1,7 +1,7 @@
 import abc
 import logging
 from collections import deque
-from collections.abc import MutableSequence, Sequence
+from collections.abc import Sequence
 from enum import Enum, StrEnum
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
@@ -10,8 +10,18 @@ import libcst as cst
 from pydantic import PrivateAttr, model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
-from unicon_backend.evaluator.tasks.programming.transforms import hoist_imports
 from unicon_backend.lib.common import CustomBaseModel, CustomSQLModel
+from unicon_backend.lib.cst import (
+    UNUSED_VAR,
+    Program,
+    ProgramBody,
+    ProgramFragment,
+    ProgramVariable,
+    assemble_fragment,
+    cst_str,
+    cst_var,
+    hoist_imports,
+)
 from unicon_backend.lib.graph import Graph, GraphEdge, GraphNode, NodeSocket
 from unicon_backend.lib.helpers import partition
 
@@ -21,29 +31,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 type SocketId = str
-type ProgramVariable = cst.Name
-type ProgramFragment = Sequence[
-    cst.SimpleStatementLine | cst.BaseCompoundStatement | cst.BaseSmallStatement
-]
-type ProgramBody = MutableSequence[cst.SimpleStatementLine | cst.BaseCompoundStatement]
-
-# A program can be made up of sub programs, especially with subgraphs
-Program = cst.Module
-
-
-def assemble_fragment(
-    fragment: ProgramFragment,
-) -> Sequence[cst.SimpleStatementLine | cst.BaseCompoundStatement]:
-    """
-    Assemble a program fragement into a list of `cst.Module` statements.
-
-    We allow for `cst.BaseSmallStatement` to be included in the fragment for convenience during assembly,
-    however they are not valid statements in a `cst.Module`. As such, we convert them to `cst.SimpleStatementLine`.
-    """
-    return [
-        cst.SimpleStatementLine([stmt]) if isinstance(stmt, cst.BaseSmallStatement) else stmt
-        for stmt in fragment
-    ]
 
 
 class StepType(str, Enum):
@@ -288,19 +275,19 @@ class OutputStep(Step[OutputSocket]):
     ) -> ProgramFragment:
         result_dict = cst.Dict(
             [
-                cst.DictElement(key=cst.SimpleString(repr(socket.label)), value=in_vars[socket.id])
+                cst.DictElement(key=cst_str(socket.label), value=in_vars[socket.id])
                 for socket in self.data_in
             ]
         )
         return [
-            cst.Import([cst.ImportAlias(name=cst.Name("json"))]),
+            cst.Import([cst.ImportAlias(name=cst_var("json"))]),
             cst.Expr(
                 cst.Call(
-                    func=cst.Name("print"),
+                    func=cst_var("print"),
                     args=[
                         cst.Arg(
                             cst.Call(
-                                func=cst.Attribute(value=cst.Name("json"), attr=cst.Name("dumps")),
+                                func=cst.Attribute(value=cst_var("json"), attr=cst_var("dumps")),
                                 args=[cst.Arg(result_dict)],
                             )
                         )
@@ -317,7 +304,7 @@ class StringMatchStep(Step[StepSocket]):
         self, graph: "ComputeGraph", in_vars: dict[SocketId, ProgramVariable], *_
     ) -> ProgramFragment:
         match_result_socket, [match_op_1, match_op_2] = self.data_out[0], self.data_in
-        str_cast = lambda var: cst.Call(cst.Name("str"), args=[cst.Arg(var)])
+        str_cast = lambda var: cst.Call(cst_var("str"), args=[cst.Arg(var)])
         return [
             cst.Assign(
                 targets=[cst.AssignTarget(graph.get_link_var(self, match_result_socket))],
@@ -349,7 +336,7 @@ class ObjectAccessStep(Step[StepSocket]):
                 targets=[cst.AssignTarget(graph.get_link_var(self, self.data_out[0]))],
                 value=cst.Subscript(
                     value=in_vars[self.data_in[0].id],
-                    slice=[cst.SubscriptElement(cst.Index(cst.SimpleString(repr(self.key))))],
+                    slice=[cst.SubscriptElement(cst.Index(cst_str(self.key)))],
                 ),
             )
         ]
@@ -421,10 +408,10 @@ class PyRunFunctionStep(Step[StepSocket]):
         # NOTE: Assume that the program file is always a Python file
         module_name_str = program_file.name.split(".py")[0]
 
-        func_name = cst.Name(self.function_identifier)
+        func_name = cst_var(self.function_identifier)
         args = [cst.Arg(in_vars[socket.id]) for socket in self.arg_sockets]
         kwargs = [
-            cst.Arg(in_vars[socket.id], keyword=cst.Name(socket.label.split(".", 1)[1]))
+            cst.Arg(in_vars[socket.id], keyword=cst_var(socket.label.split(".", 1)[1]))
             for socket in self.kwarg_sockets
         ]
 
@@ -435,18 +422,18 @@ class PyRunFunctionStep(Step[StepSocket]):
             error_var = graph.get_link_var(self, error_socket)
         else:
             out_var = graph.get_link_var(self, self.data_out[0])
-            error_var = cst.Name("_")
+            error_var = UNUSED_VAR
 
         return (
             [
                 cst.Assign(
                     [cst.AssignTarget(cst.Tuple([cst.Element(out_var), cst.Element(error_var)]))],
                     cst.Call(
-                        cst.Name("call_function_safe"),
+                        cst_var("call_function_safe"),
                         [
-                            cst.Arg(cst.SimpleString(repr(module_name_str))),
-                            cst.Arg(cst.SimpleString(repr(self.function_identifier))),
-                            cst.Arg(cst.Name(repr(self.allow_error))),
+                            cst.Arg(cst_str(module_name_str)),
+                            cst.Arg(cst_str(self.function_identifier)),
+                            cst.Arg(cst_var(self.allow_error)),
                             *args,
                             *kwargs,
                         ],
@@ -455,7 +442,7 @@ class PyRunFunctionStep(Step[StepSocket]):
             ]
             if is_user_provided_file
             else [
-                cst.ImportFrom(cst.Name(module_name_str), [cst.ImportAlias(func_name)]),
+                cst.ImportFrom(cst_var(module_name_str), [cst.ImportAlias(func_name)]),
                 cst.Assign([cst.AssignTarget(out_var)], cst.Call(func_name, args + kwargs)),
             ]
         )
@@ -474,7 +461,7 @@ class LoopStep(Step[StepSocket]):
     ) -> ProgramFragment:
         return [
             cst.While(
-                test=cst.Name("True"),
+                test=cst_var(True),
                 body=cst.IndentedBlock(
                     [
                         *self.run_subgraph(self._pred_socket_alias, graph).body,
@@ -541,7 +528,7 @@ class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
         return self._var_id
 
     def get_link_var(self, from_node: Step, from_socket: StepSocket) -> ProgramVariable:
-        return cst.Name(
+        return cst_var(
             f"{self.VAR_PREFIX}{self._get_uniq_var_id(from_node.id)}_{from_node.type.value}_{from_socket.label}"
         )
 
