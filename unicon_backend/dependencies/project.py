@@ -24,12 +24,13 @@ role_permissions["helper"] = role_permissions["member"] + [
     "create_problems_access",
     "edit_problems_access",
     "delete_problems_access",
-    "view_others_submission_access",
+    "view_supervised_submission_access",
 ]
 role_permissions["admin"] = role_permissions["helper"] + [
     "view_restricted_problems_access",
     "edit_restricted_problems_access",
     "delete_restricted_problems_access",
+    "view_others_submission_access",
 ]
 
 
