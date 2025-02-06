@@ -35,7 +35,6 @@
               "outputs": [
                 {
                   "id": "__ADD_PY_FILE__",
-                  "type": "DATA",
                   "label": "ADD_FILE"
                 }
               ]
@@ -46,19 +45,16 @@
               "outputs": [
                 {
                   "id": "__ARG_A__",
-                  "type": "DATA",
                   "label": "ARG_A",
                   "data": 2
                 },
                 {
                   "id": "__ARG_B__",
-                  "type": "DATA",
                   "label": "ARG_B",
                   "data": 1
                 },
                 {
                   "id": "__UTILS_MODULE__",
-                  "type": "DATA",
                   "label": "UTILS_MODULE",
                   "data": {
                     "name": "utils.py",
@@ -75,29 +71,24 @@
               "inputs": [
                 {
                   "id": "__MODULE__",
-                  "type": "DATA",
                   "label": "FILE"
                 },
                 {
                   "id": "__ARG_0__",
-                  "type": "DATA",
                   "label": "ARG.0.a"
                 },
                 {
                   "id": "__ARG_1__",
-                  "type": "DATA",
                   "label": "ARG.0.b"
                 }
               ],
               "outputs": [
                 {
                   "id": "__RESULT__",
-                  "type": "DATA",
                   "label": "RESULT"
                 },
                 {
                   "id": "__ERROR__",
-                  "type": "DATA",
                   "label": "ERROR"
                 }
               ]
@@ -108,7 +99,6 @@
               "inputs": [
                 {
                   "id": "__OUT__",
-                  "type": "DATA",
                   "label": "Addition Output",
                   "comparison": {
                     "operator": "=",
@@ -118,7 +108,6 @@
                 },
                 {
                   "id": "__ERROR__",
-                  "type": "DATA",
                   "label": "Error",
                   "comparison": {
                     "operator": "=",
@@ -135,19 +124,16 @@
               "inputs": [
                 {
                   "id": "__MODULE__",
-                  "type": "DATA",
                   "label": "FILE"
                 },
                 {
                   "id": "__ARG_0__",
-                  "type": "DATA",
                   "label": "ARG.0.err"
                 }
               ],
               "outputs": [
                 {
                   "id": "__RESULT_ERR_STR__",
-                  "type": "DATA",
                   "label": "Error String"
                 }
               ]

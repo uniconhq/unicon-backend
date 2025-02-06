@@ -7,7 +7,10 @@
       "id": 0,
       "type": "MULTIPLE_CHOICE_TASK",
       "question": "True or False: Uniform Cost Search is a special case of A* search.",
-      "choices": ["True", "False"],
+      "choices": [
+        "True",
+        "False"
+      ],
       "expected_answer": 0
     },
     {
@@ -20,7 +23,10 @@
         "P(y = 1 |x, w) = 0.6",
         "P(y = 0 |x, w) = 0.6"
       ],
-      "expected_answer": [0, 3]
+      "expected_answer": [
+        0,
+        3
+      ]
     },
     {
       "id": 2,
@@ -60,7 +66,6 @@
               "outputs": [
                 {
                   "id": "__TREE_SEARCH_FILE__",
-                  "type": "DATA",
                   "label": "TREE_SEARCH"
                 }
               ]
@@ -71,19 +76,16 @@
               "outputs": [
                 {
                   "id": "__ARG_m__",
-                  "type": "DATA",
                   "label": "ARG_M",
                   "data": 2
                 },
                 {
                   "id": "__ARG_c__",
-                  "type": "DATA",
                   "label": "ARG_C",
                   "data": 1
                 },
                 {
                   "id": "__EXPECTED_RESULT__",
-                  "type": "DATA",
                   "label": "EXPECTED_RESULT",
                   "data": "((2, 0), (1, 0), (1, 1))"
                 }
@@ -96,24 +98,20 @@
               "inputs": [
                 {
                   "id": "__MODULE__",
-                  "type": "DATA",
                   "label": "FILE"
                 },
                 {
                   "id": "__ARG_0__",
-                  "type": "DATA",
                   "label": "ARG.0.m"
                 },
                 {
                   "id": "__ARG_1__",
-                  "type": "DATA",
                   "label": "ARG.0.c"
                 }
               ],
               "outputs": [
                 {
                   "id": "__RESULT__",
-                  "type": "DATA",
                   "label": "TREE_SEARCH_RESULT"
                 }
               ]
@@ -124,19 +122,16 @@
               "inputs": [
                 {
                   "id": "__1__",
-                  "type": "DATA",
                   "label": "Operand 1"
                 },
                 {
                   "id": "__2__",
-                  "type": "DATA",
                   "label": "Operand 2"
                 }
               ],
               "outputs": [
                 {
                   "id": "__MATCH_RESULT__",
-                  "type": "DATA",
                   "label": "Does it match?"
                 }
               ]
@@ -147,7 +142,6 @@
               "inputs": [
                 {
                   "id": "__RESULT__",
-                  "type": "DATA",
                   "label": "Do strings match?",
                   "comparison": {
                     "operator": "=",

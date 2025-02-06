@@ -35,7 +35,6 @@
               "outputs": [
                 {
                   "id": "__ADD_PY_FILE__",
-                  "type": "DATA",
                   "label": "ADD_FILE"
                 }
               ]
@@ -46,13 +45,11 @@
               "outputs": [
                 {
                   "id": "__ARG_A__",
-                  "type": "DATA",
                   "label": "ARG_A",
                   "data": 2
                 },
                 {
                   "id": "__ARG_B__",
-                  "type": "DATA",
                   "label": "ARG_B",
                   "data": 1
                 }
@@ -65,24 +62,20 @@
               "inputs": [
                 {
                   "id": "__MODULE__",
-                  "type": "DATA",
                   "label": "FILE"
                 },
                 {
                   "id": "__ARG_0__",
-                  "type": "DATA",
                   "label": "ARG.0.a"
                 },
                 {
                   "id": "__ARG_1__",
-                  "type": "DATA",
                   "label": "ARG.0.b"
                 }
               ],
               "outputs": [
                 {
                   "id": "__RESULT__",
-                  "type": "DATA",
                   "label": "RESULT"
                 }
               ]
@@ -93,7 +86,6 @@
               "inputs": [
                 {
                   "id": "__OUT__",
-                  "type": "DATA",
                   "label": "RESULT",
                   "comparison": {
                     "operator": "=",

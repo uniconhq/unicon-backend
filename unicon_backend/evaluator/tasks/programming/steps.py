@@ -61,7 +61,7 @@ class SocketDir(str, Enum):
 
 
 class StepSocket(NodeSocket[str]):
-    type: SocketType
+    type: SocketType = SocketType.DATA
     # User facing name of the socket
     label: str
     # The data that the socket holds
