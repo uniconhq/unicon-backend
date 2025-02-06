@@ -84,7 +84,7 @@ class StepSocket(NodeSocket[str]):
 
     @property
     def alias(self) -> str:
-        return ".".join([self.direction.value, self.type.value, self.label])
+        return ".".join([self.type.value, self.direction.value, self.label])
 
 
 Range = tuple[int, int]
