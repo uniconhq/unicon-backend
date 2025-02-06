@@ -584,7 +584,7 @@ class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
         topo_order = self.topological_sort(subgraph_node_ids | node_ids_to_exclude)
 
         program_body: ProgramBody = []
-        for curr_node in topo_order:
+        for _i, curr_node in enumerate(topo_order):
             # Output of a step will be stored in a variable in the format `var_{step_id}_{socket_id}`
             # It is assumed that every step will always output the same number of values as the number of output sockets
             # As such, all we need to do is to pass in the correct variables to the next step
@@ -607,6 +607,8 @@ class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
                     in_vars[to_s.id] = self.get_link_var(from_n, from_s)
 
             curr_node._debug = debug
-            program_body.extend(assemble_fragment(curr_node.run(self, in_vars, in_files)))
+            program_body.extend(
+                assemble_fragment(curr_node.run(self, in_vars, in_files), add_spacer=_i > 0)
+            )
 
         return hoist_imports(cst.Module(body=program_body))

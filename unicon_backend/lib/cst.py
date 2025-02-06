@@ -1,6 +1,8 @@
 from collections.abc import MutableSequence, Sequence
 
 import libcst as cst
+from libcst.codemod import CodemodContext
+from libcst.codemod.visitors import AddImportsVisitor, GatherImportsVisitor, ImportItem
 
 UNUSED_VAR = cst.Name(value="_")
 
@@ -23,7 +25,7 @@ def cst_var(v: str | bool) -> cst.Name:
 
 
 def assemble_fragment(
-    fragment: ProgramFragment,
+    fragment: ProgramFragment, add_spacer: bool = False
 ) -> Sequence[cst.SimpleStatementLine | cst.BaseCompoundStatement]:
     """
     Assemble a program fragement into a list of `cst.Module` statements.
@@ -31,15 +33,21 @@ def assemble_fragment(
     We allow for `cst.BaseSmallStatement` to be included in the fragment for convenience during assembly,
     however they are not valid statements in a `cst.Module`. As such, we convert them to `cst.SimpleStatementLine`.
     """
-    return [
-        cst.SimpleStatementLine([stmt]) if isinstance(stmt, cst.BaseSmallStatement) else stmt
-        for stmt in fragment
-    ]
+    assembled, is_prev_stmt_import = [], False
+    for _i, stmt in enumerate(fragment):
+        is_import_stmt = isinstance(stmt, cst.Import | cst.ImportFrom)
+        asm_stmt = (
+            cst.SimpleStatementLine([stmt]) if isinstance(stmt, cst.BaseSmallStatement) else stmt
+        )
+        # NOTE: We are handling leading lines for statements after import statements here as
+        # `hoist_imports` will remove leading lines and does not shift them to the next statement.
+        # TODO: Ideally this should be handled by the hoist transform directly, albeit it is more tedious
+        if not is_import_stmt and ((_i == 0 and add_spacer) or is_prev_stmt_import):
+            asm_stmt = asm_stmt.with_changes(leading_lines=(cst.EmptyLine(),))
+        is_prev_stmt_import = is_import_stmt
+        assembled.append(asm_stmt)
 
-
-import libcst as cst
-from libcst.codemod import CodemodContext
-from libcst.codemod.visitors import AddImportsVisitor, GatherImportsVisitor, ImportItem
+    return assembled
 
 
 class RemoveImportsVisitors(cst.CSTTransformer):
