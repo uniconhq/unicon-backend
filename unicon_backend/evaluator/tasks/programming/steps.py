@@ -1,5 +1,6 @@
 import abc
 import logging
+import re
 from collections import deque
 from collections.abc import Sequence
 from enum import Enum, StrEnum
@@ -534,7 +535,8 @@ class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
 
     def get_link_var(self, from_node: Step, from_socket: StepSocket) -> ProgramVariable:
         # Convert into valid Python variable name
-        sanitized_label = from_socket.label.replace(" ", "_").replace(".", "_")
+        # Remove all special characters and replace spaces with underscores using regex
+        sanitized_label = re.sub(r"[^a-zA-Z0-9_]", "", from_socket.label.replace(" ", "_"))
         return cst_var(
             f"{self.VAR_PREFIX}{self._get_uniq_var_id(from_node.id)}_{from_node.type.value}_{sanitized_label}".upper()
         )
