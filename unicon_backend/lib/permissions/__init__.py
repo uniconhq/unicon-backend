@@ -299,7 +299,7 @@ def _delete_tuples_and_attributes(
         )
 
 
-def permission_update(old: Any, new: Any, optimised=True):
+def permission_update(old: Any, new: Any):
     """given a model, update permission records for it"""
     if type(old) != type(new):
         raise ValueError("Old and new models must be of the same type")
@@ -324,18 +324,15 @@ def permission_update(old: Any, new: Any, optimised=True):
         # This should not happen.
         raise ValueError("Failed to create metadata")
 
-    if optimised:
-        # Remove the intersecton of tuples/attributes being deleted/created
-        tuples_intersection = [
-            t for t in delete_tuples if t in create_tuples and t in delete_tuples
-        ]
-        attributes_intersection = [
-            a for a in delete_attributes if a in create_attributes and a in delete_attributes
-        ]
-        delete_tuples = [t for t in delete_tuples if t not in tuples_intersection]
-        delete_attributes = [a for a in delete_attributes if a not in attributes_intersection]
-        create_tuples = [t for t in create_tuples if t not in tuples_intersection]
-        create_attributes = [a for a in create_attributes if a not in attributes_intersection]
+    # Optimisation: Remove the intersecton of tuples/attributes being deleted/created
+    tuples_intersection = [t for t in delete_tuples if t in create_tuples and t in delete_tuples]
+    attributes_intersection = [
+        a for a in delete_attributes if a in create_attributes and a in delete_attributes
+    ]
+    delete_tuples = [t for t in delete_tuples if t not in tuples_intersection]
+    delete_attributes = [a for a in delete_attributes if a not in attributes_intersection]
+    create_tuples = [t for t in create_tuples if t not in tuples_intersection]
+    create_attributes = [a for a in create_attributes if a not in attributes_intersection]
 
     _delete_tuples_and_attributes(delete_tuples, delete_attributes)
 
