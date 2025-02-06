@@ -30,11 +30,6 @@ class GraphNode(BaseModel, Generic[IdType, NodeSocketType]):
         return self
 
     @cached_property
-    def all_sockets(self) -> list[NodeSocketType]:
-        """Return a list of all sockets"""
-        return self.inputs + self.outputs
-
-    @cached_property
     def socket_index(self) -> dict[str, NodeSocketType]:
         """Return a dictionary of socket id to socket object"""
         return {socket.id: socket for socket in chain(self.inputs, self.outputs)}

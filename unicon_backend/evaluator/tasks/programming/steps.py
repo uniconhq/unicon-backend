@@ -61,17 +61,16 @@ class SocketDir(str, Enum):
 
 class StepSocket(NodeSocket[str]):
     type: SocketType
-    direction: SocketDir
-
     # User facing name of the socket
     label: str
-
     # The data that the socket holds
     data: PrimitiveData | File | None = None
 
+    _dir: SocketDir = PrivateAttr()
+
     @property
     def alias(self) -> str:
-        return ".".join([self.type.value, self.direction.value, self.label])
+        return ".".join([self.type.value, self._dir.value, self.label])
 
 
 Range = tuple[int, int]
@@ -91,6 +90,12 @@ class Step[SocketT: StepSocket](
     # The required number of control sockets
     # The maximum number by default is 1 for both input and output control sockets (CONTROL.IN and CONTROL.OUT)
     required_data_io: ClassVar[tuple[Range, Range]] = ((-1, -1), (-1, -1))
+
+    def model_post_init(self, __context):
+        # fmt: off
+        for socket in self.inputs: socket._dir = SocketDir.IN
+        for socket in self.outputs: socket._dir = SocketDir.OUT
+        # fmt: on
 
     @model_validator(mode="after")
     def check_required_inputs_and_outputs(self) -> Self:
@@ -541,7 +546,7 @@ class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
         to_socket = get_step_socket(edge.to_node_id, edge.to_socket_id)
         assert from_socket is not None and to_socket is not None
 
-        if from_socket.type == to_socket.type and from_socket.direction != to_socket.direction:
+        if from_socket.type == to_socket.type and from_socket._dir != to_socket._dir:
             return from_socket.type
 
         raise ValueError(f"Invalid link between {from_socket.id} and {to_socket.id}")
