@@ -280,7 +280,7 @@ class OutputStep(Step[OutputSocket]):
     ) -> ProgramFragment:
         result_dict = cst.Dict(
             [
-                cst.DictElement(key=cst_str(socket.label), value=in_vars[socket.id])
+                cst.DictElement(key=cst_str(socket.id), value=in_vars[socket.id])
                 for socket in self.data_in
             ]
         )
@@ -533,8 +533,10 @@ class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
         return self._var_id
 
     def get_link_var(self, from_node: Step, from_socket: StepSocket) -> ProgramVariable:
+        # Convert into valid Python variable name
+        sanitized_label = from_socket.label.replace(" ", "_").replace(".", "_")
         return cst_var(
-            f"{self.VAR_PREFIX}{self._get_uniq_var_id(from_node.id)}_{from_node.type.value}_{from_socket.label}"
+            f"{self.VAR_PREFIX}{self._get_uniq_var_id(from_node.id)}_{from_node.type.value}_{sanitized_label}".upper()
         )
 
     def link_type(self, edge: GraphEdge[str]) -> SocketType:
