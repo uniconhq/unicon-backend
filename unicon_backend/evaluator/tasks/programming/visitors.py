@@ -17,6 +17,7 @@ class TypingCollector(cst.CSTVisitor):
 
     def visit_ClassDef(self, node: cst.ClassDef):
         self.stack.append(node.name.value)
+        return False
 
     def leave_ClassDef(self, _: cst.ClassDef) -> None:
         self.stack.pop()
