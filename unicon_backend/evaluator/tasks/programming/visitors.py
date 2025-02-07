@@ -15,7 +15,7 @@ class TypingCollector(cst.CSTVisitor):
         self.stack: list[str] = []
         self.results: list[ParsedFunction] = []
 
-    def visit_ClassDef(self, node: cst.ClassDef) -> bool | None:
+    def visit_ClassDef(self, node: cst.ClassDef):
         self.stack.append(node.name.value)
 
     def leave_ClassDef(self, _: cst.ClassDef) -> None:

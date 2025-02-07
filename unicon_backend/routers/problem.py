@@ -12,13 +12,18 @@ from unicon_backend.dependencies.problem import (
     parse_python_functions_from_file_content,
 )
 from unicon_backend.evaluator.problem import Problem, Task, UserInput
+from unicon_backend.evaluator.tasks.programming.visitors import ParsedFunction
 from unicon_backend.lib.permissions import (
     permission_check,
     permission_create,
     permission_list_for_subject,
     permission_update,
 )
-from unicon_backend.models import ProblemORM, SubmissionORM, TaskResultORM
+from unicon_backend.models import (
+    ProblemORM,
+    SubmissionORM,
+    TaskResultORM,
+)
 from unicon_backend.models.problem import (
     SubmissionPublic,
     TaskAttemptORM,
@@ -28,7 +33,6 @@ from unicon_backend.models.problem import (
 )
 from unicon_backend.models.user import UserORM
 from unicon_backend.schemas.problem import (
-    ParsedFunction,
     ParseRequest,
     ProblemPublic,
     ProblemUpdate,

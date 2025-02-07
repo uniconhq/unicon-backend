@@ -7,9 +7,8 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, select
 
 from unicon_backend.dependencies.common import get_db_session
-from unicon_backend.evaluator.tasks.programming.visitors import TypingCollector
+from unicon_backend.evaluator.tasks.programming.visitors import ParsedFunction, TypingCollector
 from unicon_backend.models.problem import ProblemORM, TaskORM
-from unicon_backend.schemas.problem import ParsedFunction
 
 
 def get_problem_by_id(
