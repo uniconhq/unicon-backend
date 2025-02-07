@@ -1,8 +1,8 @@
 """initialize tables
 
-Revision ID: 54e4afebdfe4
+Revision ID: 3c42e67230eb
 Revises:
-Create Date: 2025-02-02 21:30:20.772811
+Create Date: 2025-02-03 10:05:43.109164
 
 """
 
@@ -14,7 +14,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "54e4afebdfe4"
+revision: str = "3c42e67230eb"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -121,6 +121,8 @@ def upgrade() -> None:
         ),
         sa.Column("autograde", sa.Boolean(), nullable=False),
         sa.Column("other_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("updated_version_id", sa.Integer(), nullable=True),
+        sa.Column("order_index", sa.Integer(), nullable=False),
         sa.Column("problem_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
             ["problem_id"], ["problem.id"], name=op.f("fk_task_problem_id_problem")
