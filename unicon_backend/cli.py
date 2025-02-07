@@ -5,8 +5,6 @@ from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
 
-from unicon_backend.dependencies.project import role_permissions
-
 rich_console = Console()
 
 app = typer.Typer(name="Unicon 🦄 CLI")
@@ -47,12 +45,13 @@ def seed_permify():
     from unicon_backend.database import SessionLocal
     from unicon_backend.lib.permissions import delete_all_permission_records, permission_create
     from unicon_backend.models.links import UserRole
-    from unicon_backend.models.organisation import Organisation, Project, Role
+    from unicon_backend.models.organisation import Group, Organisation, Project, Role
     from unicon_backend.models.problem import ProblemORM, SubmissionORM
 
     # assume schema is initialised (run init-permify if not)
     delete_all_permission_records()
-    model_classes = [Project, Role, ProblemORM, SubmissionORM, UserRole, Organisation]
+
+    model_classes = [Project, Role, ProblemORM, SubmissionORM, UserRole, Organisation, Group]
     with SessionLocal() as session:
         for model_class in model_classes:
             models = session.scalars(select(model_class)).all()
@@ -70,6 +69,7 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
     """Seed the database with initial admin user, organisation, roles, projects and problems."""
     from unicon_backend.database import SessionLocal
     from unicon_backend.dependencies.auth import AUTH_PWD_CONTEXT
+    from unicon_backend.dependencies.project import role_permissions
     from unicon_backend.evaluator.problem import Problem
     from unicon_backend.models.organisation import Organisation, Project, Role
     from unicon_backend.models.problem import ProblemORM

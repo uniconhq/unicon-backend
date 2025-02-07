@@ -13,11 +13,12 @@ from unicon_backend.evaluator.problem import Problem
 from unicon_backend.lib.permissions import (
     permission_check,
     permission_create,
+    permission_delete,
     permission_list_for_subject,
     permission_lookup,
 )
-from unicon_backend.models.links import UserRole
-from unicon_backend.models.organisation import InvitationKey, Project, Role
+from unicon_backend.models.links import GroupMember, UserRole
+from unicon_backend.models.organisation import Group, InvitationKey, Project, Role
 from unicon_backend.models.problem import (
     ProblemORM,
     SubmissionORM,
@@ -25,7 +26,7 @@ from unicon_backend.models.problem import (
     TaskAttemptORM,
 )
 from unicon_backend.models.user import UserORM
-from unicon_backend.schemas.auth import UserPublicWithRoles
+from unicon_backend.schemas.group import GroupCreate, GroupPublic, UserPublicWithRolesAndGroups
 from unicon_backend.schemas.organisation import (
     ProjectPublic,
     ProjectPublicWithProblems,
@@ -117,7 +118,9 @@ def get_project_roles(
 
 
 @router.get(
-    "/{id}/users", summary="Get all users in a project", response_model=list[UserPublicWithRoles]
+    "/{id}/users",
+    summary="Get all users in a project",
+    response_model=list[UserPublicWithRolesAndGroups],
 )
 def get_project_users(
     id: int,
@@ -134,8 +137,54 @@ def get_project_users(
         .join(Role)
         .join(Project)
         .where(Project.id == id)
-        .options(selectinload(UserORM.roles.and_(col(Role.project_id) == id)))
+        .options(
+            selectinload(UserORM.roles.and_(col(Role.project_id) == id)),
+            selectinload(
+                UserORM.group_members.and_(GroupMember.group.has(col(Group.project_id) == id))
+            ).selectinload(GroupMember.group),
+        )
     ).all()
+
+
+@router.get("/{id}/groups", summary="Get all groups in a project", response_model=list[GroupPublic])
+def get_project_groups(
+    id: int,
+    db_session: Annotated[Session, Depends(get_db_session)],
+    project: Annotated[Project, Depends(get_project_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+):
+    # TODO: implement group permissions
+    if not permission_check(project, "view_groups", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
+    return db_session.exec(
+        select(Group)
+        .where(Group.project_id == id)
+        # .where(col(Group.id).in_(accessible_group_ids))]
+        .order_by(col(Group.name))
+        .options(selectinload(Group.members).selectinload(GroupMember.user))
+    ).all()
+
+
+@router.post("/{id}/groups", summary="Create a new group", response_model=GroupPublic)
+def create_group(
+    group: GroupCreate,
+    project: Annotated[Project, Depends(get_project_by_id)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+):
+    if not permission_check(project, "create_groups", user):
+        raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
+
+    new_group = Group(name=group.name)
+    project.groups.append(new_group)
+
+    db_session.add(new_group)
+    db_session.commit()
+    db_session.refresh(new_group)
+
+    permission_create(new_group)
+    return new_group
 
 
 @router.get(
@@ -159,7 +208,12 @@ def get_project_submissions(
         .options(
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
-            selectinload(SubmissionORM.user),
+            selectinload(SubmissionORM.user)
+            .selectinload(
+                UserORM.group_members.and_(GroupMember.group.has(col(Group.project_id) == id))
+            )
+            .selectinload(GroupMember.group),
+            selectinload(SubmissionORM.problem),
         )
     )
 
@@ -231,7 +285,7 @@ def join_project(
     ).first()
 
     if user_role:
-        # TODO(permission): delete user_role record
+        permission_delete(user_role)
         db_session.delete(user_role)
 
     new_user_role = UserRole(user_id=user.id, role_id=role.id)

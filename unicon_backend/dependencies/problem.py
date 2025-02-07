@@ -1,11 +1,13 @@
 from http import HTTPStatus
 from typing import Annotated
 
+import libcst
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, select
 
 from unicon_backend.dependencies.common import get_db_session
+from unicon_backend.evaluator.tasks.programming.visitors import ParsedFunction, TypingCollector
 from unicon_backend.models.problem import ProblemORM, TaskORM
 
 
@@ -22,3 +24,14 @@ def get_problem_by_id(
     ) is None:
         raise HTTPException(HTTPStatus.NOT_FOUND, "Problem definition not found!")
     return problem_orm
+
+
+def parse_python_functions_from_file_content(content: str) -> list[ParsedFunction]:
+    try:
+        module = libcst.parse_module(content)
+    except libcst.ParserSyntaxError as e:
+        raise HTTPException(HTTPStatus.BAD_REQUEST, "Invalid Python code!") from e
+
+    visitor = TypingCollector()
+    module.visit(visitor)
+    return visitor.results

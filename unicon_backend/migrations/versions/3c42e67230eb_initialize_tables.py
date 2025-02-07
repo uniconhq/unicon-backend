@@ -53,6 +53,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_project")),
     )
+
     op.create_table(
         "problem",
         sa.Column("id", sa.Integer(), nullable=False),

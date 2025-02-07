@@ -5,7 +5,7 @@ import sqlalchemy.orm as sa_orm
 from sqlmodel import Field, Relationship
 
 from unicon_backend.lib.common import CustomSQLModel
-from unicon_backend.models.links import UserRole
+from unicon_backend.models.links import GroupMember, UserRole
 
 if TYPE_CHECKING:
     from unicon_backend.models.problem import ProblemORM
@@ -36,6 +36,30 @@ class Project(ProjectBase, table=True):
     problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(
         back_populates="project", sa_relationship_kwargs={"order_by": "ProblemORM.id.desc()"}
     )
+    groups: sa_orm.Mapped[list["Group"]] = Relationship(back_populates="project")
+
+
+class Group(CustomSQLModel, table=True):
+    """This is closer to tutorial groups and not intended to be used for submitting problems."""
+
+    __tablename__ = "group"
+
+    id: int | None = Field(default=None, primary_key=True)
+    project_id: int | None = Field(foreign_key="project.id")
+
+    name: str
+
+    members: sa_orm.Mapped[list["GroupMember"]] = Relationship(
+        back_populates="group",
+        sa_relationship_kwargs={
+            "order_by": "GroupMember.is_supervisor.desc()",
+            # This line is used to fix an error with updating group members.
+            # https://github.com/marshmallow-code/marshmallow-sqlalchemy/issues/250
+            "cascade": "all, delete-orphan",
+        },
+    )
+
+    project: sa_orm.Mapped[Project] = Relationship(back_populates="groups")
 
 
 class RoleBase(CustomSQLModel):
@@ -47,33 +71,73 @@ class Role(RoleBase, table=True):
     project_id: int = Field(foreign_key="project.id")
 
     # Assignable permissions
-    view_problems_access: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
-    create_problems_access: bool = Field(
-        default=False, sa_column_kwargs={"server_default": "false"}
+
+    # Normal problem permissions
+    view_problems_access: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
     )
-    edit_problems_access: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
+    create_problems_access: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
+    )
+    edit_problems_access: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
+    )
     delete_problems_access: bool = Field(
-        default=False, sa_column_kwargs={"server_default": "false"}
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
     )
 
+    # Restricted problem permissions
     view_restricted_problems_access: bool = Field(
-        default=False, sa_column_kwargs={"server_default": "false"}
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
     )
     edit_restricted_problems_access: bool = Field(
-        default=False, sa_column_kwargs={"server_default": "false"}
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
     )
     delete_restricted_problems_access: bool = Field(
-        default=False, sa_column_kwargs={"server_default": "false"}
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
     )
 
+    # Submission permissions
     make_submission_access: bool = Field(
-        default=False, sa_column_kwargs={"server_default": "false"}
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
     )
     view_own_submission_access: bool = Field(
-        default=False, sa_column_kwargs={"server_default": "false"}
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
+    )
+    view_supervised_submission_access: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
     )
     view_others_submission_access: bool = Field(
-        default=False, sa_column_kwargs={"server_default": "false"}
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
+    )
+
+    # Group permissions
+    view_groups_access: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
+    )
+    create_groups_access: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
+    )
+    edit_groups_access: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
+    )
+    delete_groups_access: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
     )
 
     project: sa_orm.Mapped[Project] = Relationship(back_populates="roles")

@@ -45,12 +45,18 @@ class ProjectPublic(ProjectBase):
 
     # permissions
     view_own_submission: bool
+    view_supervised_submission: bool
     view_others_submission: bool
     view_roles: bool
     add_roles: bool
     edit_roles: bool
 
     create_problems: bool
+
+    view_groups: bool
+    create_groups: bool
+    edit_groups: bool
+    delete_groups: bool
 
 
 class ProjectPublicWithProblems(ProjectPublic):
@@ -72,7 +78,13 @@ class RolePublic(RoleBase):
 
     make_submission_access: bool
     view_own_submission_access: bool
+    view_supervised_submission_access: bool
     view_others_submission_access: bool
+
+    view_groups_access: bool
+    create_groups_access: bool
+    edit_groups_access: bool
+    delete_groups_access: bool
 
 
 class RoleCreate(RoleBase):
@@ -93,7 +105,13 @@ class RoleUpdate(RoleBase):
 
     make_submission_access: bool
     view_own_submission_access: bool
+    view_supervised_submission_access: bool
     view_others_submission_access: bool
+
+    view_groups_access: bool
+    create_groups_access: bool
+    edit_groups_access: bool
+    delete_groups_access: bool
 
 
 class RolePublicWithInvitationKeys(RolePublic):
