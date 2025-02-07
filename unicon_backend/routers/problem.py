@@ -12,6 +12,7 @@ from unicon_backend.dependencies.problem import (
     parse_python_functions_from_file_content,
 )
 from unicon_backend.evaluator.problem import Problem, Task, UserInput
+from unicon_backend.evaluator.tasks.programming.visitors import ParsedFunction
 from unicon_backend.models import (
     ProblemORM,
     SubmissionORM,
@@ -24,7 +25,7 @@ from unicon_backend.models.problem import (
     TaskORM,
 )
 from unicon_backend.models.user import UserORM
-from unicon_backend.schemas.problem import ParsedFunction, ParseRequest
+from unicon_backend.schemas.problem import ParseRequest
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import TaskEvalResult
