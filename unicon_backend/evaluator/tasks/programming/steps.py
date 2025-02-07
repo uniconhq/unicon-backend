@@ -1,10 +1,11 @@
 import abc
 import logging
 import re
-from collections import deque
+from collections import defaultdict, deque
 from collections.abc import Sequence
 from enum import Enum, StrEnum
 from functools import cached_property
+from itertools import count
 from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
 import libcst as cst
@@ -532,23 +533,23 @@ StepClasses = (
 
 class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
     VAR_PREFIX: ClassVar[str] = "var_"
-    _var_id: int = PrivateAttr(default=0)
-    _var_id_map: dict[str, int] = PrivateAttr(default={})
 
-    def _get_uniq_var_id(self, node_id: str) -> int:
-        if (var_id := self._var_id_map.get(node_id)) is not None:
-            return var_id
-        self._var_id += 1
-        self._var_id_map[node_id] = self._var_id
-        return self._var_id
+    _var_node_id_gen = PrivateAttr(default=count())
+    _var_node_id_map: dict[str, int] = PrivateAttr(default={})
+
+    _var_socket_id_gen: dict[str, count] = PrivateAttr(default=defaultdict(lambda: count()))
+    _var_socket_id_map: dict[str, dict[str, int]] = PrivateAttr(default=defaultdict(dict))
 
     def get_link_var(self, from_node: Step, from_socket: StepSocket) -> ProgramVariable:
-        # Convert into valid Python variable name
+        uniq_node_id = self._var_node_id_map.setdefault(from_node.id, next(self._var_node_id_gen))
+        uniq_socket_id = self._var_socket_id_map.setdefault(from_node.id, {}).setdefault(
+            from_socket.id, next(self._var_socket_id_gen[from_node.id])
+        )
         # Remove all special characters and replace spaces with underscores using regex
         sanitized_label = re.sub(r"[^a-zA-Z0-9_]", "", from_socket.label.replace(" ", "_"))
-        return cst_var(
-            f"{self.VAR_PREFIX}{self._get_uniq_var_id(from_node.id)}_{from_node.type.value}_{sanitized_label}".upper()
-        )
+
+        var_name_str = f"{self.VAR_PREFIX}{'_'.join(map(str, [uniq_node_id, from_node.type.value, uniq_socket_id, sanitized_label]))}"
+        return cst.Name(var_name_str.lower())
 
     def link_type(self, edge: GraphEdge[str]) -> SocketType:
         def get_step_socket(step_id: str, socket_id: str) -> StepSocket | None:
