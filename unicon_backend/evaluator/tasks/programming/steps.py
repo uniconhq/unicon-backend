@@ -170,7 +170,9 @@ class Step[SocketT: StepSocket](
         subgraph_node_ids: set[str] = set()
         bfs_queue: deque[str] = deque([start_node_id])
         while len(bfs_queue):
-            if (frontier_node_id := bfs_queue.popleft()) in subgraph_node_ids:
+            frontier_node_id = bfs_queue.popleft()
+            # NOTE: Ignore current node to avoid unintended backtracking
+            if frontier_node_id == self.id or frontier_node_id in subgraph_node_ids:
                 continue
 
             subgraph_node_ids.add(frontier_node_id)
