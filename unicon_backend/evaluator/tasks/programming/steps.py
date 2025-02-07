@@ -1,18 +1,30 @@
 import abc
 import logging
-from collections import deque
-from collections.abc import MutableSequence, Sequence
+import re
+from collections import defaultdict, deque
+from collections.abc import Sequence
 from enum import Enum, StrEnum
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, Self
+from itertools import count
+from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
 import libcst as cst
-from pydantic import model_validator
+from pydantic import PrivateAttr, model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
-from unicon_backend.evaluator.tasks.programming.transforms import hoist_imports
 from unicon_backend.lib.common import CustomBaseModel, CustomSQLModel
-from unicon_backend.lib.graph import Graph, GraphNode, NodeSocket
+from unicon_backend.lib.cst import (
+    UNUSED_VAR,
+    Program,
+    ProgramBody,
+    ProgramFragment,
+    ProgramVariable,
+    assemble_fragment,
+    cst_str,
+    cst_var,
+    hoist_imports,
+)
+from unicon_backend.lib.graph import Graph, GraphEdge, GraphNode, NodeSocket
 from unicon_backend.lib.helpers import partition
 
 if TYPE_CHECKING:
@@ -21,29 +33,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 type SocketId = str
-type ProgramVariable = cst.Name
-type ProgramFragment = Sequence[
-    cst.SimpleStatementLine | cst.BaseCompoundStatement | cst.BaseSmallStatement
-]
-type ProgramBody = MutableSequence[cst.SimpleStatementLine | cst.BaseCompoundStatement]
-
-# A program can be made up of sub programs, especially with subgraphs
-Program = cst.Module
-
-
-def assemble_fragment(
-    fragment: ProgramFragment,
-) -> Sequence[cst.SimpleStatementLine | cst.BaseCompoundStatement]:
-    """
-    Assemble a program fragement into a list of `cst.Module` statements.
-
-    We allow for `cst.BaseSmallStatement` to be included in the fragment for convenience during assembly,
-    however they are not valid statements in a `cst.Module`. As such, we convert them to `cst.SimpleStatementLine`.
-    """
-    return [
-        cst.SimpleStatementLine([stmt]) if isinstance(stmt, cst.BaseSmallStatement) else stmt
-        for stmt in fragment
-    ]
 
 
 class StepType(str, Enum):
@@ -62,32 +51,189 @@ class StepType(str, Enum):
     STRING_MATCH = "STRING_MATCH_STEP"
 
 
-class StepSocket(NodeSocket):
-    """
-    A socket that is used to connect steps to each other.
+class SocketType(str, Enum):
+    DATA = "DATA"
+    CONTROL = "CONTROL"
 
-    Socket ID Format: <TYPE>.<NAME>.<INDEX>
-    - <NAME>.<INDEX> is optional and is used to differentiate between multiple sockets of the same type
-        - Collectively, <NAME>.<INDEX> is referred to as the "label"
 
-    There can be 2 types of sockets:
+class SocketDir(str, Enum):
+    IN = "IN"
+    OUT = "OUT"
 
-    1. Control Sockets: Used to control the flow of the program
-        - e.g. CONTROL.<NAME>.<INDEX>
-    2. Data Sockets: Used to pass data between steps
-        - e.g. DATA.<NAME>.<INDEX>
-    """
 
+class StepSocket(NodeSocket[str]):
+    type: SocketType = SocketType.DATA
+    # User facing name of the socket
+    label: str = ""
     # The data that the socket holds
     data: PrimitiveData | File | None = None
 
-    @cached_property
-    def type(self) -> str:
-        return self.id.split(".")[0]
+    _dir: SocketDir = PrivateAttr()
+
+    @property
+    def alias(self) -> str:
+        return ".".join([self.type.value, self._dir.value, self.label])
+
+
+Range = tuple[int, int]
+
+
+class Step[SocketT: StepSocket](
+    CustomBaseModel, GraphNode[str, SocketT], abc.ABC, polymorphic=True
+):
+    type: StepType
+
+    _debug: bool = False
+
+    # Socket aliases that are used to refer to subgraph sockets
+    subgraph_socket_aliases: ClassVar[set[str]] = set()
+    # The required number of data sockets
+    required_control_io: ClassVar[tuple[Range, Range]] = ((-1, 1), (-1, 1))
+    # The required number of control sockets
+    # The maximum number by default is 1 for both input and output control sockets (CONTROL.IN and CONTROL.OUT)
+    required_data_io: ClassVar[tuple[Range, Range]] = ((-1, -1), (-1, -1))
+
+    def model_post_init(self, __context):
+        # fmt: off
+        for socket in self.inputs: socket._dir = SocketDir.IN
+        for socket in self.outputs: socket._dir = SocketDir.OUT
+        # fmt: on
+
+    @model_validator(mode="after")
+    def check_required_inputs_and_outputs(self) -> Self:
+        def satisfies_required(expected: Range, got: int) -> bool:
+            match expected:
+                case (-1, -1):
+                    return True
+                case (-1, upper_bound):
+                    return got <= upper_bound
+                case (lower_bound, -1):
+                    return got >= lower_bound
+                case (lower_bound, upper_bound):
+                    return lower_bound <= got <= upper_bound
+                case _:
+                    return False  # This should never happen
+
+        is_data_socket: Callable[[StepSocket], bool] = lambda socket: socket.type == SocketType.DATA
+
+        num_data_in, num_control_in = list(map(len, partition(is_data_socket, self.inputs)))
+        num_data_out, num_control_out = list(map(len, partition(is_data_socket, self.outputs)))
+
+        for got, expected, label in zip(
+            (num_data_in, num_data_out, num_control_in, num_control_out),
+            self.required_data_io + self.required_control_io,
+            ("data input", "data output", "control input", "control output"),
+            strict=True,
+        ):
+            if not satisfies_required(expected, got):
+                raise ValueError(f"Step {self.id} requires {expected} {label} sockets, found {got}")
+
+        return self
 
     @cached_property
-    def label(self) -> str:
-        return self.id.split(".", 2)[-1]
+    def data_in(self) -> Sequence[SocketT]:
+        return [socket for socket in self.inputs if socket.type == SocketType.DATA]
+
+    @cached_property
+    def data_out(self) -> Sequence[SocketT]:
+        return [socket for socket in self.outputs if socket.type == SocketType.DATA]
+
+    @cached_property
+    def alias_map(self) -> dict[str, SocketT]:
+        return {socket.alias: socket for socket in self.inputs + self.outputs}
+
+    def run_subgraph(self, subgraph_socket_alias: str, graph: "ComputeGraph") -> Program:
+        assert subgraph_socket_alias in self.subgraph_socket_aliases
+        subgraph_socket = self.alias_map.get(subgraph_socket_alias)
+        assert subgraph_socket is not None
+        return graph.run(
+            debug=self._debug, node_ids=self._get_subgraph_node_ids(subgraph_socket.id, graph)
+        )
+
+    def get_all_subgraph_node_ids(self, graph: "ComputeGraph") -> set[str]:
+        """Returns ids of nodes that part of a subgraph"""
+        subgraph_node_ids: set[str] = set()
+        for socket_alias in self.subgraph_socket_aliases:
+            if socket := self.alias_map.get(socket_alias):
+                subgraph_node_ids |= self._get_subgraph_node_ids(socket.id, graph)
+
+        return subgraph_node_ids
+
+    def _get_subgraph_node_ids(self, subgraph_socket_id: str, graph: "ComputeGraph") -> set[str]:
+        subgraph_socket = self.get_socket(subgraph_socket_id)
+        assert subgraph_socket is not None
+
+        connected_node_ids = graph.get_connected_nodes(self.id, subgraph_socket_id)
+        # NOTE: Assumes that there is only one edge connected to the subgraph socket
+        if (start_node_id := connected_node_ids[0] if connected_node_ids else None) is None:
+            # If no subgraph start node is found, then the subgraph is empty
+            # This can happen if the a step allows an empty subgraph - we defer the check to the step
+            return set()
+
+        subgraph_node_ids: set[str] = set()
+        bfs_queue: deque[str] = deque([start_node_id])
+        while len(bfs_queue):
+            frontier_node_id = bfs_queue.popleft()
+            # NOTE: Ignore current node to avoid unintended backtracking
+            if frontier_node_id == self.id or frontier_node_id in subgraph_node_ids:
+                continue
+
+            subgraph_node_ids.add(frontier_node_id)
+            for out_edge in graph.out_edges_index[frontier_node_id]:
+                if graph.link_type(out_edge) == SocketType.CONTROL:
+                    bfs_queue.append(graph.node_index[out_edge.to_node_id].id)
+
+            for in_edge in graph.in_edges_index[frontier_node_id]:
+                if graph.link_type(in_edge) == SocketType.CONTROL:
+                    bfs_queue.append(graph.node_index[in_edge.from_node_id].id)
+
+        return subgraph_node_ids
+
+    @abc.abstractmethod
+    def run(
+        self,
+        graph: "ComputeGraph",
+        in_vars: dict[SocketId, ProgramVariable],
+        in_files: dict[SocketId, File],
+    ) -> ProgramFragment: ...
+
+
+class InputStep(Step[StepSocket]):
+    required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (1, -1))
+
+    inputs: list[StepSocket] = []
+    is_user: bool = False  # Whether the input is provided by the user
+
+    @model_validator(mode="after")
+    def check_non_empty_data_outputs(self) -> Self:
+        if (
+            not self.is_user
+            and (empty_socket_ids := [socket.id for socket in self.data_out if socket.data is None])
+            is None
+        ):
+            raise ValueError(f"Missing data for output sockets {','.join(empty_socket_ids)}")
+        return self
+
+    def run(self, graph: "ComputeGraph", *_) -> ProgramFragment:
+        def _parse(data: str | int | float | bool) -> cst.BaseExpression:
+            return cst.parse_expression(
+                repr(data)
+                if not isinstance(data, str)
+                else (f'"{data}"' if not data.startswith(graph.VAR_PREFIX) else data)
+            )
+
+        program = []
+        # If the input is a `File`, we skip the serialization and just pass the file object
+        # directly to the next step. This is handled by the `ComputeGraph` class
+        for socket in filter(lambda s: isinstance(s.data, PrimitiveData), self.data_out):
+            program.append(
+                cst.Assign(
+                    targets=[cst.AssignTarget(graph.get_link_var(self, socket))],
+                    value=_parse(cast(PrimitiveData, socket.data)),
+                )
+            )
+
+        return program
 
 
 class Operator(StrEnum):
@@ -127,214 +273,35 @@ class Comparison(CustomSQLModel):
 
 
 class OutputSocket(StepSocket):
-    user_label: str | None = None
-    """User facing label of the socket. Optional."""
     comparison: Comparison | None = None
     """Comparison to be made with the output of the socket. Optional."""
     public: bool = True
     """Whether output of the socket should be shown to less priviledged users."""
 
-    def model_post_init(self, __context):
-        self.label = self.label or self.id
-
-
-Range = tuple[int, int]
-
-
-class Step[SocketT: StepSocket](CustomBaseModel, GraphNode[SocketT], abc.ABC, polymorphic=True):
-    id: int
-    type: StepType
-
-    _debug: bool = False
-
-    # Socket IDs that are used to connect to the subgraph of a `Step`
-    subgraph_socket_ids: ClassVar[set[str]] = set()
-    # The required number of data sockets
-    required_control_io: ClassVar[tuple[Range, Range]] = ((-1, 1), (-1, 1))
-    # The required number of control sockets
-    # The maximum number by default is 1 for both input and output control sockets (CONTROL.IN and CONTROL.OUT)
-    required_data_io: ClassVar[tuple[Range, Range]] = ((-1, -1), (-1, -1))
-
-    @model_validator(mode="after")
-    def check_required_inputs_and_outputs(self) -> Self:
-        def satisfies_required(expected: Range, got: int) -> bool:
-            # NOTE: -1 indicates that there is no limit
-            match expected:
-                case (-1, -1):
-                    return True
-                case (-1, upper_bound):
-                    return got <= upper_bound
-                case (lower_bound, -1):
-                    return got >= lower_bound
-                case (lower_bound, upper_bound):
-                    return lower_bound <= got <= upper_bound
-                case _:
-                    # This should never happen
-                    return False
-
-        is_data_socket: Callable[[StepSocket], bool] = lambda socket: socket.type == "DATA"
-
-        num_data_in, num_control_in = list(map(len, partition(is_data_socket, self.inputs)))
-        num_data_out, num_control_out = list(map(len, partition(is_data_socket, self.outputs)))
-
-        for got, expected, label in zip(
-            (num_data_in, num_data_out, num_control_in, num_control_out),
-            self.required_data_io + self.required_control_io,
-            ("data input", "data output", "control input", "control output"),
-            strict=True,
-        ):
-            if not satisfies_required(expected, got):
-                raise ValueError(f"Step {self.id} requires {expected} {label} sockets, found {got}")
-
-        return self
-
-    @cached_property
-    def control_in(self) -> Sequence[SocketT]:
-        return [socket for socket in self.inputs if socket.type == "CONTROL"]
-
-    @cached_property
-    def control_out(self) -> Sequence[SocketT]:
-        return [socket for socket in self.outputs if socket.type == "CONTROL"]
-
-    @cached_property
-    def data_in(self) -> Sequence[SocketT]:
-        return [socket for socket in self.inputs if socket.type == "DATA"]
-
-    @cached_property
-    def data_out(self) -> Sequence[SocketT]:
-        return [socket for socket in self.outputs if socket.type == "DATA"]
-
-    def get_subgraph_node_ids(self, subgraph_socket_id: str, graph: "ComputeGraph") -> set[int]:
-        subgraph_socket: StepSocket | None = self.get_socket(subgraph_socket_id)
-        if subgraph_socket is None:
-            raise ValueError(f"Subgraph socket {subgraph_socket_id} not found!")
-
-        subgraph_start_node: Step | None = None
-
-        # Check both incoming and outgoing edges to find the subgraph start node
-        # NOTE: Assumes that there is only one edge connected to the subgraph socket
-
-        for out_edge in graph.out_edges_index[self.id]:
-            if out_edge.from_socket_id == subgraph_socket.id:
-                subgraph_start_node = graph.node_index[out_edge.to_node_id]
-                break
-
-        for in_edge in graph.in_edges_index[self.id]:
-            if in_edge.to_socket_id == subgraph_socket.id:
-                subgraph_start_node = graph.node_index[in_edge.from_node_id]
-                break
-
-        if subgraph_start_node is None:
-            # If no subgraph start node is found, then the subgraph is empty
-            # This can happen if the a step allows an empty subgraph - we defer the check to the step
-            return set()
-
-        subgraph_node_ids: set[int] = set()
-        bfs_queue: deque[Step] = deque([subgraph_start_node])
-        while len(bfs_queue):
-            frontier_node = bfs_queue.popleft()
-            if frontier_node.id in subgraph_node_ids:
-                continue
-
-            subgraph_node_ids.add(frontier_node.id)
-            for out_edge in graph.out_edges_index[frontier_node.id]:
-                from_socket_id = out_edge.from_socket_id
-                to_socket_id = out_edge.to_socket_id
-
-                if from_socket_id == "CONTROL.OUT" and to_socket_id == "CONTROL.IN":
-                    bfs_queue.append(graph.node_index[out_edge.to_node_id])
-
-            for in_edge in graph.in_edges_index[frontier_node.id]:
-                to_socket_id = in_edge.to_socket_id
-                from_socket_id = in_edge.from_socket_id
-
-                if to_socket_id == "CONTROL.IN" and from_socket_id == "CONTROL.OUT":
-                    bfs_queue.append(graph.node_index[out_edge.from_node_id])
-
-        return subgraph_node_ids
-
-    def get_all_subgraph_node_ids(self, graph: "ComputeGraph") -> set[int]:
-        subgraph_node_ids: set[int] = set()
-
-        for socket_id in self.subgraph_socket_ids:
-            subgraph_node_ids |= self.get_subgraph_node_ids(socket_id, graph)
-
-        return subgraph_node_ids
-
-    def run_subgraph(self, subgraph_socket_id: str, graph: "ComputeGraph") -> Program:
-        return graph.run(
-            debug=self._debug, node_ids=self.get_subgraph_node_ids(subgraph_socket_id, graph)
-        )
-
-    def get_output_variable(self, output: SocketId) -> ProgramVariable:
-        return cst.Name(f"var_{self.id}_{output}".replace(".", "_"))
-
-    @abc.abstractmethod
-    def run(
-        self,
-        var_inputs: dict[SocketId, ProgramVariable],
-        file_inputs: dict[SocketId, File],
-        graph: "ComputeGraph",
-    ) -> ProgramFragment: ...
-
-
-class InputStep(Step[StepSocket]):
-    required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (1, -1))
-
-    @model_validator(mode="after")
-    def check_non_empty_data_outputs(self) -> Self:
-        for socket in self.data_out:
-            if socket.data is None:
-                raise ValueError(f"Missing data for output socket {socket.id}")
-        return self
-
-    def run(self, *_) -> ProgramFragment:
-        def _parse(data: str | int | float | bool) -> cst.BaseExpression:
-            # TODO: Better handle of variables vs strings
-            data_repr: str = (
-                repr(data)
-                if not isinstance(data, str)
-                else (f'"{data}"' if not data.startswith("var_") else data)
-            )
-            return cst.parse_expression(data_repr)
-
-        program = []
-        for socket in self.data_out:
-            if isinstance(socket.data, File):
-                # If the input is a `File`, we skip the serialization and just pass the file object
-                # directly to the next step. This is handled by the `ComputeGraph` class
-                continue
-            elif isinstance(socket.data, PrimitiveData):
-                program.append(
-                    cst.Assign(
-                        targets=[cst.AssignTarget(self.get_output_variable(socket.id))],
-                        value=_parse(socket.data),
-                    )
-                )
-
-        return program
-
 
 class OutputStep(Step[OutputSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (0, 0))
 
-    def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> ProgramFragment:
+    outputs: list[OutputSocket] = []
+
+    def run(
+        self, _graph: "ComputeGraph", in_vars: dict[SocketId, ProgramVariable], *_
+    ) -> ProgramFragment:
         result_dict = cst.Dict(
             [
-                cst.DictElement(key=cst.SimpleString(repr(socket.id)), value=var_inputs[socket.id])
+                cst.DictElement(key=cst_str(socket.id), value=in_vars[socket.id])
                 for socket in self.data_in
             ]
         )
-
         return [
-            cst.Import([cst.ImportAlias(name=cst.Name("json"))]),
+            cst.Import([cst.ImportAlias(name=cst_var("json"))]),
             cst.Expr(
                 cst.Call(
-                    func=cst.Name("print"),
+                    func=cst_var("print"),
                     args=[
                         cst.Arg(
                             cst.Call(
-                                func=cst.Attribute(value=cst.Name("json"), attr=cst.Name("dumps")),
+                                func=cst.Attribute(value=cst_var("json"), attr=cst_var("dumps")),
                                 args=[cst.Arg(result_dict)],
                             )
                         )
@@ -347,19 +314,18 @@ class OutputStep(Step[OutputSocket]):
 class StringMatchStep(Step[StepSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((2, 2), (1, 1))
 
-    def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> ProgramFragment:
+    def run(
+        self, graph: "ComputeGraph", in_vars: dict[SocketId, ProgramVariable], *_
+    ) -> ProgramFragment:
+        match_result_socket, [match_op_1, match_op_2] = self.data_out[0], self.data_in
+        str_cast = lambda var: cst.Call(cst_var("str"), args=[cst.Arg(var)])
         return [
             cst.Assign(
-                targets=[cst.AssignTarget(self.get_output_variable(self.outputs[0].id))],
+                targets=[cst.AssignTarget(graph.get_link_var(self, match_result_socket))],
                 value=cst.Comparison(
-                    left=cst.Call(cst.Name("str"), args=[cst.Arg(var_inputs[self.data_in[0].id])]),
+                    left=str_cast(in_vars[match_op_1.id]),
                     comparisons=[
-                        cst.ComparisonTarget(
-                            cst.Equal(),
-                            cst.Call(
-                                cst.Name("str"), args=[cst.Arg(var_inputs[self.data_in[1].id])]
-                            ),
-                        )
+                        cst.ComparisonTarget(cst.Equal(), str_cast(in_vars[match_op_2.id]))
                     ],
                 ),
             )
@@ -376,41 +342,32 @@ class ObjectAccessStep(Step[StepSocket]):
 
     key: str
 
-    def run(self, var_inputs: dict[SocketId, ProgramVariable], *_) -> ProgramFragment:
+    def run(
+        self, graph: "ComputeGraph", in_vars: dict[SocketId, ProgramVariable], *_
+    ) -> ProgramFragment:
         return [
             cst.Assign(
-                targets=[cst.AssignTarget(self.get_output_variable(self.data_out[0].id))],
+                targets=[cst.AssignTarget(graph.get_link_var(self, self.data_out[0]))],
                 value=cst.Subscript(
-                    value=var_inputs[self.data_in[0].id],
-                    slice=[cst.SubscriptElement(cst.Index(cst.SimpleString(repr(self.key))))],
+                    value=in_vars[self.data_in[0].id],
+                    slice=[cst.SubscriptElement(cst.Index(cst_str(self.key)))],
                 ),
             )
         ]
 
 
 class PyRunFunctionStep(Step[StepSocket]):
-    """
-    A step that runs a Python function.
-    To use this step, the user must provide the function name and the arguments to the function via the input sockets.
-
-    Socket Name Format:
-    - DATA.IN.ARG.{index}.{name}: For positional arguments
-    - DATA.IN.KWARG.{name}: For keyword arguments
-    - DATA.IN.FILE: For the `File` object that contains the Python function
-    """
-
     required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (1, 2))
 
-    _data_in_file_id: ClassVar[str] = "DATA.IN.FILE"
+    _file_socket_alias: ClassVar[str] = "DATA.IN.FILE"
+    _error_socket_alias: ClassVar[str] = "DATA.OUT.ERROR"
 
     function_identifier: str
-
     allow_error: bool = False
-    _data_out_error_id: ClassVar[str] = "DATA.OUT.ERROR"
 
     @model_validator(mode="after")
     def check_module_file_input(self) -> Self:
-        if not any(socket.label == "FILE" for socket in self.data_in):
+        if not any(socket.alias == self._file_socket_alias for socket in self.data_in):
             raise ValueError("No module file input provided")
         return self
 
@@ -424,15 +381,11 @@ class PyRunFunctionStep(Step[StepSocket]):
                 f"Expected {expected_sockets} output socket(s) when `allow_error` is {self.allow_error}"
             )
 
-        if self.allow_error and self._data_out_error_id not in [
-            socket.id for socket in self.data_out
-        ]:
-            raise ValueError(f"Missing error output socket {self._data_out_error_id}")
-
-        if not self.allow_error and self._data_out_error_id in [
-            socket.id for socket in self.data_out
-        ]:
-            raise ValueError(f"Unexpected error output socket {self._data_out_error_id}")
+        has_error_socket = any(socket.alias == self._error_socket_alias for socket in self.data_out)
+        if self.allow_error and not has_error_socket:
+            raise ValueError(f"Missing error output socket {self._error_socket_alias}")
+        if not self.allow_error and has_error_socket:
+            raise ValueError(f"Unexpected error output socket {self._error_socket_alias}")
 
         return self
 
@@ -447,55 +400,54 @@ class PyRunFunctionStep(Step[StepSocket]):
 
     def run(
         self,
-        var_inputs: dict[SocketId, ProgramVariable],
-        file_inputs: dict[SocketId, File],
         graph: "ComputeGraph",
+        in_vars: dict[SocketId, ProgramVariable],
+        in_files: dict[SocketId, File],
     ) -> ProgramFragment:
         # Get the input file that we are running the function from
-        program_file: File | None = file_inputs.get(self._data_in_file_id)
+        file_socket_id = self.alias_map[self._file_socket_alias].id
+        program_file: File | None = in_files.get(file_socket_id)
         if program_file is None:
             raise ValueError("No program file provided")
 
         # NOTE: Assume that there can only be one edge connected to the file input socket. This should ideally be validated.
-        # NOTE: Assume that the user-provided input is always stored in the `Step` with id = 0
-        is_user_provided_file: bool = [
-            edge
+        from_file_node_id = [
+            edge.from_node_id
             for edge in graph.in_edges_index[self.id]
-            if edge.to_socket_id == self._data_in_file_id
-        ][0].from_node_id == 0
+            if edge.to_socket_id == file_socket_id
+        ][0]
+        from_file_node = cast(InputStep, graph.node_index[from_file_node_id])
+        is_user_provided_file: bool = from_file_node.is_user
 
         # NOTE: Assume that the program file is always a Python file
         module_name_str = program_file.name.split(".py")[0]
 
-        func_name = cst.Name(self.function_identifier)
-        args = [cst.Arg(var_inputs[socket.id]) for socket in self.arg_sockets]
+        func_name = cst_var(self.function_identifier)
+        args = [cst.Arg(in_vars[socket.id]) for socket in self.arg_sockets]
         kwargs = [
-            cst.Arg(var_inputs[socket.id], keyword=cst.Name(socket.label.split(".", 1)[1]))
+            cst.Arg(in_vars[socket.id], keyword=cst_var(socket.label.split(".", 1)[1]))
             for socket in self.kwarg_sockets
         ]
 
-        non_error_sockets = [
-            socket for socket in self.data_out if socket.id != self._data_in_file_id
-        ]
-        output_var_name = self.get_output_variable(non_error_sockets[0].id)
-        error_var_name = (
-            self.get_output_variable(self._data_out_error_id) if self.allow_error else cst.Name("_")
-        )
+        if error_socket := self.alias_map.get(self._error_socket_alias):
+            out_var = graph.get_link_var(
+                self, [socket for socket in self.data_out if socket.id != error_socket.id][0]
+            )
+            error_var = graph.get_link_var(self, error_socket)
+        else:
+            out_var = graph.get_link_var(self, self.data_out[0])
+            error_var = UNUSED_VAR
 
         return (
             [
                 cst.Assign(
-                    [
-                        cst.AssignTarget(
-                            cst.Tuple([cst.Element(output_var_name), cst.Element(error_var_name)])
-                        )
-                    ],
+                    [cst.AssignTarget(cst.Tuple([cst.Element(out_var), cst.Element(error_var)]))],
                     cst.Call(
-                        cst.Name("call_function_safe"),
+                        cst_var("call_function_safe"),
                         [
-                            cst.Arg(cst.SimpleString(repr(module_name_str))),
-                            cst.Arg(cst.SimpleString(repr(self.function_identifier))),
-                            cst.Arg(cst.Name(repr(self.allow_error))),
+                            cst.Arg(cst_str(module_name_str)),
+                            cst.Arg(cst_str(self.function_identifier)),
+                            cst.Arg(cst_var(self.allow_error)),
                             *args,
                             *kwargs,
                         ],
@@ -504,59 +456,65 @@ class PyRunFunctionStep(Step[StepSocket]):
             ]
             if is_user_provided_file
             else [
-                cst.ImportFrom(cst.Name(module_name_str), [cst.ImportAlias(func_name)]),
-                cst.Assign([cst.AssignTarget(output_var_name)], cst.Call(func_name, args + kwargs)),
+                cst.ImportFrom(cst_var(module_name_str), [cst.ImportAlias(func_name)]),
+                cst.Assign([cst.AssignTarget(out_var)], cst.Call(func_name, args + kwargs)),
             ]
         )
 
 
 class LoopStep(Step[StepSocket]):
-    _pred_socket_id: ClassVar[str] = "CONTROL.IN.PREDICATE"
-    _body_socket_id: ClassVar[str] = "CONTROL.OUT.BODY"
+    _pred_socket_alias: ClassVar[str] = "CONTROL.IN.PREDICATE"
+    _body_socket_alias: ClassVar[str] = "CONTROL.OUT.BODY"
 
-    subgraph_socket_ids: ClassVar[set[str]] = {_pred_socket_id, _body_socket_id}
+    subgraph_socket_aliases: ClassVar[set[str]] = {_pred_socket_alias, _body_socket_alias}
     required_control_io: ClassVar[tuple[Range, Range]] = ((1, 2), (1, 2))
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (0, 0))
 
     def run(
-        self, var_inputs: dict[SocketId, ProgramVariable], _, graph: "ComputeGraph"
+        self, graph: "ComputeGraph", in_vars: dict[SocketId, ProgramVariable], *_
     ) -> ProgramFragment:
+        pred_socket = self.alias_map.get(self._pred_socket_alias)
+        pred_fragment = (
+            [
+                *self.run_subgraph(self._pred_socket_alias, graph).body,
+                cst.If(test=in_vars[pred_socket.id], body=cst.SimpleStatementSuite([cst.Break()])),
+            ]
+            if pred_socket
+            else []
+        )
         return [
             cst.While(
-                test=cst.Name("True"),
+                test=cst_var(True),
                 body=cst.IndentedBlock(
-                    [
-                        *self.run_subgraph(self._pred_socket_id, graph).body,
-                        cst.If(
-                            test=var_inputs[self._pred_socket_id],
-                            body=cst.SimpleStatementSuite([cst.Break()]),
-                        ),
-                        *self.run_subgraph(self._body_socket_id, graph).body,
-                    ]
+                    [*pred_fragment, *self.run_subgraph(self._body_socket_alias, graph).body]
                 ),
             )
         ]
 
 
 class IfElseStep(Step[StepSocket]):
-    _pred_socket_id: ClassVar[str] = "CONTROL.IN.PREDICATE"
-    _if_socket_id: ClassVar[str] = "CONTROL.OUT.IF"
-    _else_socket_id: ClassVar[str] = "CONTROL.OUT.ELSE"
+    _pred_socket_alias: ClassVar[str] = "CONTROL.IN.PREDICATE"
+    _if_socket_alias: ClassVar[str] = "CONTROL.OUT.IF"
+    _else_socket_alias: ClassVar[str] = "CONTROL.OUT.ELSE"
 
-    subgraph_socket_ids: ClassVar[set[str]] = {_pred_socket_id, _if_socket_id, _else_socket_id}
+    subgraph_socket_aliases: ClassVar[set[str]] = {
+        _pred_socket_alias,
+        _if_socket_alias,
+        _else_socket_alias,
+    }
     required_control_io: ClassVar[tuple[Range, Range]] = ((1, 2), (2, 3))
     required_data_io: ClassVar[tuple[Range, Range]] = ((0, 0), (0, 0))
 
     def run(
-        self, var_inputs: dict[SocketId, ProgramVariable], _, graph: "ComputeGraph"
+        self, graph: "ComputeGraph", in_vars: dict[SocketId, ProgramVariable], *_
     ) -> ProgramFragment:
         return [
-            *self.run_subgraph(self._pred_socket_id, graph).body,
+            *self.run_subgraph(self._pred_socket_alias, graph).body,
             cst.If(
-                test=var_inputs[self._pred_socket_id],
-                body=cst.IndentedBlock([*self.run_subgraph(self._if_socket_id, graph).body]),
+                test=in_vars[self.alias_map[self._pred_socket_alias].id],
+                body=cst.IndentedBlock([*self.run_subgraph(self._if_socket_alias, graph).body]),
                 orelse=cst.Else(
-                    cst.IndentedBlock([*self.run_subgraph(self._else_socket_id, graph).body])
+                    cst.IndentedBlock([*self.run_subgraph(self._else_socket_alias, graph).body])
                 ),
             ),
         ]
@@ -573,90 +531,93 @@ StepClasses = (
 )
 
 
-class ComputeGraph(Graph[StepClasses]):
-    def _create_link_variable(self, from_node: Step, from_socket: str) -> ProgramVariable:
-        """
-        Create a variable name for the output of a node. The variable name must be unique across all nodes and sockets.
+class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
+    VAR_PREFIX: ClassVar[str] = "var_"
 
-        Args:
-            from_node (Step): The node that is outputting the variable
-            from_socket (str): The socket that the variable is outputting from
-        """
-        return from_node.get_output_variable(from_socket)
+    _var_node_id_gen = PrivateAttr(default=count())
+    _var_node_id_map: dict[str, int] = PrivateAttr(default={})
 
-    def run(
-        self,
-        user_input_step: Optional["InputStep"] = None,
-        debug: bool = True,
-        node_ids: set[int] | None = None,
-    ) -> Program:
+    _var_socket_id_gen: dict[str, count] = PrivateAttr(default=defaultdict(lambda: count()))
+    _var_socket_id_map: dict[str, dict[str, int]] = PrivateAttr(default=defaultdict(dict))
+
+    def get_link_var(self, from_node: Step, from_socket: StepSocket) -> ProgramVariable:
+        uniq_node_id = self._var_node_id_map.setdefault(from_node.id, next(self._var_node_id_gen))
+        uniq_socket_id = self._var_socket_id_map.setdefault(from_node.id, {}).setdefault(
+            from_socket.id, next(self._var_socket_id_gen[from_node.id])
+        )
+        # Remove all special characters and replace spaces with underscores using regex
+        sanitized_label = re.sub(r"[^a-zA-Z0-9_]", "", from_socket.label.replace(" ", "_"))
+
+        var_name_str = f"{self.VAR_PREFIX}{'_'.join(map(str, [uniq_node_id, from_node.type.value, uniq_socket_id, sanitized_label]))}"
+        return cst.Name(var_name_str.lower())
+
+    def link_type(self, edge: GraphEdge[str]) -> SocketType:
+        def get_step_socket(step_id: str, socket_id: str) -> StepSocket | None:
+            node = self.node_index.get(step_id)
+            return node.get_socket(socket_id) if node else None
+
+        from_socket = get_step_socket(edge.from_node_id, edge.from_socket_id)
+        to_socket = get_step_socket(edge.to_node_id, edge.to_socket_id)
+        assert from_socket is not None and to_socket is not None
+
+        # NOTE: As long as one of the sockets is a control socket, the link is considered a control link
+        # This is because there can be a data socket connected to a control socket
+        is_control = any(map(lambda t: t == SocketType.CONTROL, [from_socket.type, to_socket.type]))
+        if from_socket._dir != to_socket._dir:
+            return SocketType.CONTROL if is_control else SocketType.DATA
+        raise ValueError(f"Invalid link: {from_socket.id} -> {to_socket.id}")
+
+    def run(self, debug: bool = True, node_ids: set[str] | None = None) -> Program:
         """
         Run the compute graph with the given user input.
 
         Args:
-            user_input_step (InputStep, optional): The input step (id = 0) that contains the user input
             debug (bool, optional): Whether to include debug statements in the program. Defaults to True.
             node_ids (set[int], optional): The node ids to run. Defaults to None.
 
         Returns:
             Program: The program that is generated from the compute graph
         """
-        # Add user input step (node) to compute graph
-        if user_input_step is not None:
-            self.nodes.append(user_input_step)
-
         # If node_ids is provided, we exclude all other nodes
         # This is useful when we want to run only a subset of the compute graph
-        node_ids_to_exclude: set[int] = set()
+        node_ids_to_exclude: set[str] = set()
         if node_ids is not None:
             node_ids_to_exclude = set(self.node_index.keys()) - node_ids
 
-        subgraph_node_ids: set[int] = set()
-        for node in self.nodes:
-            if node.id not in node_ids_to_exclude:
-                subgraph_node_ids |= node.get_all_subgraph_node_ids(self)
+        subgraph_node_ids: set[str] = set()
+        for node in filter(lambda n: n.id not in node_ids_to_exclude, self.nodes):
+            subgraph_node_ids |= node.get_all_subgraph_node_ids(self)
 
         # We do not consider subgraph nodes when determining the flow order (topological order) of the main compute graph
         # The responsibility of determining the order of subgraph nodes is deferred to the step itself
-        topological_order: list[StepClasses] = self.topological_sort(
-            subgraph_node_ids | node_ids_to_exclude
-        )
+        topo_order = self.topological_sort(subgraph_node_ids | node_ids_to_exclude)
 
         program_body: ProgramBody = []
-        for node in topological_order:
+        for _i, curr_node in enumerate(topo_order):
             # Output of a step will be stored in a variable in the format `var_{step_id}_{socket_id}`
             # It is assumed that every step will always output the same number of values as the number of output sockets
             # As such, all we need to do is to pass in the correct variables to the next step
+            in_vars: dict[SocketId, ProgramVariable] = {}
+            in_files: dict[SocketId, File] = {}
 
-            input_variables: dict[SocketId, ProgramVariable] = {}
-            file_inputs: dict[SocketId, File] = {}
+            for in_edge in self.in_edges_index[curr_node.id]:
+                from_n = self.node_index[in_edge.from_node_id]
+                from_s_lst = [out_ for out_ in from_n.outputs if out_.id == in_edge.from_socket_id]
+                if (from_s := from_s_lst[0] if from_s_lst else None) is None:
+                    continue
 
-            for in_edge in self.in_edges_index[node.id]:
-                in_node: Step = self.node_index[in_edge.from_node_id]
+                if (to_s := curr_node.get_socket(in_edge.to_socket_id)) is None:
+                    continue
 
-                # Find the socket that the link is connected to
-                for socket in filter(lambda socket: socket.id == in_edge.to_socket_id, node.inputs):
-                    in_node_sockets = [
-                        socket for socket in in_node.outputs if socket.id == in_edge.from_socket_id
-                    ]
-                    assert len(in_node_sockets) <= 1
+                if from_s.data is not None and isinstance(from_s.data, File):
+                    # NOTE: File objects are passed directly to the next step and not serialized as a variable
+                    in_files[to_s.id] = from_s.data
+                else:
+                    in_vars[to_s.id] = self.get_link_var(from_n, from_s)
 
-                    # If no sockets are connected to this input socket, skip.
-                    if not in_node_sockets:
-                        continue
-
-                    # Get origining node socket from in_node
-                    in_node_socket: StepSocket = in_node_sockets[0]
-
-                    if in_node_socket.data is not None and isinstance(in_node_socket.data, File):
-                        # NOTE: File objects are passed directly to the next step and not serialized as a variable
-                        file_inputs[socket.id] = in_node_socket.data
-                    else:
-                        input_variables[socket.id] = self._create_link_variable(
-                            in_node, in_node_socket.id
-                        )
-
-            node._debug = debug
-            program_body.extend(assemble_fragment(node.run(input_variables, file_inputs, self)))
+            curr_node._debug = debug
+            program_body.extend(
+                assemble_fragment(curr_node.run(self, in_vars, in_files), add_spacer=_i > 0)
+            )
 
         return hoist_imports(cst.Module(body=program_body))

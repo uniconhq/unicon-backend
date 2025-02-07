@@ -15,11 +15,7 @@ from unicon_backend.lib.permissions import (
     permission_list_for_subject,
     permission_update,
 )
-from unicon_backend.models import (
-    ProblemORM,
-    SubmissionORM,
-    TaskResultORM,
-)
+from unicon_backend.models import ProblemORM, SubmissionORM, TaskResultORM
 from unicon_backend.models.problem import (
     SubmissionPublic,
     TaskAttemptORM,

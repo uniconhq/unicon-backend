@@ -7,7 +7,10 @@
       "id": 0,
       "type": "MULTIPLE_CHOICE_TASK",
       "question": "True or False: Uniform Cost Search is a special case of A* search.",
-      "choices": ["True", "False"],
+      "choices": [
+        "True",
+        "False"
+      ],
       "expected_answer": 0
     },
     {
@@ -20,7 +23,10 @@
         "P(y = 1 |x, w) = 0.6",
         "P(y = 0 |x, w) = 0.6"
       ],
-      "expected_answer": [0, 3]
+      "expected_answer": [
+        0,
+        3
+      ]
     },
     {
       "id": 2,
@@ -42,7 +48,7 @@
       },
       "required_inputs": [
         {
-          "id": "DATA.IN.TREE_SEARCH",
+          "id": "__TREE_SEARCH_FILE__",
           "data": {
             "name": "tree_search.py",
             "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
@@ -54,73 +60,89 @@
           "id": 0,
           "nodes": [
             {
-              "id": 1,
+              "id": "__USER_INPUT__",
               "type": "INPUT_STEP",
-              "inputs": [],
+              "is_user": true,
               "outputs": [
                 {
-                  "id": "DATA.OUT.ARG.m",
+                  "id": "__TREE_SEARCH_FILE__",
+                  "label": "TREE_SEARCH"
+                }
+              ]
+            },
+            {
+              "id": "__INPUT__",
+              "type": "INPUT_STEP",
+              "outputs": [
+                {
+                  "id": "__ARG_m__",
+                  "label": "ARG_M",
                   "data": 2
                 },
                 {
-                  "id": "DATA.OUT.ARG.c",
+                  "id": "__ARG_c__",
+                  "label": "ARG_C",
                   "data": 1
                 },
                 {
-                  "id": "DATA.OUT.EXPECTED_RESULT",
+                  "id": "__EXPECTED_RESULT__",
+                  "label": "EXPECTED_RESULT",
                   "data": "((2, 0), (1, 0), (1, 1))"
                 }
               ]
             },
             {
-              "id": 2,
+              "id": "__PY_RUN_TREE_SEARCH__",
               "type": "PY_RUN_FUNCTION_STEP",
               "function_identifier": "mnc_tree_search",
               "inputs": [
                 {
-                  "id": "DATA.IN.FILE"
+                  "id": "__MODULE__",
+                  "label": "FILE"
                 },
                 {
-                  "id": "DATA.IN.ARG.0.m"
+                  "id": "__ARG_0__",
+                  "label": "ARG.0.m"
                 },
                 {
-                  "id": "DATA.IN.ARG.0.c"
+                  "id": "__ARG_1__",
+                  "label": "ARG.0.c"
                 }
               ],
               "outputs": [
                 {
-                  "id": "CONTROL.OUT"
-                },
-                {
-                  "id": "DATA.OUT"
+                  "id": "__RESULT__",
+                  "label": "TREE_SEARCH_RESULT"
                 }
               ]
             },
             {
-              "id": 3,
+              "id": "__MATCH__",
               "type": "STRING_MATCH_STEP",
               "inputs": [
                 {
-                  "id": "DATA.IN.STRING.0"
+                  "id": "__1__",
+                  "label": "Operand 1"
                 },
                 {
-                  "id": "DATA.IN.STRING.1"
+                  "id": "__2__",
+                  "label": "Operand 2"
                 }
               ],
               "outputs": [
                 {
-                  "id": "DATA.OUT.STRING_MATCH"
+                  "id": "__MATCH_RESULT__",
+                  "label": "Does it match?"
                 }
               ]
             },
             {
-              "id": 4,
+              "id": "__OUTPUT__",
               "type": "OUTPUT_STEP",
-              "outputs": [],
               "inputs": [
                 {
-                  "id": "DATA.IN.STRING_MATCH_RESULT",
-                  "user_label": "Do strings match?",
+                  "id": "__RESULT__",
+                  "label": "Do strings match?",
                   "comparison": {
                     "operator": "=",
                     "value": true
@@ -132,46 +154,46 @@
           ],
           "edges": [
             {
-              "id": 1,
-              "from_node_id": 0,
-              "from_socket_id": "DATA.IN.TREE_SEARCH",
-              "to_node_id": 2,
-              "to_socket_id": "DATA.IN.FILE"
+              "id": "1",
+              "from_node_id": "__USER_INPUT__",
+              "from_socket_id": "__TREE_SEARCH_FILE__",
+              "to_node_id": "__PY_RUN_TREE_SEARCH__",
+              "to_socket_id": "__MODULE__"
             },
             {
-              "id": 2,
-              "from_node_id": 1,
-              "from_socket_id": "DATA.OUT.ARG.m",
-              "to_node_id": 2,
-              "to_socket_id": "DATA.IN.ARG.0.m"
+              "id": "2",
+              "from_node_id": "__INPUT__",
+              "from_socket_id": "__ARG_m__",
+              "to_node_id": "__PY_RUN_TREE_SEARCH__",
+              "to_socket_id": "__ARG_0__"
             },
             {
-              "id": 3,
-              "from_node_id": 1,
-              "from_socket_id": "DATA.OUT.ARG.c",
-              "to_node_id": 2,
-              "to_socket_id": "DATA.IN.ARG.0.c"
+              "id": "3",
+              "from_node_id": "__INPUT__",
+              "from_socket_id": "__ARG_c__",
+              "to_node_id": "__PY_RUN_TREE_SEARCH__",
+              "to_socket_id": "__ARG_1__"
             },
             {
-              "id": 4,
-              "from_node_id": 2,
-              "from_socket_id": "DATA.OUT",
-              "to_node_id": 3,
-              "to_socket_id": "DATA.IN.STRING.0"
+              "id": "4",
+              "from_node_id": "__PY_RUN_TREE_SEARCH__",
+              "from_socket_id": "__RESULT__",
+              "to_node_id": "__MATCH__",
+              "to_socket_id": "__1__"
             },
             {
-              "id": 5,
-              "from_node_id": 1,
-              "from_socket_id": "DATA.OUT.EXPECTED_RESULT",
-              "to_node_id": 3,
-              "to_socket_id": "DATA.IN.STRING.1"
+              "id": "5",
+              "from_node_id": "__INPUT__",
+              "from_socket_id": "__EXPECTED_RESULT__",
+              "to_node_id": "__MATCH__",
+              "to_socket_id": "__2__"
             },
             {
-              "id": 6,
-              "from_node_id": 3,
-              "from_socket_id": "DATA.OUT.STRING_MATCH",
-              "to_node_id": 4,
-              "to_socket_id": "DATA.IN.STRING_MATCH_RESULT"
+              "id": "6",
+              "from_node_id": "__MATCH__",
+              "from_socket_id": "__MATCH_RESULT__",
+              "to_node_id": "__OUTPUT__",
+              "to_socket_id": "__RESULT__"
             }
           ]
         }

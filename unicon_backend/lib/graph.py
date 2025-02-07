@@ -5,16 +5,20 @@ from typing import Generic, Self, TypeVar
 
 from pydantic import BaseModel, model_validator
 
+from unicon_backend.lib.helpers import create_multi_index
 
-class NodeSocket(BaseModel):
-    id: str
-
-
-NodeSocketType = TypeVar("NodeSocketType", bound=NodeSocket)
+IdType = TypeVar("IdType", bound=str)
 
 
-class GraphNode(BaseModel, Generic[NodeSocketType]):
-    id: int
+class NodeSocket(BaseModel, Generic[IdType]):
+    id: IdType
+
+
+NodeSocketType = TypeVar("NodeSocketType", bound=NodeSocket[str])
+
+
+class GraphNode(BaseModel, Generic[IdType, NodeSocketType]):
+    id: IdType
     inputs: list[NodeSocketType]
     outputs: list[NodeSocketType]
 
@@ -30,75 +34,66 @@ class GraphNode(BaseModel, Generic[NodeSocketType]):
         """Return a dictionary of socket id to socket object"""
         return {socket.id: socket for socket in chain(self.inputs, self.outputs)}
 
-    def get_socket(self, socket_id: str) -> NodeSocketType | None:
+    def get_socket(self, socket_id: IdType) -> NodeSocketType | None:
         return self.socket_index.get(socket_id)
 
 
-class GraphEdge(BaseModel):
-    id: int
+class GraphEdge(BaseModel, Generic[IdType]):
+    id: IdType
 
-    from_node_id: int
-    from_socket_id: str
+    from_node_id: IdType
+    from_socket_id: IdType
 
-    to_node_id: int
-    to_socket_id: str
-
-
-GraphNodeType = TypeVar("GraphNodeType", bound=GraphNode)
+    to_node_id: IdType
+    to_socket_id: IdType
 
 
-class Graph(BaseModel, Generic[GraphNodeType]):
+GraphNodeType = TypeVar("GraphNodeType", bound=GraphNode[str, NodeSocket[str]])
+GraphEdgeType = TypeVar("GraphEdgeType", bound=GraphEdge[str])
+
+
+class Graph(BaseModel, Generic[GraphNodeType, GraphEdgeType]):
     nodes: list[GraphNodeType]
-    edges: list[GraphEdge]
+    edges: list[GraphEdgeType]
 
     @cached_property
-    def node_index(self) -> dict[int, GraphNodeType]:
-        """Return a dictionary of node id to node object"""
+    def node_index(self) -> dict[str, GraphNodeType]:
+        """Return a map of node id to node object"""
         return {node.id: node for node in self.nodes}
 
     @cached_property
-    def out_nodes_index(self) -> defaultdict[int, list[int]]:
-        """Return a dictionary of node id to a list of ids of nodes that are outgoing from the node"""
-        out_nodes_index = defaultdict(list)
-        for edge in self.edges:
-            out_nodes_index[edge.from_node_id].append(edge.to_node_id)
-        return out_nodes_index
+    def out_nodes_index(self) -> defaultdict[str, list[str]]:
+        """Return a map of node id to a list of ids of nodes that are outgoing from the node"""
+        return create_multi_index(self.edges, lambda e: e.from_node_id, lambda e: e.to_node_id)
 
     @cached_property
-    def in_nodes_index(self) -> defaultdict[int, list[int]]:
-        """Return a dictionary of node id to a list of ids of nodes that are incoming to the node"""
-        in_nodes_index = defaultdict(list)
-        for edge in self.edges:
-            in_nodes_index[edge.to_node_id].append(edge.from_node_id)
-        return in_nodes_index
+    def in_nodes_index(self) -> defaultdict[str, list[str]]:
+        """Return a map of node id to a list of ids of nodes that are incoming to the node"""
+        return create_multi_index(self.edges, lambda e: e.to_node_id, lambda e: e.from_node_id)
 
     @cached_property
-    def edge_index(self) -> dict[int, GraphEdge]:
-        """Return a dictionary of edge id to edge object"""
-        return {edge.id: edge for edge in self.edges}
+    def out_edges_index(self) -> defaultdict[str, list[GraphEdgeType]]:
+        """Return a map of node id to a list of ids of edges that are outgoing from the node"""
+        return create_multi_index(self.edges, lambda e: e.from_node_id, lambda e: e)
 
     @cached_property
-    def out_edges_index(self) -> defaultdict[int, list[GraphEdge]]:
-        """Return a dictionary of node id to a list of ids of edges that are outgoing from the node"""
-        out_edges_index = defaultdict(list)
-        for edge in self.edges:
-            out_edges_index[edge.from_node_id].append(edge)
-        return out_edges_index
+    def in_edges_index(self) -> defaultdict[str, list[GraphEdgeType]]:
+        """Return a map of node id to a list of ids of edges that are incoming to the node"""
+        return create_multi_index(self.edges, lambda e: e.to_node_id, lambda e: e)
 
-    @cached_property
-    def in_edges_index(self) -> defaultdict[int, list[GraphEdge]]:
-        """Return a dictionary of node id to a list of ids of edges that are incoming to the node"""
-        in_edges_index = defaultdict(list)
-        for edge in self.edges:
-            in_edges_index[edge.to_node_id].append(edge)
-        return in_edges_index
+    def get_connected_nodes(self, node_id: str, socket_id: str) -> list[str]:
+        edges = [*self.out_edges_index.get(node_id, []), *self.in_edges_index.get(node_id, [])]
+        return [
+            *[e.to_node_id for e in edges if e.from_socket_id == socket_id],
+            *[e.from_node_id for e in edges if e.to_socket_id == socket_id],
+        ]
 
-    def topological_sort(self, ignored_node_ids: set[int] | None = None) -> list[GraphNodeType]:
+    def topological_sort(self, ignored_node_ids: set[str] | None = None) -> list[GraphNodeType]:
         """
         Perform topological sort on the graph
 
         Args:
-            ignored_node_ids (set[int]): A set of node ids to ignore
+            ignored_node_ids (set[str]) A set of node ids to ignore
 
         Returns:
             list[GraphNodeType]: A list of nodes in topological order
@@ -110,17 +105,17 @@ class Graph(BaseModel, Generic[GraphNodeType]):
         ignored_node_ids = ignored_node_ids or set()
         working_node_ids = set(self.node_index.keys()) - ignored_node_ids
 
-        in_degrees: dict[int, int] = defaultdict(int)
-        node_id_queue: deque[int] = deque(maxlen=len(working_node_ids))
+        in_degrees: dict[str, int] = defaultdict(int)
+        node_id_queue: deque[str] = deque(maxlen=len(working_node_ids))
 
         for node_id in working_node_ids:
             in_degrees[node_id] = len(set(self.in_nodes_index.get(node_id, [])) - ignored_node_ids)
             if in_degrees[node_id] == 0:
                 node_id_queue.append(node_id)
 
-        topo_order_node_ids: list[int] = []
+        topo_order_node_ids: list[str] = []
         while len(node_id_queue):
-            curr_node_id: int = node_id_queue.popleft()
+            curr_node_id = node_id_queue.popleft()
             topo_order_node_ids.append(curr_node_id)
 
             for to_node_id in self.out_nodes_index.get(curr_node_id, []):

@@ -11,7 +11,6 @@ from unicon_backend.evaluator.tasks.programming.steps import (
     ComputeGraph,
     InputStep,
     OutputStep,
-    StepSocket,
     StepType,
 )
 from unicon_backend.lib.common import CustomSQLModel
@@ -19,23 +18,6 @@ from unicon_backend.runner import ComputeContext, JobId, ProgramResult, RunnerJo
 from unicon_backend.workers.publisher import task_publisher
 
 logger = getLogger(__name__)
-
-USER_INPUT_STEP_ID: int = 0
-
-
-class Testcase(ComputeGraph):
-    id: int
-
-    @model_validator(mode="after")
-    def check_exactly_one_output_step(self) -> Self:
-        num_output_steps: int = len([node for node in self.nodes if node.type == StepType.OUTPUT])
-        if num_output_steps != 1:
-            raise ValueError(f"Expected exactly 1 output step, found {num_output_steps}")
-        return self
-
-    @cached_property
-    def output_step(self) -> OutputStep:
-        return cast(OutputStep, next(node for node in self.nodes if node.type == StepType.OUTPUT))
 
 
 class SocketResult(CustomSQLModel):
@@ -58,28 +40,40 @@ class RequiredInput(BaseModel):
     data: PrimitiveData | File
 
 
+class Testcase(ComputeGraph):
+    id: int
+
+    @model_validator(mode="after")
+    def check_exactly_one_output_step(self) -> Self:
+        num_output_steps: int = len([node for node in self.nodes if node.type == StepType.OUTPUT])
+        if num_output_steps != 1:
+            raise ValueError(f"Expected exactly 1 output step, found {num_output_steps}")
+        return self
+
+    @cached_property
+    def output_step(self) -> OutputStep:
+        return cast(OutputStep, next(node for node in self.nodes if node.type == StepType.OUTPUT))
+
+    def attach_user_inputs(self, user_inputs: list[RequiredInput]) -> None:
+        user_input_step: InputStep | None = None
+        for node in filter(lambda node: node.type == StepType.INPUT, self.nodes):
+            if (input_step := cast(InputStep, node)).is_user:
+                user_input_step = input_step
+
+        assert user_input_step is not None
+
+        for user_input_socket in user_input_step.outputs:
+            user_input_socket.data = next(
+                usr_in.data for usr_in in user_inputs if usr_in.id == user_input_socket.id
+            )
+
+
 class ProgrammingTask(Task[list[RequiredInput], JobId]):
     type: Literal[TaskType.PROGRAMMING]
     question: str
     environment: ComputeContext
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
-
-    def create_input_step(self, user_inputs: list[RequiredInput]) -> InputStep:
-        """
-        Transform user input into InputStep
-        This is so that we simply treat it as a node in the graph
-        NOTE: We assume that the id of user inputs is always 0
-        """
-        return InputStep(
-            id=USER_INPUT_STEP_ID,
-            inputs=[],
-            outputs=[
-                StepSocket(id=str(user_input.id), data=user_input.data)
-                for user_input in user_inputs
-            ],
-            type=StepType.INPUT,
-        )
 
     def run(self, user_inputs: list[RequiredInput]) -> TaskEvalResult[JobId]:
         # Check if all required inputs are provided
@@ -89,7 +83,8 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
 
         runner_programs: list[RunnerProgram] = []
         for testcase in self.testcases:
-            assembled_program = mpi_sandbox(testcase.run(self.create_input_step(user_inputs)))
+            testcase.attach_user_inputs(user_inputs)
+            assembled_program = mpi_sandbox(testcase.run())
 
             logger.debug(f"Assembled Program:\n{assembled_program}")
 
