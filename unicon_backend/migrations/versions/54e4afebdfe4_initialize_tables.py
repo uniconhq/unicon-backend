@@ -1,8 +1,8 @@
-"""Initialize tables
+"""initialize tables
 
-Revision ID: 4303244cdb7a
+Revision ID: 54e4afebdfe4
 Revises:
-Create Date: 2024-12-12 21:15:21.586232
+Create Date: 2025-02-02 21:30:20.772811
 
 """
 
@@ -14,7 +14,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "4303244cdb7a"
+revision: str = "54e4afebdfe4"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -29,6 +29,7 @@ def upgrade() -> None:
         sa.Column("password", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_user")),
     )
+    op.create_index(op.f("ix_user_username"), "user", ["username"], unique=True)
     op.create_table(
         "organisation",
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
@@ -52,11 +53,13 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_project")),
     )
+
     op.create_table(
         "problem",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("description", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("restricted", sa.Boolean(), server_default="false", nullable=False),
         sa.Column("project_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
             ["project_id"], ["project.id"], name=op.f("fk_problem_project_id_project")
@@ -238,6 +241,7 @@ def downgrade() -> None:
     op.drop_table("problem")
     op.drop_table("project")
     op.drop_table("organisation")
+    op.drop_index(op.f("ix_user_username"), table_name="user")
     op.drop_table("user")
     # ### end Alembic commands ###
 

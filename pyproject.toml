@@ -19,6 +19,7 @@ dependencies = [
     "psycopg2-binary>=2.9.9",
     "sqlmodel>=0.0.22",
     "libcst>=1.5.1",
+    "permify>=1.0.2",
 ]
 
 [build-system]
