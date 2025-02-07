@@ -63,7 +63,7 @@ class SocketDir(str, Enum):
 class StepSocket(NodeSocket[str]):
     type: SocketType = SocketType.DATA
     # User facing name of the socket
-    label: str
+    label: str = ""
     # The data that the socket holds
     data: PrimitiveData | File | None = None
 
@@ -143,16 +143,18 @@ class Step[SocketT: StepSocket](
 
     def run_subgraph(self, subgraph_socket_alias: str, graph: "ComputeGraph") -> Program:
         assert subgraph_socket_alias in self.subgraph_socket_aliases
+        subgraph_socket = self.alias_map.get(subgraph_socket_alias)
+        assert subgraph_socket is not None
         return graph.run(
-            debug=self._debug, node_ids=self._get_subgraph_node_ids(subgraph_socket_alias, graph)
+            debug=self._debug, node_ids=self._get_subgraph_node_ids(subgraph_socket.id, graph)
         )
 
     def get_all_subgraph_node_ids(self, graph: "ComputeGraph") -> set[str]:
         """Returns ids of nodes that part of a subgraph"""
         subgraph_node_ids: set[str] = set()
         for socket_alias in self.subgraph_socket_aliases:
-            socket_id: str = self.alias_map[socket_alias].id
-            subgraph_node_ids |= self._get_subgraph_node_ids(socket_id, graph)
+            if socket := self.alias_map.get(socket_alias):
+                subgraph_node_ids |= self._get_subgraph_node_ids(socket.id, graph)
 
         return subgraph_node_ids
 
@@ -470,18 +472,20 @@ class LoopStep(Step[StepSocket]):
     def run(
         self, graph: "ComputeGraph", in_vars: dict[SocketId, ProgramVariable], *_
     ) -> ProgramFragment:
+        pred_socket = self.alias_map.get(self._pred_socket_alias)
+        pred_fragment = (
+            [
+                *self.run_subgraph(self._pred_socket_alias, graph).body,
+                cst.If(test=in_vars[pred_socket.id], body=cst.SimpleStatementSuite([cst.Break()])),
+            ]
+            if pred_socket
+            else []
+        )
         return [
             cst.While(
                 test=cst_var(True),
                 body=cst.IndentedBlock(
-                    [
-                        *self.run_subgraph(self._pred_socket_alias, graph).body,
-                        cst.If(
-                            test=in_vars[self.alias_map[self._pred_socket_alias].id],
-                            body=cst.SimpleStatementSuite([cst.Break()]),
-                        ),
-                        *self.run_subgraph(self._body_socket_alias, graph).body,
-                    ]
+                    [*pred_fragment, *self.run_subgraph(self._body_socket_alias, graph).body]
                 ),
             )
         ]
