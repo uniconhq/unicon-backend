@@ -95,14 +95,14 @@
             {
               "id": "100",
               "from_node_id": "__PY_RUN_GEN_INIT_STATE__",
-              "from_socket_id": "__INIT_STATE__",
+              "from_socket_id": "__STATE__",
               "to_node_id": "__ACCESS_MOVE__",
               "to_socket_id": "__OBJ__"
             },
             {
               "id": "8",
               "from_node_id": "__PY_RUN_GEN_INIT_STATE__",
-              "from_socket_id": "__INIT_STATE__",
+              "from_socket_id": "__STATE__",
               "to_node_id": "__ACCESS_BOARD__",
               "to_socket_id": "__OBJ__"
             },
@@ -158,21 +158,21 @@
             {
               "id": "14",
               "from_node_id": "__PY_RUN_GEN_INIT_STATE__",
-              "from_socket_id": "__INIT_STATE__",
+              "from_socket_id": "__STATE__",
               "to_node_id": "__OUTPUT__",
               "to_socket_id": "__STATE__"
             },
             {
               "id": "15",
               "from_node_id": "__PY_RUN_GEN_INIT_STATE__",
-              "from_socket_id": "__INIT_STATE__",
+              "from_socket_id": "__STATE__",
               "to_node_id": "__PY_RUN_CHANGE_STATE_A0__",
               "to_socket_id": "__STATE__"
             },
             {
               "id": "16",
               "from_node_id": "__PY_RUN_GEN_INIT_STATE__",
-              "from_socket_id": "__INIT_STATE__",
+              "from_socket_id": "__STATE__",
               "to_node_id": "__PY_RUN_CHANGE_STATE_A1__",
               "to_socket_id": "__STATE__"
             },
@@ -329,8 +329,8 @@
               ],
               "outputs": [
                 {
-                  "id": "__INIT_STATE__",
-                  "label": "Initial state"
+                  "id": "__STATE__",
+                  "label": "game state"
                 }
               ]
             },
