@@ -559,10 +559,12 @@ class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
         to_socket = get_step_socket(edge.to_node_id, edge.to_socket_id)
         assert from_socket is not None and to_socket is not None
 
-        if from_socket.type == to_socket.type and from_socket._dir != to_socket._dir:
-            return from_socket.type
-
-        raise ValueError(f"Invalid link between {from_socket.id} and {to_socket.id}")
+        # NOTE: As long as one of the sockets is a control socket, the link is considered a control link
+        # This is because there can be a data socket connected to a control socket
+        is_control = any(map(lambda t: t == SocketType.CONTROL, [from_socket.type, to_socket.type]))
+        if from_socket._dir != to_socket._dir:
+            return SocketType.CONTROL if is_control else SocketType.DATA
+        raise ValueError(f"Invalid link: {from_socket.id} -> {to_socket.id}")
 
     def run(self, debug: bool = True, node_ids: set[str] | None = None) -> Program:
         """
