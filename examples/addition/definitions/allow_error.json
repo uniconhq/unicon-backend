@@ -58,7 +58,8 @@
                   "label": "UTILS_MODULE",
                   "data": {
                     "name": "utils.py",
-                    "content": "def error_string(err):\n\treturn f'Error: {err}'"
+                    "content": "def error_string(err):\n\treturn f'Error: {err}'",
+                    "trusted": true
                   }
                 }
               ]
@@ -71,15 +72,19 @@
               "inputs": [
                 {
                   "id": "__MODULE__",
-                  "label": "FILE"
+                  "import_as_module": true
                 },
                 {
                   "id": "__ARG_0__",
-                  "label": "ARG.0.a"
+                  "arg_metadata": {
+                    "position": 0
+                  }
                 },
                 {
                   "id": "__ARG_1__",
-                  "label": "ARG.0.b"
+                  "arg_metadata": {
+                    "position": 1
+                  }
                 }
               ],
               "outputs": [
@@ -89,7 +94,7 @@
                 },
                 {
                   "id": "__ERROR__",
-                  "label": "ERROR"
+                  "handles_error": true
                 }
               ]
             },
@@ -124,11 +129,13 @@
               "inputs": [
                 {
                   "id": "__MODULE__",
-                  "label": "FILE"
+                  "import_as_module": true
                 },
                 {
                   "id": "__ARG_0__",
-                  "label": "ARG.0.err"
+                  "arg_metadata": {
+                    "position": 0
+                  }
                 }
               ],
               "outputs": [
