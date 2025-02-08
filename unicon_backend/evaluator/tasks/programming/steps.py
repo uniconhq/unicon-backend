@@ -9,7 +9,7 @@ from itertools import count
 from typing import TYPE_CHECKING, Any, ClassVar, Self, cast
 
 import libcst as cst
-from pydantic import PrivateAttr, model_validator
+from pydantic import BaseModel, PrivateAttr, model_validator
 
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
 from unicon_backend.lib.common import CustomBaseModel, CustomSQLModel
@@ -370,47 +370,51 @@ class ObjectAccessStep(Step[StepSocket]):
         ]
 
 
-class PyRunFunctionStep(Step[StepSocket]):
-    required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (1, 2))
+class ArgMetadata(BaseModel):
+    position: int
+    arg_name: str | None = None
 
-    _file_socket_alias: ClassVar[str] = "DATA.IN.FILE"
-    _error_socket_alias: ClassVar[str] = "DATA.OUT.ERROR"
+
+class PyRunFunctionSocket(StepSocket):
+    import_as_module: bool = False
+
+    arg_metadata: ArgMetadata | None = None
+    kwarg_name: str | None = None
+
+    handles_error: bool = False
+
+
+class PyRunFunctionStep(Step[PyRunFunctionSocket]):
+    required_data_io: ClassVar[tuple[Range, Range]] = ((1, -1), (1, 2))
 
     function_identifier: str
     allow_error: bool = False
 
     @model_validator(mode="after")
     def check_module_file_input(self) -> Self:
-        if not any(socket.alias == self._file_socket_alias for socket in self.data_in):
-            raise ValueError("No module file input provided")
+        if not any(socket.import_as_module for socket in self.data_in):
+            raise ValueError("No module provided!")
         return self
 
     @model_validator(mode="after")
-    def check_error_socket(self) -> Self:
-        data_out_socket_count = len(self.data_out)
-        expected_sockets = 2 if self.allow_error else 1
-
-        if data_out_socket_count != expected_sockets:
-            raise ValueError(
-                f"Expected {expected_sockets} output socket(s) when `allow_error` is {self.allow_error}"
-            )
-
-        has_error_socket = any(socket.alias == self._error_socket_alias for socket in self.data_out)
-        if self.allow_error and not has_error_socket:
-            raise ValueError(f"Missing error output socket {self._error_socket_alias}")
-        if not self.allow_error and has_error_socket:
-            raise ValueError(f"Unexpected error output socket {self._error_socket_alias}")
-
+    def check_error_pipe_socket(self) -> Self:
+        error_pipe_socket = any(socket.handles_error for socket in self.data_out)
+        if self.allow_error and not error_pipe_socket:
+            raise ValueError("Missing error pipe socket, but `allow_error` is True")
+        if not self.allow_error and error_pipe_socket:
+            raise ValueError("Unexpected error pipe socket, `allow_error` is False")
         return self
 
     @property
-    def arg_sockets(self) -> Sequence[StepSocket]:
-        sockets = [socket for socket in self.data_in if socket.label.startswith("ARG.")]
-        return sorted(sockets, key=lambda socket: int(socket.label.split(".", 2)[1]))
+    def args(self) -> Sequence[PyRunFunctionSocket]:
+        return sorted(
+            [socket for socket in self.data_in if socket.arg_metadata],
+            key=lambda s: s.arg_metadata.position,
+        )
 
     @property
-    def kwarg_sockets(self) -> Sequence[StepSocket]:
-        return [socket for socket in self.data_in if socket.label.startswith("KWARG.")]
+    def kwargs(self) -> Sequence[PyRunFunctionSocket]:
+        return [socket for socket in self.data_in if socket.kwarg_name]
 
     def run(
         self,
@@ -419,35 +423,20 @@ class PyRunFunctionStep(Step[StepSocket]):
         in_files: dict[SocketId, File],
     ) -> ProgramFragment:
         # Get the input file that we are running the function from
-        file_socket_id = self.alias_map[self._file_socket_alias].id
-        program_file: File | None = in_files.get(file_socket_id)
-        if program_file is None:
-            raise ValueError("No program file provided")
-
-        # NOTE: Assume that there can only be one edge connected to the file input socket. This should ideally be validated.
-        from_file_node_id = [
-            edge.from_node_id
-            for edge in graph.in_edges_index[self.id]
-            if edge.to_socket_id == file_socket_id
-        ][0]
-        from_file_node = cast(InputStep, graph.node_index[from_file_node_id])
-        is_user_provided_file: bool = from_file_node.is_user
+        module_s = next(socket for socket in self.data_in if socket.import_as_module)
+        if (module_file := in_files.get(module_s.id)) is None:
+            raise ValueError("Missing module file!")
 
         # NOTE: Assume that the program file is always a Python file
-        module_name_str = program_file.name.split(".py")[0]
+        module_name = module_file.name.split(".py")[0]
 
-        func_name = cst_var(self.function_identifier)
-        args = [cst.Arg(in_vars[socket.id]) for socket in self.arg_sockets]
-        kwargs = [
-            cst.Arg(in_vars[socket.id], keyword=cst_var(socket.label.split(".", 1)[1]))
-            for socket in self.kwarg_sockets
-        ]
+        func_var = cst_var(self.function_identifier)
+        args = [cst.Arg(in_vars[s.id]) for s in self.args]
+        kwargs = [cst.Arg(in_vars[s.id], keyword=cst_var(s.kwarg_name)) for s in self.kwargs]
 
-        if error_socket := self.alias_map.get(self._error_socket_alias):
-            out_var = graph.get_link_var(
-                self, [socket for socket in self.data_out if socket.id != error_socket.id][0]
-            )
-            error_var = graph.get_link_var(self, error_socket)
+        if error_s := next((s for s in self.data_out if s.handles_error), None):
+            out_var = graph.get_link_var(self, next(s for s in self.data_out if s.id != error_s.id))
+            error_var = graph.get_link_var(self, error_s)
         else:
             out_var = graph.get_link_var(self, self.data_out[0])
             error_var = UNUSED_VAR
@@ -459,7 +448,7 @@ class PyRunFunctionStep(Step[StepSocket]):
                     cst.Call(
                         cst_var("call_function_safe"),
                         [
-                            cst.Arg(cst_str(module_name_str)),
+                            cst.Arg(cst_str(module_name)),
                             cst.Arg(cst_str(self.function_identifier)),
                             cst.Arg(cst_var(self.allow_error)),
                             *args,
@@ -468,10 +457,10 @@ class PyRunFunctionStep(Step[StepSocket]):
                     ),
                 )
             ]
-            if is_user_provided_file
+            if not module_file.trusted
             else [
-                cst.ImportFrom(cst_var(module_name_str), [cst.ImportAlias(func_name)]),
-                cst.Assign([cst.AssignTarget(out_var)], cst.Call(func_name, args + kwargs)),
+                cst.ImportFrom(cst_var(module_name), [cst.ImportAlias(func_var)]),
+                cst.Assign([cst.AssignTarget(out_var)], cst.Call(func_var, args + kwargs)),
             ]
         )
 
