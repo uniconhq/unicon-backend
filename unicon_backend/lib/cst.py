@@ -24,6 +24,17 @@ def cst_var(v: str | bool) -> cst.Name:
     return cst.Name(value=str(v))
 
 
+def cst_expr(v: str | bool | int | float) -> cst.BaseExpression:
+    if isinstance(v, str):
+        return cst_str(v)
+    elif isinstance(v, bool):
+        return cst_var(v)
+    elif isinstance(v, int):
+        return cst.Integer(value=str(v))
+    elif isinstance(v, float):
+        return cst.Float(value=str(v))
+
+
 def assemble_fragment(
     fragment: ProgramFragment, add_spacer: bool = False
 ) -> Sequence[cst.SimpleStatementLine | cst.BaseCompoundStatement]:

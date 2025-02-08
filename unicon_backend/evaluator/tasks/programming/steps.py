@@ -20,6 +20,7 @@ from unicon_backend.lib.cst import (
     ProgramFragment,
     ProgramVariable,
     assemble_fragment,
+    cst_expr,
     cst_str,
     cst_var,
     hoist_imports,
@@ -317,27 +318,29 @@ class StringMatchStep(Step[StepSocket]):
     def run(
         self, graph: "ComputeGraph", in_vars: dict[SocketId, ProgramVariable], *_
     ) -> ProgramFragment:
-        match_result_socket, [match_op_1, match_op_2] = self.data_out[0], self.data_in
-        str_cast = lambda var: cst.Call(cst_var("str"), args=[cst.Arg(var)])
+        def get_match_op(socket: StepSocket) -> cst.BaseExpression:
+            assert not isinstance(socket.data, File)  # TODO: More robust validation for data type
+            if ret_expr := in_vars.get(socket.id, cst_expr(socket.data) if socket.data else None):
+                return ret_expr
+            raise ValueError(f"Missing data for socket {self.id}:{socket.id}")
+
+        def str_cast(expr: cst.BaseExpression) -> cst.Call:
+            return cst.Call(cst_var("str"), args=[cst.Arg(expr)])
+
+        match_result_socket, [op_1, op_2] = self.data_out[0], self.data_in
+
         return [
             cst.Assign(
                 targets=[cst.AssignTarget(graph.get_link_var(self, match_result_socket))],
                 value=cst.Comparison(
-                    left=str_cast(in_vars[match_op_1.id]),
-                    comparisons=[
-                        cst.ComparisonTarget(cst.Equal(), str_cast(in_vars[match_op_2.id]))
-                    ],
+                    left=str_cast(get_match_op(op_1)),
+                    comparisons=[cst.ComparisonTarget(cst.Equal(), str_cast(get_match_op(op_2)))],
                 ),
             )
         ]
 
 
 class ObjectAccessStep(Step[StepSocket]):
-    """
-    A step to retrieve a value from a dictionary.
-    To use this step, the user must provide the key value to access the dictionary.
-    """
-
     required_data_io: ClassVar[tuple[Range, Range]] = ((1, 1), (1, 1))
 
     key: str
@@ -508,14 +511,15 @@ class IfElseStep(Step[StepSocket]):
     def run(
         self, graph: "ComputeGraph", in_vars: dict[SocketId, ProgramVariable], *_
     ) -> ProgramFragment:
+        def compile_control_flow(s_alias: str) -> cst.BaseSuite:
+            return cst.IndentedBlock([*self.run_subgraph(s_alias, graph).body])
+
         return [
             *self.run_subgraph(self._pred_socket_alias, graph).body,
             cst.If(
                 test=in_vars[self.alias_map[self._pred_socket_alias].id],
-                body=cst.IndentedBlock([*self.run_subgraph(self._if_socket_alias, graph).body]),
-                orelse=cst.Else(
-                    cst.IndentedBlock([*self.run_subgraph(self._else_socket_alias, graph).body])
-                ),
+                body=compile_control_flow(self._if_socket_alias),
+                orelse=cst.Else(compile_control_flow(self._else_socket_alias)),
             ),
         ]
 
