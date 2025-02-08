@@ -2,7 +2,7 @@ import abc
 import logging
 import re
 from collections import defaultdict, deque
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from enum import Enum, StrEnum
 from functools import cached_property
 from itertools import count
@@ -50,6 +50,17 @@ class StepType(str, Enum):
 
     # Comparison Operations
     STRING_MATCH = "STRING_MATCH_STEP"
+
+
+STEP_TYPE_SHORTHANDS: Mapping[StepType, str] = {
+    StepType.PY_RUN_FUNCTION: "py_run_func",
+    StepType.OBJECT_ACCESS: "obj_access",
+    StepType.INPUT: "in",
+    StepType.OUTPUT: "out",
+    StepType.LOOP: "loop",
+    StepType.IF_ELSE: "if_else",
+    StepType.STRING_MATCH: "str_match",
+}
 
 
 class SocketType(str, Enum):
@@ -550,9 +561,10 @@ class ComputeGraph(Graph[StepClasses, GraphEdge[str]]):  # type: ignore
             from_socket.id, next(self._var_socket_id_gen[from_node.id])
         )
         # Remove all special characters and replace spaces with underscores using regex
-        sanitized_label = re.sub(r"[^a-zA-Z0-9_]", "", from_socket.label.replace(" ", "_"))
+        socket_label = re.sub(r"[^a-zA-Z0-9_]", "", from_socket.label.replace(" ", "_"))
+        node_label = STEP_TYPE_SHORTHANDS[from_node.type]
 
-        var_name_str = f"{self.VAR_PREFIX}{'_'.join(map(str, [uniq_node_id, from_node.type.value, uniq_socket_id, sanitized_label]))}"
+        var_name_str = f"{self.VAR_PREFIX}{'_'.join(map(str, [uniq_node_id, node_label, uniq_socket_id, socket_label]))}"
         return cst.Name(var_name_str.lower())
 
     def link_type(self, edge: GraphEdge[str]) -> SocketType:
