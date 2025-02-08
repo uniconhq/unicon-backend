@@ -1,6 +1,9 @@
 import uuid
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
+import sqlalchemy as sa
+import sqlalchemy.dialects.postgresql as pg
 import sqlalchemy.orm as sa_orm
 from sqlmodel import Field, Relationship
 
@@ -20,7 +23,46 @@ class OrganisationBase(CustomSQLModel):
 class Organisation(OrganisationBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     owner_id: int | None = Field(foreign_key="user.id", nullable=False)
-    projects: sa_orm.Mapped[list["Project"]] = Relationship(back_populates="organisation")
+
+    projects: sa_orm.Mapped[list["Project"]] = Relationship(
+        back_populates="organisation", cascade_delete=True
+    )
+    owner: sa_orm.Mapped["UserORM"] = Relationship(back_populates="owned_organisations")
+    members: sa_orm.Mapped[list["OrganisationMember"]] = Relationship(
+        back_populates="organisation", cascade_delete=True
+    )
+    invitation_keys: sa_orm.Mapped[list["OrganisationInvitationKey"]] = Relationship(
+        back_populates="organisation", cascade_delete=True
+    )
+
+
+class OrganisationRole(StrEnum):
+    ADMIN = "admin"
+    OBSERVER = "observer"
+
+
+class OrganisationInvitationKey(CustomSQLModel, table=True):
+    __tablename__ = "organisation_invitation_key"
+
+    id: int | None = Field(default=None, primary_key=True)
+    organisation_id: int | None = Field(foreign_key="organisation.id", nullable=False)
+    role: OrganisationRole = Field(sa_column=sa.Column(pg.ENUM(OrganisationRole), nullable=False))
+
+    key: uuid.UUID = Field(default_factory=uuid.uuid4, unique=True)
+    organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="invitation_keys")
+
+
+class OrganisationMember(CustomSQLModel, table=True):
+    __tablename__ = "organisation_member"
+
+    id: int = Field(primary_key=True)
+
+    user_id: int = Field(foreign_key="user.id")
+    organisation_id: int = Field(foreign_key="organisation.id")
+    role: OrganisationRole = Field(sa_column=sa.Column(sa.Enum(OrganisationRole), nullable=False))
+
+    organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="members")
+    user: sa_orm.Mapped["UserORM"] = Relationship(back_populates="organisations")
 
 
 class ProjectBase(CustomSQLModel):
@@ -32,11 +74,15 @@ class Project(ProjectBase, table=True):
     organisation_id: int | None = Field(foreign_key="organisation.id", nullable=False)
 
     organisation: sa_orm.Mapped[Organisation] = Relationship(back_populates="projects")
-    roles: sa_orm.Mapped[list["Role"]] = Relationship(back_populates="project")
+    roles: sa_orm.Mapped[list["Role"]] = Relationship(back_populates="project", cascade_delete=True)
     problems: sa_orm.Mapped[list["ProblemORM"]] = Relationship(
-        back_populates="project", sa_relationship_kwargs={"order_by": "ProblemORM.id.desc()"}
+        back_populates="project",
+        sa_relationship_kwargs={"order_by": "ProblemORM.id.desc()"},
+        cascade_delete=True,
     )
-    groups: sa_orm.Mapped[list["Group"]] = Relationship(back_populates="project")
+    groups: sa_orm.Mapped[list["Group"]] = Relationship(
+        back_populates="project", cascade_delete=True
+    )
 
 
 class Group(CustomSQLModel, table=True):
@@ -141,7 +187,9 @@ class Role(RoleBase, table=True):
     )
 
     project: sa_orm.Mapped[Project] = Relationship(back_populates="roles")
-    invitation_keys: sa_orm.Mapped[list["InvitationKey"]] = Relationship(back_populates="role")
+    invitation_keys: sa_orm.Mapped[list["InvitationKey"]] = Relationship(
+        back_populates="role", cascade_delete=True
+    )
 
     users: sa_orm.Mapped[list["UserORM"]] = Relationship(
         back_populates="roles", link_model=UserRole

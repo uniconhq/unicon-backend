@@ -46,9 +46,13 @@ class ProblemORM(CustomSQLModel, table=True):
 
     project_id: int = Field(foreign_key="project.id")
 
-    tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(back_populates="problem")
+    tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(
+        back_populates="problem", cascade_delete=True
+    )
     project: sa_orm.Mapped["Project"] = Relationship(back_populates="problems")
-    submissions: sa_orm.Mapped[list["SubmissionORM"]] = Relationship(back_populates="problem")
+    submissions: sa_orm.Mapped[list["SubmissionORM"]] = Relationship(
+        back_populates="problem", cascade_delete=True
+    )
 
     @classmethod
     def from_problem(cls, problem: "Problem") -> "ProblemORM":
@@ -86,7 +90,9 @@ class TaskORM(CustomSQLModel, table=True):
     problem_id: int = Field(foreign_key="problem.id", primary_key=True)
 
     problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="tasks")
-    task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(back_populates="task")
+    task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(
+        back_populates="task", cascade_delete=True
+    )
 
     @classmethod
     def from_task(cls, task: "Task") -> "TaskORM":
@@ -175,7 +181,9 @@ class TaskAttemptORM(CustomSQLModel, table=True):
         back_populates="task_attempts", link_model=SubmissionAttemptLink
     )
     task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_attempts")
-    task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(back_populates="task_attempt")
+    task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(
+        back_populates="task_attempt", cascade_delete=True
+    )
 
 
 class TaskResultBase(CustomSQLModel):
