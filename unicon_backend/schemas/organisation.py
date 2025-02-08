@@ -54,9 +54,9 @@ class OrganisationInvitationKeyPublic(CustomSQLModel):
 class OrganisationPublicWithMembers(OrganisationPublic):
     owner: "UserPublic"
     members: list[OrganisationMemberPublic]
-    # """does not include owner - get this from the owner attribute"""
-    invitation_keys: list["OrganisationInvitationKeyPublic"] | None
-    # """it is null if user has no permission to edit_roles"""
+    """does not include owner - get this from the owner attribute"""
+    invitation_keys: list[OrganisationInvitationKeyPublic] | None
+    """it is null if user has no permission to edit_roles"""
 
     edit_roles: bool
 
