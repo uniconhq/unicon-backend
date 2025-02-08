@@ -329,11 +329,11 @@ class StringMatchStep(Step[StepSocket]):
     def run(
         self, graph: "ComputeGraph", in_vars: dict[SocketId, ProgramVariable], *_
     ) -> ProgramFragment:
-        def get_match_op(socket: StepSocket) -> cst.BaseExpression:
-            assert not isinstance(socket.data, File)  # TODO: More robust validation for data type
-            if ret_expr := in_vars.get(socket.id, cst_expr(socket.data) if socket.data else None):
+        def get_match_op(s: StepSocket) -> cst.BaseExpression:
+            assert not isinstance(s.data, File)  # TODO: More robust validation for data type
+            if ret_expr := in_vars.get(s.id, cst_expr(s.data) if s.data else None):
                 return ret_expr
-            raise ValueError(f"Missing data for socket {self.id}:{socket.id}")
+            raise ValueError(f"Missing data for socket {self.id}:{s.id}")
 
         def str_cast(expr: cst.BaseExpression) -> cst.Call:
             return cst.Call(cst_var("str"), args=[cst.Arg(expr)])
@@ -422,6 +422,12 @@ class PyRunFunctionStep(Step[PyRunFunctionSocket]):
         in_vars: dict[SocketId, ProgramVariable],
         in_files: dict[SocketId, File],
     ) -> ProgramFragment:
+        def get_param_expr(s: StepSocket) -> cst.BaseExpression:
+            assert not isinstance(s.data, File)  # TODO: More robust validation for data type
+            if ret_expr := in_vars.get(s.id, cst_expr(s.data) if s.data else None):
+                return ret_expr
+            raise ValueError(f"Missing data for socket {self.id}:{s.id}")
+
         # Get the input file that we are running the function from
         module_s = next(socket for socket in self.data_in if socket.import_as_module)
         if (module_file := in_files.get(module_s.id)) is None:
@@ -431,8 +437,8 @@ class PyRunFunctionStep(Step[PyRunFunctionSocket]):
         module_name = module_file.name.split(".py")[0]
 
         func_var = cst_var(self.function_identifier)
-        args = [cst.Arg(in_vars[s.id]) for s in self.args]
-        kwargs = [cst.Arg(in_vars[s.id], keyword=cst_var(cast(str, s.kwarg_name))) for s in self.kwargs]  # fmt: skip
+        args = [cst.Arg(get_param_expr(s)) for s in self.args]
+        kwargs = [cst.Arg(get_param_expr(s), keyword=cst_var(cast(str, s.kwarg_name))) for s in self.kwargs]  # fmt: skip
 
         if error_s := next((s for s in self.data_out if s.handles_error), None):
             out_var = graph.get_link_var(self, next(s for s in self.data_out if s.id != error_s.id))
