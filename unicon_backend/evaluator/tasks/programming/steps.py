@@ -409,7 +409,7 @@ class PyRunFunctionStep(Step[PyRunFunctionSocket]):
     def args(self) -> Sequence[PyRunFunctionSocket]:
         return sorted(
             [socket for socket in self.data_in if socket.arg_metadata],
-            key=lambda s: s.arg_metadata.position,
+            key=lambda s: cast(ArgMetadata, s.arg_metadata).position,
         )
 
     @property
@@ -432,7 +432,7 @@ class PyRunFunctionStep(Step[PyRunFunctionSocket]):
 
         func_var = cst_var(self.function_identifier)
         args = [cst.Arg(in_vars[s.id]) for s in self.args]
-        kwargs = [cst.Arg(in_vars[s.id], keyword=cst_var(s.kwarg_name)) for s in self.kwargs]
+        kwargs = [cst.Arg(in_vars[s.id], keyword=cst_var(cast(str, s.kwarg_name))) for s in self.kwargs]  # fmt: skip
 
         if error_s := next((s for s in self.data_out if s.handles_error), None):
             out_var = graph.get_link_var(self, next(s for s in self.data_out if s.id != error_s.id))
