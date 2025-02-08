@@ -229,7 +229,9 @@ def upgrade() -> None:
         "organisation_invitation_key",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("organisation_id", sa.Integer(), nullable=False),
-        sa.Column("role", sa.Enum("ADMIN", "OBSERVER", name="organisationrole"), nullable=False),
+        sa.Column(
+            "role", postgresql.ENUM("ADMIN", "OBSERVER", name="organisationrole"), nullable=False
+        ),
         sa.Column("key", sa.Uuid(), nullable=False),
         sa.ForeignKeyConstraint(
             ["organisation_id"],
@@ -244,7 +246,9 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("organisation_id", sa.Integer(), nullable=False),
-        sa.Column("role", sa.Enum("ADMIN", "OBSERVER", name="organisationrole"), nullable=False),
+        sa.Column(
+            "role", postgresql.ENUM("ADMIN", "OBSERVER", name="organisationrole"), nullable=False
+        ),
         sa.ForeignKeyConstraint(
             ["organisation_id"],
             ["organisation.id"],
