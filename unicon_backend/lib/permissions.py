@@ -1,7 +1,6 @@
 from typing import Any, Final
 
 import permify as p
-from rich import print
 
 from unicon_backend.constants import PERMIFY_HOST, PERMIFY_SCHEMA_VERSION, PERMIFY_TENANT_ID
 from unicon_backend.models.links import GroupMember, UserRole
@@ -83,18 +82,6 @@ def _get_all_tuples_and_attributes() -> tuple[list[p.Tuple], list[p.Attribute]]:
                 break
             tokens.add(tuples_response.continuous_token)
         return tuples, attributes
-
-
-def debug_list_tuples():
-    attributes = _data_api.data_attributes_read(
-        PERMIFY_TENANT_ID, p.ReadAttributesBody(metadata=DEFAULT_METADATA, filter={})
-    )
-    print(attributes)
-
-    relations = _data_api.data_relationships_read(
-        PERMIFY_TENANT_ID, p.ReadRelationshipsBody(metadata=DEFAULT_METADATA, filter={})
-    )
-    print(relations)
 
 
 def delete_all_permission_records():

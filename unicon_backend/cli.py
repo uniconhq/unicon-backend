@@ -10,36 +10,75 @@ rich_console = Console()
 app = typer.Typer(name="Unicon 🦄 CLI")
 
 permify_app = typer.Typer()
-app.add_typer(permify_app, name="permify")
+app.add_typer(permify_app, name="permify", help="Initialize and seed permissions")
 
 
 @permify_app.command(name="init")
-def init_permify() -> None:
-    """Sends the schema file to permify."""
+def init_perms_schema(
+    schema_file: Annotated[
+        typer.FileText | None,
+        typer.Argument(
+            help="If not provided, the default schema file ('unicon.perm') will be used"
+        ),
+    ] = None,
+) -> None:
+    """Initializes permission schema"""
     import importlib.resources
 
     import permify as p
 
     from unicon_backend.constants import PERMIFY_HOST, PERMIFY_TENANT_ID
 
-    schema: str = importlib.resources.files("unicon_backend").joinpath("../unicon.perm").read_text()
+    schema: str = (
+        schema_file.read()
+        if schema_file
+        else importlib.resources.files("unicon_backend").joinpath("unicon.perm").read_text()
+    )
 
     if (schema_write_body := p.SchemaWriteBody.from_dict({"schema": schema})) is None:
-        # This should not happen.
-        raise ValueError("Failed to create schema write body")
+        # This should never happen, there is no validation/parsing done on the schema
+        raise ValueError("Failed to create schema payload!")
+
+    rich_console.print(f"Permify Host: [bold blue]{PERMIFY_HOST}[/bold blue]")
 
     schema_api = p.SchemaApi(p.ApiClient(p.Configuration(host=PERMIFY_HOST)))
-    response = schema_api.schemas_write(PERMIFY_TENANT_ID, schema_write_body)
+    # NOTE: 10 is an arbitrary page size chosen
+    # We assume that the current schema, it there is one, is within the first 10 schemas
+    existing_schemas = schema_api.schemas_list(PERMIFY_TENANT_ID, p.SchemaListBody(page_size=10))
+    if curr_schema_v := existing_schemas.head:
+        assert existing_schemas.schemas is not None
+        curr_schema = next(s for s in existing_schemas.schemas if s.version == curr_schema_v)
+        rich_console.print(
+            f"Current schema version: [bold red]{curr_schema_v}[/bold red] ({curr_schema.created_at})"
+        )
+        typer.confirm("Are you sure you want to overwrite and invalidate this schema?", abort=True)
 
-    if (schema_version := response.schema_version) is None:
+    write_resp = schema_api.schemas_write(PERMIFY_TENANT_ID, schema_write_body)
+    if (schema_version := write_resp.schema_version) is None:
         raise ValueError("Failed to create schema, is the schema valid?")
 
-    rich_console.print(f"Initialized schema version: [bold green]{schema_version}[/bold green]")
+    rich_console.print(f"Initialized schema version: [bold green]{schema_version}[/bold green] 🥳")
+    rich_console.print(
+        "If you like update permissions for existing records in the database, run: [bold magenta]permify seed[/bold magenta]"
+    )
 
 
 @permify_app.command(name="seed")
-def seed_permify():
-    """Clears permify's existing tuples and repopulates it using the current postgres database."""
+def seed_perms():
+    """Add permission tuples for all existing records in the database. Existing tuples will be cleared."""
+    import permify as p
+
+    from unicon_backend.constants import PERMIFY_HOST, PERMIFY_TENANT_ID
+
+    rich_console.print(f"Permify Host: [bold blue]{PERMIFY_HOST}[/bold blue]")
+
+    schema_api = p.SchemaApi(p.ApiClient(p.Configuration(host=PERMIFY_HOST)))
+    existing_schemas = schema_api.schemas_list(PERMIFY_TENANT_ID, p.SchemaListBody())
+    if not existing_schemas.head:
+        rich_console.print(
+            "No schema found, please initialize a schema first. Run: [bold magenta]permify init[/bold magenta]"
+        )
+
     from sqlalchemy import select
 
     from unicon_backend.database import SessionLocal
@@ -48,9 +87,11 @@ def seed_permify():
     from unicon_backend.models.organisation import Group, Organisation, Project, Role
     from unicon_backend.models.problem import ProblemORM, SubmissionORM
 
-    # assume schema is initialised (run init-permify if not)
+    rich_console.print(f"Current schema version: [bold red]{existing_schemas.head}[/bold red]")
+    typer.confirm("Are you sure you want to remove all existing permission tuples?", abort=True)
     delete_all_permission_records()
 
+    rich_console.print("Seeding new permissions under the current schema...")
     model_classes = [Project, Role, ProblemORM, SubmissionORM, UserRole, Organisation, Group]
     with SessionLocal() as session:
         for model_class in model_classes:
@@ -58,15 +99,14 @@ def seed_permify():
             for model in models:
                 permission_create(model)
             rich_console.print(
-                f"Seeded permissions for [bold magenta]{model_class.__name__}[/bold magenta] (count: {len(models)})"
+                f"[bold magenta]{model_class.__name__}[/bold magenta] (count: {len(models)})"
             )
-
     rich_console.print("Permissions seeded successfully 🌈")
 
 
 @app.command(name="seed")
 def seed(username: str, password: str, problem_defns: list[typer.FileText]):
-    """Seed the database with initial admin user, organisation, roles, projects and problems."""
+    """Seed the database with sample data"""
     from unicon_backend.database import SessionLocal
     from unicon_backend.dependencies.auth import AUTH_PWD_CONTEXT
     from unicon_backend.dependencies.project import role_permissions
@@ -122,13 +162,10 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
 
     rich_console.print(table)
 
-    rich_console.print("Seeding permissions...")
-    seed_permify()
-
 
 @app.command(name="assemble")
 def assemble(defn_file: Annotated[typer.FileText, typer.Option("--defn", mode="r")]):
-    """Assemble the programs for all programming tasks in the given definition file."""
+    """Assemble all programming tasks in provided problem definition"""
     from unicon_backend.evaluator.problem import Problem, ProgrammingTask
     from unicon_backend.models.problem import TaskType
 
