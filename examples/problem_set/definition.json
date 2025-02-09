@@ -75,16 +75,6 @@
               "type": "INPUT_STEP",
               "outputs": [
                 {
-                  "id": "__ARG_m__",
-                  "label": "ARG_M",
-                  "data": 2
-                },
-                {
-                  "id": "__ARG_c__",
-                  "label": "ARG_C",
-                  "data": 1
-                },
-                {
                   "id": "__EXPECTED_RESULT__",
                   "label": "EXPECTED_RESULT",
                   "data": "((2, 0), (1, 0), (1, 1))"
@@ -98,15 +88,21 @@
               "inputs": [
                 {
                   "id": "__MODULE__",
-                  "label": "FILE"
+                  "import_as_module": true
                 },
                 {
                   "id": "__ARG_0__",
-                  "label": "ARG.0.m"
+                  "arg_metadata": {
+                    "position": 0
+                  },
+                  "data": 2
                 },
                 {
                   "id": "__ARG_1__",
-                  "label": "ARG.0.c"
+                  "arg_metadata": {
+                    "position": 1
+                  },
+                  "data": 1
                 }
               ],
               "outputs": [
@@ -159,20 +155,6 @@
               "from_socket_id": "__TREE_SEARCH_FILE__",
               "to_node_id": "__PY_RUN_TREE_SEARCH__",
               "to_socket_id": "__MODULE__"
-            },
-            {
-              "id": "2",
-              "from_node_id": "__INPUT__",
-              "from_socket_id": "__ARG_m__",
-              "to_node_id": "__PY_RUN_TREE_SEARCH__",
-              "to_socket_id": "__ARG_0__"
-            },
-            {
-              "id": "3",
-              "from_node_id": "__INPUT__",
-              "from_socket_id": "__ARG_c__",
-              "to_node_id": "__PY_RUN_TREE_SEARCH__",
-              "to_socket_id": "__ARG_1__"
             },
             {
               "id": "4",

@@ -62,15 +62,19 @@
               "inputs": [
                 {
                   "id": "__MODULE__",
-                  "label": "FILE"
+                  "import_as_module": true
                 },
                 {
                   "id": "__ARG_0__",
-                  "label": "ARG.0.a"
+                  "arg_metadata": {
+                    "position": 0
+                  }
                 },
                 {
                   "id": "__ARG_1__",
-                  "label": "ARG.0.b"
+                  "arg_metadata": {
+                    "position": 1
+                  }
                 }
               ],
               "outputs": [
