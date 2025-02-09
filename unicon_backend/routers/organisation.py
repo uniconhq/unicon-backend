@@ -24,13 +24,13 @@ from unicon_backend.models.organisation import (
     OrganisationMember,
     OrganisationRole,
 )
+from unicon_backend.schemas import OrganisationPublicWithMembers
 from unicon_backend.schemas.organisation import (
     OrganisationCreate,
     OrganisationInvitationKeyCreate,
     OrganisationJoinRequest,
     OrganisationMemberUpdate,
     OrganisationPublic,
-    OrganisationPublicWithMembers,
     OrganisationPublicWithProjects,
     OrganisationUpdate,
     ProjectCreate,
