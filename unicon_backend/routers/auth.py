@@ -32,7 +32,9 @@ def create_token(user: UserORM, response: Response):
         SECRET_KEY,
         algorithm=AUTH_ALGORITHM,
     )
-    response.set_cookie(key="session", value=access_token)
+    response.set_cookie(
+        key="session", value=access_token, samesite="none", secure=True, httponly=True
+    )
 
     return Token(access_token=access_token, token_type="bearer", user=user_public)
 
