@@ -47,7 +47,9 @@ class ProblemORM(CustomSQLModel, table=True):
     project_id: int = Field(foreign_key="project.id")
 
     tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(
-        back_populates="problem", cascade_delete=True
+        back_populates="problem",
+        sa_relationship_kwargs={"order_by": "TaskORM.order_index"},
+        cascade_delete=True,
     )
     project: sa_orm.Mapped["Project"] = Relationship(back_populates="problems")
     submissions: sa_orm.Mapped[list["SubmissionORM"]] = Relationship(
@@ -65,15 +67,12 @@ class ProblemORM(CustomSQLModel, table=True):
         )
 
     def to_problem(self) -> "Problem":
-        def _serialize_task(t: TaskORM):
-            return {"id": t.id, "type": t.type, "autograde": t.autograde, **t.other_fields}
-
         return Problem.model_validate(
             {
                 "restricted": self.restricted,
                 "name": self.name,
                 "description": self.description,
-                "tasks": [_serialize_task(task_orm) for task_orm in self.tasks],
+                "tasks": [task_orm.to_task() for task_orm in self.tasks],
             }
         )
 
@@ -86,7 +85,9 @@ class TaskORM(CustomSQLModel, table=True):
     type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
     autograde: bool
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
+    updated_version_id: int | None = Field(nullable=True)
 
+    order_index: int
     problem_id: int = Field(foreign_key="problem.id", primary_key=True)
 
     problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="tasks")
@@ -96,8 +97,16 @@ class TaskORM(CustomSQLModel, table=True):
 
     @classmethod
     def from_task(cls, task: "Task") -> "TaskORM":
-        def _convert_task_to_orm(id: int, type: TaskType, autograde: bool, **other_fields):
-            return TaskORM(id=id, type=type, autograde=autograde, other_fields=other_fields)
+        def _convert_task_to_orm(
+            id: int, type: TaskType, autograde: bool, order_index: int, **other_fields
+        ):
+            return TaskORM(
+                id=id,
+                type=type,
+                autograde=autograde,
+                order_index=order_index,
+                other_fields=other_fields,
+            )
 
         return _convert_task_to_orm(**task.model_dump(serialize_as_any=True))
 
@@ -107,6 +116,7 @@ class TaskORM(CustomSQLModel, table=True):
                 "id": self.id,
                 "type": self.type,
                 "autograde": self.autograde,
+                "order_index": self.order_index,
                 **self.other_fields,
             }
         )
@@ -131,7 +141,8 @@ class SubmissionBase(CustomSQLModel):
 
 class SubmissionORM(SubmissionBase, table=True):
     task_attempts: sa_orm.Mapped[list["TaskAttemptORM"]] = Relationship(
-        link_model=SubmissionAttemptLink, back_populates="submissions"
+        link_model=SubmissionAttemptLink,
+        back_populates="submissions",
     )
     problem: sa_orm.Mapped[ProblemORM] = Relationship(back_populates="submissions")
     user: sa_orm.Mapped["UserORM"] = Relationship(back_populates="submissions")
@@ -178,12 +189,23 @@ class TaskAttemptORM(CustomSQLModel, table=True):
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
 
     submissions: sa_orm.Mapped[list[SubmissionORM]] = Relationship(
-        back_populates="task_attempts", link_model=SubmissionAttemptLink
+        back_populates="task_attempts",
+        link_model=SubmissionAttemptLink,
     )
     task: sa_orm.Mapped[TaskORM] = Relationship(back_populates="task_attempts")
     task_results: sa_orm.Mapped[list["TaskResultORM"]] = Relationship(
         back_populates="task_attempt", cascade_delete=True
     )
+
+    def clone(self, new_task_id: int) -> "TaskAttemptORM":
+        return TaskAttemptORM(
+            user_id=self.user_id,
+            task_id=new_task_id,
+            problem_id=self.problem_id,
+            submitted_at=self.submitted_at,
+            task_type=self.task_type,
+            other_fields=self.other_fields,
+        )
 
 
 class TaskResultBase(CustomSQLModel):
@@ -197,8 +219,7 @@ class TaskResultBase(CustomSQLModel):
     started_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
     completed_at: datetime | None = Field(sa_column=_timestamp_column(nullable=True, default=False))
 
-    # NOTE: Unique identifier for a worker job that evaluates the task
-    job_id: str | None = Field(nullable=True, unique=True)
+    job_id: str | None = Field(nullable=True)
 
     status: TaskEvalStatus = Field(sa_column=sa.Column(pg.ENUM(TaskEvalStatus), nullable=False))
     # TODO: Handle non-JSON result types for non-programming tasks
@@ -241,6 +262,17 @@ class TaskResultORM(TaskResultBase, table=True):
             job_id=job_id,
         )
 
+    def clone(self):
+        return TaskResultORM(
+            task_type=self.task_type,
+            started_at=self.started_at,
+            completed_at=self.completed_at,
+            status=self.status,
+            error=self.error,
+            result=self.result,
+            job_id=self.job_id,
+        )
+
 
 """
 Below classes are for parsing/validating task results with pydantic
@@ -258,8 +290,8 @@ class MultipleChoiceTaskResult(TaskResultPublic):
 
 
 class MultipleResponseTaskResultType(CustomSQLModel):
-    correct_choices: list[int]
-    incorrect_choices: list[int]
+    correct_choices: list[str]
+    incorrect_choices: list[str]
     num_choices: int
 
 

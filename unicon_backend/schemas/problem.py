@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
-from unicon_backend.evaluator.problem import Problem
+from unicon_backend.evaluator.problem import Problem, Task
 
 
 class MiniProblemPublic(BaseModel):
@@ -15,3 +15,20 @@ class ProblemPublic(Problem):
 
     edit: bool
     make_submission: bool
+
+
+class TaskOrder(BaseModel):
+    id: int
+    order_index: int
+
+
+class ProblemUpdate(BaseModel):
+    name: str
+    restricted: bool
+    description: str
+    task_order: list[TaskOrder]
+
+
+class TaskUpdate(BaseModel):
+    task: Task
+    rerun: bool

@@ -24,7 +24,7 @@ from unicon_backend.models.problem import (
     TaskORM,
 )
 from unicon_backend.models.user import UserORM
-from unicon_backend.schemas.problem import ProblemPublic
+from unicon_backend.schemas.problem import ProblemPublic, ProblemUpdate, TaskUpdate
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import TaskEvalResult
@@ -61,6 +61,7 @@ def add_task_to_problem(
 
     taskOrm = TaskORM.from_task(task)
     taskOrm.id = max((task.id for task in problem_orm.tasks), default=-1) + 1
+    taskOrm.order_index = max((task.order_index for task in problem_orm.tasks), default=-1) + 1
 
     problem_orm.tasks.append(taskOrm)
     db_session.add(problem_orm)
@@ -68,10 +69,76 @@ def add_task_to_problem(
     return
 
 
+@router.put("/{id}/tasks/{task_id}", summary="Update a task in a problem")
+def update_task(
+    data: TaskUpdate,
+    problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+    task_id: int,
+):
+    # Only allow a task update if:
+    # 1. The user has edit permission on the problem
+    # 2. The task exists and is of the same task type.
+    if not permission_check(problem_orm, "edit", user):
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to add task to problem",
+        )
+
+    old_task_orm = next((task for task in problem_orm.tasks if task.id == task_id), None)
+    if not old_task_orm or old_task_orm.updated_version_id is not None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND,
+            detail="Task not found in problem definition",
+        )
+
+    if old_task_orm.type != data.task.type:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Task type cannot be changed",
+        )
+
+    new_task_orm = TaskORM.from_task(data.task)
+    new_task_orm.id = max((task.id for task in problem_orm.tasks), default=-1) + 1
+    new_task_orm.problem_id = old_task_orm.problem_id
+
+    db_session.add(new_task_orm)
+    db_session.commit()
+    db_session.refresh(new_task_orm)
+
+    # Ensure the old task is "soft deleted" by updating the updated_version_id to the new task id
+    # Then, duplicate the task attempts to the new task
+    old_task_orm.updated_version_id = new_task_orm.id
+    new_task_orm.order_index = old_task_orm.order_index
+    new_task_orm.task_attempts = [
+        task_attempt.clone(new_task_orm.id) for task_attempt in old_task_orm.task_attempts
+    ]
+
+    # If code below this throws an error, ensure that the old task will at least be hidden
+    db_session.add(old_task_orm)
+    db_session.commit()
+
+    problem = problem_orm.to_problem()
+
+    if data.rerun:
+        for task_attempt in new_task_orm.task_attempts:
+            user_input = task_attempt.other_fields.get("user_input")
+            task_result: TaskEvalResult = problem.run_task(new_task_orm.id, user_input)
+            task_result_orm: TaskResultORM = TaskResultORM.from_task_eval_result(
+                task_result, attempt_id=task_attempt.id, task_type=new_task_orm.type
+            )
+            task_attempt.task_results.append(task_result_orm)
+            db_session.add(task_result_orm)
+
+    db_session.add(new_task_orm)
+    db_session.commit()
+
+
 @router.patch("/{id}", summary="Update a problem definition")
 def update_problem(
     existing_problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
-    new_problem: Problem,
+    new_problem: ProblemUpdate,
     db_session: Annotated[Session, Depends(get_db_session)],
     user: Annotated[UserORM, Depends(get_current_user)],
 ) -> Problem:
@@ -87,6 +154,23 @@ def update_problem(
     existing_problem_orm.description = new_problem.description
     existing_problem_orm.restricted = new_problem.restricted
 
+    # Update task order
+    if not set(task_order.id for task_order in new_problem.task_order) == set(
+        task.id for task in existing_problem_orm.tasks
+    ):
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail="Task order does not match problem tasks",
+        )
+
+    map_task_id_to_order_index = {
+        task_order.id: task_order.order_index for task_order in new_problem.task_order
+    }
+
+    for task in existing_problem_orm.tasks:
+        task.order_index = map_task_id_to_order_index[task.id]
+        db_session.add(task)
+
     db_session.add(existing_problem_orm)
     db_session.commit()
     db_session.refresh(existing_problem_orm)
@@ -94,6 +178,30 @@ def update_problem(
     permission_update(old_copy, existing_problem_orm)
 
     return existing_problem_orm.to_problem()
+
+
+@router.delete("/{id}/tasks/{task_id}", summary="Delete a task from a problem")
+def delete_task(
+    problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+    task_id: int,
+):
+    if not permission_check(problem_orm, "edit", user):
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to delete task from problem",
+        )
+
+    task = next((task for task in problem_orm.tasks if task.id == task_id), None)
+    if task is None or task.updated_version_id is not None:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Task not found in problem definition"
+        )
+
+    db_session.delete(task)
+    db_session.commit()
+    return
 
 
 @router.post(
@@ -141,6 +249,48 @@ def submit_problem_task_attempt(
     return task_attempt_orm
 
 
+@router.post(
+    "/attempts/{attempt_id}/rerun",
+    summary="Rerun a task attempt",
+)
+def rerun_task_attempt(
+    attempt_id: int,
+    db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+):
+    task_attempt = db_session.scalar(
+        select(TaskAttemptORM)
+        .where(TaskAttemptORM.id == attempt_id)
+        .options(
+            selectinload(TaskAttemptORM.task_results),
+            selectinload(TaskAttemptORM.task).selectinload(TaskORM.problem),
+        )
+    )
+
+    if not task_attempt:
+        raise HTTPException(
+            status_code=HTTPStatus.NOT_FOUND, detail="Task attempt not found in database"
+        )
+
+    # TODO: proper permission check
+    if task_attempt.user_id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to rerun task attempt",
+        )
+
+    problem: Problem = task_attempt.task.problem.to_problem()
+    task_result: TaskEvalResult = problem.run_task(
+        task_attempt.task_id, task_attempt.other_fields["user_input"]
+    )
+    task_result_orm: TaskResultORM = TaskResultORM.from_task_eval_result(
+        task_result, attempt_id=task_attempt.id, task_type=task_attempt.task_type
+    )
+    task_attempt.task_results.append(task_result_orm)
+    db_session.add(task_result_orm)
+    db_session.commit()
+
+
 @router.get(
     "/{id}/tasks/{task_id}/attempts",
     summary="Get results of all task attempts for a task",
@@ -152,8 +302,6 @@ def get_problem_task_attempt_results(
     db_session: Annotated[Session, Depends(get_db_session)],
     user: Annotated[UserORM, Depends(get_current_user)],
 ) -> list[TaskAttemptResult]:
-    # NOTE: For now, we maintain a 1:1 relation between task attempt and task result
-    # However, this may change in the future once we are able to support attempts with multiple results (e.g. rerun attempt)
     task_attempts = db_session.scalars(
         select(TaskAttemptORM)
         .where(TaskAttemptORM.problem_id == problem_orm.id)
