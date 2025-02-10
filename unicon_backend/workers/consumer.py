@@ -8,7 +8,12 @@ from pika.exchange_type import ExchangeType
 from pika.spec import Basic
 from sqlmodel import func, select
 
-from unicon_backend.constants import EXCHANGE_NAME, RABBITMQ_URL, RESULT_QUEUE_NAME
+from unicon_backend.constants import (
+    AMQP_CONN_NAME,
+    AMQP_EXCHANGE_NAME,
+    AMQP_RESULT_QUEUE_NAME,
+    AMQP_URL,
+)
 from unicon_backend.database import SessionLocal
 from unicon_backend.evaluator.tasks.programming.base import (
     ProgrammingTask,
@@ -29,7 +34,13 @@ logger = logging.getLogger(__name__)
 
 class TaskResultsConsumer(AsyncConsumer):
     def __init__(self):
-        super().__init__(RABBITMQ_URL, EXCHANGE_NAME, ExchangeType.topic, RESULT_QUEUE_NAME)
+        super().__init__(
+            AMQP_URL,
+            AMQP_EXCHANGE_NAME,
+            ExchangeType.topic,
+            AMQP_RESULT_QUEUE_NAME,
+            f"{AMQP_CONN_NAME}::consumer",
+        )
 
     def message_callback(
         self, _basic_deliver: Basic.Deliver, _properties: pika.BasicProperties, body: bytes

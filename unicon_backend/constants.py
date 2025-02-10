@@ -19,10 +19,11 @@ FRONTEND_URL: Final[str] = _get_env_var("FRONTEND_URL", "http://localhost:5173")
 
 SECRET_KEY: Final[str] = _get_env_var("SECRET_KEY", "")
 
-RABBITMQ_URL: Final[str] = _get_env_var("RABBITMQ_URL")
-EXCHANGE_NAME: Final[str] = _get_env_var("EXCHANGE_NAME", "unicon")
-TASK_QUEUE_NAME: Final[str] = _get_env_var("WORK_QUEUE_NAME", "unicon.tasks")
-RESULT_QUEUE_NAME: Final[str] = _get_env_var("RESULT_QUEUE_NAME", "unicon.results")
+AMQP_URL: Final[str] = _get_env_var("AMQP_URL")
+AMQP_EXCHANGE_NAME: Final[str] = _get_env_var("AMQP_EXCHANGE_NAME", "unicon")
+AMQP_TASK_QUEUE_NAME: Final[str] = _get_env_var("AMQP_TASK_QUEUE_NAME", "unicon.tasks")
+AMQP_RESULT_QUEUE_NAME: Final[str] = _get_env_var("AMQP_RESULT_QUEUE_NAME", "unicon.results")
+AMQP_CONN_NAME: Final[str] = _get_env_var("AMQP_CONN_NAME", "unicon-backend")
 
 PERMIFY_HOST: Final[str] = _get_env_var("PERMIFY_HOST", "http://localhost:3476")
 PERMIFY_SCHEMA_VERSION: Final[str | None] = _get_env_var("PERMIFY_SCHEMA_VERSION", required=False)
