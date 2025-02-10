@@ -24,12 +24,18 @@ from unicon_backend.models.problem import (
     TaskORM,
 )
 from unicon_backend.models.user import UserORM
+from unicon_backend.runner import PythonVersion
 from unicon_backend.schemas.problem import ProblemPublic, ProblemUpdate, TaskUpdate
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import TaskEvalResult
 
 router = APIRouter(prefix="/problems", tags=["problem"], dependencies=[Depends(get_current_user)])
+
+
+@router.get("/python-versions", response_model=list[str], summary="Get available Python versions")
+def get_python_versions():
+    return PythonVersion.list()
 
 
 @router.get("/{id}", summary="Get a problem definition")
