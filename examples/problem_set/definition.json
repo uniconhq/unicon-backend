@@ -69,7 +69,7 @@
       "environment": {
         "language": "PYTHON",
         "extra_options": {
-          "version": "3.12"
+          "version": "3.12.8"
         },
         "time_limit_secs": 10,
         "memory_limit_mb": 500
