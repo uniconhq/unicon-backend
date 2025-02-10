@@ -13,6 +13,28 @@ class Language(str, Enum):
     PYTHON = "PYTHON"
 
 
+class PythonVersion(str, Enum):
+    """Ensure consistency with `uv python list`"""
+
+    PYTHON_3_7_9 = "3.7.9"
+    PYTHON_3_8_20 = "3.8.20"
+    PYTHON_3_9_21 = "3.9.21"
+    PYTHON_3_10_12 = "3.10.12"
+    PYTHON_3_11_9 = "3.11.9"
+    PYTHON_3_11_11 = "3.11.11"
+    PYTHON_3_12_8 = "3.12.8"
+    PYTHON_3_13_1 = "3.13.1"
+
+    @classmethod
+    def list(cls) -> list[str]:
+        return [member.value for member in cls]
+
+
+class ExtraOptions(BaseModel):
+    version: PythonVersion | None = None
+    requirements: str | None = None
+
+
 class ComputeContext(BaseModel):
     language: Language
     time_limit_secs: int
@@ -21,7 +43,7 @@ class ComputeContext(BaseModel):
     slurm: bool = False
     slurm_options: list[str] = []
 
-    extra_options: dict[str, str] | None = None
+    extra_options: ExtraOptions | None = None
 
 
 class Status(str, Enum):
