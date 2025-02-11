@@ -37,13 +37,21 @@ class ExtraOptions(BaseModel):
 
 class ComputeContext(BaseModel):
     language: Language
-    time_limit_secs: int
+    time_limit_secs: float
     memory_limit_mb: int
 
     slurm: bool = False
     slurm_options: list[str] = []
 
     extra_options: ExtraOptions | None = None
+
+    @model_validator(mode="after")
+    def non_negative_and_non_zero_limits(self) -> Self:
+        if self.time_limit_secs <= 0:
+            raise ValueError("Time limit must be non-negative and non-zero")
+        if self.memory_limit_mb <= 0:
+            raise ValueError("Memory limit must be non-negative and non-zero")
+        return self
 
 
 class Status(str, Enum):
