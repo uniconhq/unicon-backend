@@ -26,6 +26,7 @@ def init_perms_schema(
     import importlib.resources
 
     import permify as p
+    from permify.exceptions import NotFoundException
 
     from unicon_backend.constants import PERMIFY_HOST, PERMIFY_TENANT_ID
 
@@ -42,16 +43,24 @@ def init_perms_schema(
     rich_console.print(f"Permify Host: [bold blue]{PERMIFY_HOST}[/bold blue]")
 
     schema_api = p.SchemaApi(p.ApiClient(p.Configuration(host=PERMIFY_HOST)))
-    # NOTE: 10 is an arbitrary page size chosen
-    # We assume that the current schema, it there is one, is within the first 10 schemas
-    existing_schemas = schema_api.schemas_list(PERMIFY_TENANT_ID, p.SchemaListBody(page_size=10))
-    if curr_schema_v := existing_schemas.head:
-        assert existing_schemas.schemas is not None
-        curr_schema = next(s for s in existing_schemas.schemas if s.version == curr_schema_v)
-        rich_console.print(
-            f"Current schema version: [bold red]{curr_schema_v}[/bold red] ({curr_schema.created_at})"
+
+    try:
+        # NOTE: 10 is an arbitrary page size chosen
+        # We assume that the current schema, it there is one, is within the first 10 schemas
+        existing_schemas = schema_api.schemas_list(
+            PERMIFY_TENANT_ID, p.SchemaListBody(page_size=10)
         )
-        typer.confirm("Are you sure you want to overwrite and invalidate this schema?", abort=True)
+        if curr_schema_v := existing_schemas.head:
+            assert existing_schemas.schemas is not None
+            curr_schema = next(s for s in existing_schemas.schemas if s.version == curr_schema_v)
+            rich_console.print(
+                f"Current schema version: [bold red]{curr_schema_v}[/bold red] ({curr_schema.created_at})"
+            )
+            typer.confirm(
+                "Are you sure you want to overwrite and invalidate this schema?", abort=True
+            )
+    except NotFoundException:
+        rich_console.print("No existing schema found, initializing new schema...")
 
     write_resp = schema_api.schemas_write(PERMIFY_TENANT_ID, schema_write_body)
     if (schema_version := write_resp.schema_version) is None:
