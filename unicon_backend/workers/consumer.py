@@ -63,7 +63,14 @@ class TaskResultsConsumer(AsyncConsumer):
             testcase_results: list[TestcaseResult] = []
             for testcase, eval_result in zip(testcases, eval_results, strict=False):
                 output_step: OutputStep = testcase.output_step
-                eval_value: dict[str, Any] = json.loads(eval_result.stdout)
+                eval_value: dict[str, Any] = {}
+                try:
+                    eval_value = json.loads(eval_result.stdout)
+                except json.JSONDecodeError:
+                    if len(eval_result.stdout) > 0:
+                        logger.error(
+                            f"Failed to decode stdout as JSON for task {task.id} testcase {testcase.id}: {eval_result.stdout}"
+                        )
 
                 socket_results: list[SocketResult] = []
                 for socket in output_step.data_in:
