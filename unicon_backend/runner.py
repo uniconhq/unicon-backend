@@ -41,7 +41,12 @@ class ComputeContext(BaseModel):
     memory_limit_mb: int
 
     slurm: bool = False
+    # Additional options for `srun`
+    # e.g. [--gpus", "1", "--cpus-per-task", "2"]
     slurm_options: list[str] = []
+    # Use python interpreter present in the allocated slurm node
+    # If true, ignores python version specified under `extra_options` and default fallback python version
+    slurm_use_system_py: bool = False
 
     extra_options: ExtraOptions | None = None
 
@@ -66,6 +71,8 @@ class ProgramResult(BaseModel):
     status: Status
     stdout: str
     stderr: str
+
+    elapsed_time_ns: int | None = None
 
     # Tracking fields
     id: int  # Corresponds to the testcase id of the problem
