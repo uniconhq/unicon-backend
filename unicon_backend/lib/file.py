@@ -29,7 +29,7 @@ def upload_file(bucket_name: str, object_name: str, data: bytes, content_type: s
     )
 
 
-def download_file(bucket_name, object_name) -> bytes:
+def download_file(bucket_name: str, object_name: str) -> bytes:
     response = _client.get_object(bucket_name, object_name)
     data = response.read()
     response.close()
