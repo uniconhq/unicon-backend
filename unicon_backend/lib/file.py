@@ -1,10 +1,26 @@
 import io
+import mimetypes
 
-from minio import Minio
+from minio import Minio, S3Error
 
 from unicon_backend.constants import MINIO_ACCESS_KEY, MINIO_HOST, MINIO_SECRET_KEY
 
 _client = Minio(MINIO_HOST, access_key=MINIO_ACCESS_KEY, secret_key=MINIO_SECRET_KEY, secure=False)
+
+
+def guess_content_type(filename: str | None) -> str:
+    default = "application/octet-stream"
+    if not filename:
+        return default
+    return mimetypes.guess_type(filename)[0] or default
+
+
+def file_exists(bucket_name: str, object_name: str) -> bool:
+    try:
+        _client.stat_object(bucket_name, object_name)
+    except S3Error:
+        return False
+    return True
 
 
 def upload_file(bucket_name: str, object_name: str, data: bytes, content_type: str | None = None):
