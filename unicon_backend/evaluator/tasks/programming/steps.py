@@ -423,7 +423,8 @@ class PyRunFunctionStep(Step[PyRunFunctionSocket]):
         in_files: dict[SocketId, File],
     ) -> ProgramFragment:
         def get_param_expr(s: StepSocket) -> cst.BaseExpression:
-            assert not isinstance(s.data, File)  # TODO: More robust validation for data type
+            if isinstance(s.data, File):  # TODO: More robust validation for data type
+                return cst_expr("src/" + in_files[s.id].path)
             if ret_expr := in_vars.get(s.id, cst_expr(s.data) if s.data else None):
                 return ret_expr
             raise ValueError(f"Missing data for socket {self.id}:{s.id}")
@@ -434,7 +435,7 @@ class PyRunFunctionStep(Step[PyRunFunctionSocket]):
             raise ValueError("Missing module file!")
 
         # NOTE: Assume that the program file is always a Python file
-        module_name = module_file.name.split(".py")[0]
+        module_name = module_file.path.split(".py")[0].replace("/", ".")
 
         func_var = cst_var(self.function_identifier)
         args = [cst.Arg(get_param_expr(s)) for s in self.args]
