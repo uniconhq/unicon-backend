@@ -1,7 +1,7 @@
 import io
 import mimetypes
 
-from minio import Minio, S3Error
+from minio import Minio, S3Error  # type: ignore
 
 from unicon_backend.constants import MINIO_ACCESS_KEY, MINIO_HOST, MINIO_SECRET_KEY
 

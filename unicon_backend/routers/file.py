@@ -3,7 +3,7 @@ import pathlib
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
-from minio import S3Error
+from minio import S3Error  # type: ignore
 
 from unicon_backend.constants import MINIO_BUCKET
 from unicon_backend.dependencies.auth import get_current_user
