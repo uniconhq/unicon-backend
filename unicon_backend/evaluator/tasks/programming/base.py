@@ -97,7 +97,6 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
             logger.debug(f"Assembled Program:\n{assembled_program}")
 
             graph_files: list[RunnerFile] = []
-            # TODO: possibly extract files from MINIO
             for node in filter(lambda node: node.type == StepType.INPUT, testcase.nodes):
                 graph_files.extend(
                     RunnerFile.from_file(output.data)
@@ -126,4 +125,15 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
         return TaskEvalResult(task_id=self.id, status=TaskEvalStatus.PENDING, result=runner_job.id)
 
     def validate_user_input(self, user_input: Any) -> list[RequiredInput]:
+        if type(user_input) is not list:
+            raise ValueError("User input must be a list of required inputs")
+
+        # insert the path back into the File object
+        id_to_path = {
+            file.id: file.data.path for file in self.required_inputs if isinstance(file.data, File)
+        }
+        for required_input in user_input:
+            if required_input["id"] in id_to_path:
+                required_input["data"]["path"] = id_to_path[required_input["id"]]
+
         return RootModel[list[RequiredInput]].model_validate(user_input).root

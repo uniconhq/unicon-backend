@@ -1,0 +1,127 @@
+{
+  "name": "Read image.",
+  "description": "Example of reading an image in a folder.",
+  "restricted": false,
+  "tasks": [
+    {
+      "id": 0,
+      "type": "PROGRAMMING_TASK",
+      "question": "Read an image.",
+      "order_index": 0,
+      "environment": {
+        "language": "PYTHON",
+        "extra_options": {
+          "version": "3.12.8",
+          "requirements": "pillow"
+        },
+        "slurm_options": [],
+        "time_limit_secs": 120,
+        "memory_limit_mb": 3000
+      },
+      "required_inputs": [
+        {
+          "id": "__READER_FILE__",
+          "data": {
+            "path": "read.py",
+            "content": "def read(file_path): -> str:\n\tfrom PIL import Image\n\tim = Image.open(filepath)\n\treturn f'{im.format}, {im.size}, {im.mode}'"
+          }
+        }
+      ],
+      "testcases": [
+        {
+          "id": 0,
+          "nodes": [
+            {
+              "id": "__USER_INPUT__",
+              "type": "INPUT_STEP",
+              "is_user": true,
+              "outputs": [
+                {
+                  "id": "__READER_FILE__",
+                  "label": "READER_FILE"
+                }
+              ]
+            },
+            {
+              "id": "__INPUT__",
+              "type": "INPUT_STEP",
+              "outputs": [
+                {
+                  "id": "__IMAGE_FILE__",
+                  "label": "IMAGE_FILE",
+                  "data": {
+                    "path": "folder/ohno.png",
+                    "content": "",
+                    "on_minio": true,
+                    "key": "ohno.png"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "__PY_RUN_IMAGE_READ__",
+              "type": "PY_RUN_FUNCTION_STEP",
+              "function_identifier": "read",
+              "inputs": [
+                {
+                  "id": "__MODULE__",
+                  "import_as_module": true
+                },
+                {
+                  "id": "__FILEPATH__",
+                  "arg_metadata": {
+                    "position": 0
+                  },
+                  "data": {
+                    "path": "read.py",
+                    "content": "placeholder"
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "id": "__RESULT__",
+                  "label": "image size"
+                }
+              ]
+            },
+            {
+              "id": "__OUTPUT__",
+              "type": "OUTPUT_STEP",
+              "inputs": [
+                {
+                  "id": "__OUT__",
+                  "label": "LR Output",
+                  "public": true
+                }
+              ]
+            }
+          ],
+          "edges": [
+            {
+              "id": "1",
+              "from_node_id": "__USER_INPUT__",
+              "from_socket_id": "__READER_FILE__",
+              "to_node_id": "__PY_RUN_IMAGE_READ__",
+              "to_socket_id": "__MODULE__"
+            },
+            {
+              "id": "2",
+              "from_node_id": "__INPUT__",
+              "from_socket_id": "__IMAGE_FILE__",
+              "to_node_id": "__PY_RUN_IMAGE_READ__",
+              "to_socket_id": "__FILEPATH__"
+            },
+            {
+              "id": "3",
+              "from_node_id": "__PY_RUN_IMAGE_READ__",
+              "from_socket_id": "__RESULT__",
+              "to_node_id": "__OUTPUT__",
+              "to_socket_id": "__OUT__"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
