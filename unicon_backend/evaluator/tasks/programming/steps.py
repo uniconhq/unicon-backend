@@ -434,7 +434,7 @@ class PyRunFunctionStep(Step[PyRunFunctionSocket]):
             raise ValueError("Missing module file!")
 
         # NOTE: Assume that the program file is always a Python file
-        module_name = module_file.name.split(".py")[0]
+        module_name = module_file.path.split(".py")[0].replace("/", ".")
 
         func_var = cst_var(self.function_identifier)
         args = [cst.Arg(get_param_expr(s)) for s in self.args]

@@ -14,7 +14,14 @@ from unicon_backend.evaluator.tasks.programming.steps import (
     StepType,
 )
 from unicon_backend.lib.common import CustomSQLModel
-from unicon_backend.runner import ComputeContext, JobId, ProgramResult, RunnerJob, RunnerProgram
+from unicon_backend.runner import (
+    ComputeContext,
+    JobId,
+    ProgramResult,
+    RunnerFile,
+    RunnerJob,
+    RunnerProgram,
+)
 from unicon_backend.workers.publisher import task_publisher
 
 logger = getLogger(__name__)
@@ -72,6 +79,7 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
     type: Literal[TaskType.PROGRAMMING]
     question: str
     environment: ComputeContext
+    # Required inputs are files submitted by the normal user. Template files are shown here.
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
 
@@ -88,10 +96,13 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
 
             logger.debug(f"Assembled Program:\n{assembled_program}")
 
-            graph_files: list[File] = []
+            graph_files: list[RunnerFile] = []
+            # TODO: possibly extract files from MINIO
             for node in filter(lambda node: node.type == StepType.INPUT, testcase.nodes):
                 graph_files.extend(
-                    output.data for output in node.outputs if isinstance(output.data, File)
+                    RunnerFile.from_file(output.data)
+                    for output in node.outputs
+                    if isinstance(output.data, File)
                 )
 
             runner_programs.append(
@@ -102,7 +113,9 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
                     # to let ComputeGraph derive all the files needed to run the testcase
                     files=[
                         *graph_files,
-                        File(name="__entrypoint.py", content=assembled_program.code),
+                        RunnerFile.from_file(
+                            File(path="__entrypoint.py", content=assembled_program.code)
+                        ),
                     ],
                 )
             )
