@@ -75,7 +75,8 @@ class ProgramResult(BaseModel):
     elapsed_time_ns: int | None = None
 
     # Tracking fields
-    id: int  # Corresponds to the testcase id of the problem
+    id: str  # Corresponds to the testcase id of the problem
+    order_index: int  # Corresponds to the order index of the testcase
 
 
 class JobResult(BaseModel):
@@ -93,7 +94,8 @@ class RunnerProgram(BaseModel):
     files: list[File]
 
     # Tracking fields
-    id: int  # Corresponds to the testcase id of the problem
+    id: str  # Corresponds to the testcase id of the problem
+    order_index: int  # Corresponds to the order index of the testcase
 
     @model_validator(mode="after")
     def check_entrypoint_exists_in_files(self) -> Self:
