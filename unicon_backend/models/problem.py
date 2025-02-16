@@ -44,6 +44,12 @@ class ProblemORM(CustomSQLModel, table=True):
     description: str
     restricted: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
 
+    started_at: datetime = Field(sa_column=_timestamp_column(nullable=True, default=False))
+    # After ended at: A submission is considered late.
+    ended_at: datetime = Field(sa_column=_timestamp_column(nullable=True, default=False))
+    # After closed at: Submissions are no longer accepted.
+    closed_at: datetime = Field(sa_column=_timestamp_column(nullable=True, default=False))
+
     project_id: int = Field(foreign_key="project.id")
 
     tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(
@@ -64,6 +70,9 @@ class ProblemORM(CustomSQLModel, table=True):
             description=problem.description,
             tasks=tasks_orm,
             restricted=problem.restricted,
+            started_at=problem.started_at,
+            ended_at=problem.ended_at,
+            closed_at=problem.closed_at,
         )
 
     def to_problem(self) -> "Problem":
@@ -73,6 +82,9 @@ class ProblemORM(CustomSQLModel, table=True):
                 "name": self.name,
                 "description": self.description,
                 "tasks": [task_orm.to_task() for task_orm in self.tasks],
+                "started_at": self.started_at,
+                "ended_at": self.ended_at,
+                "closed_at": self.closed_at,
             }
         )
 
@@ -183,6 +195,7 @@ class TaskAttemptORM(CustomSQLModel, table=True):
     problem_id: int
 
     submitted_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
+
     task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 
     # TODO: figure out polymorphism to stop abusing JSONB
