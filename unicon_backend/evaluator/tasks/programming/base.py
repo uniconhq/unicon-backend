@@ -40,6 +40,8 @@ class RequiredInput(BaseModel):
     id: str
     data: PrimitiveData | File
 
+    label: str = ""
+
 
 class Testcase(ComputeGraph):
     id: str
