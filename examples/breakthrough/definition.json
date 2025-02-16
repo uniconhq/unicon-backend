@@ -35,7 +35,8 @@
       ],
       "testcases": [
         {
-          "id": 1,
+          "id": "__TESTCASE_1__",
+          "order_index": 0,
           "edges": [
             {
               "id": "0",
