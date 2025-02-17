@@ -27,6 +27,11 @@ class ProblemBase(CustomSQLModel):
     closed_at: datetime
 
 
+class ProblemBaseWithPermissions(ProblemBase):
+    view: bool
+    edit: bool
+
+
 class OrganisationCreate(OrganisationBase):
     pass
 
@@ -114,7 +119,7 @@ class ProjectPublic(ProjectBase):
 
 
 class ProjectPublicWithProblems(ProjectPublic):
-    problems: list[ProblemBase]
+    problems: list[ProblemBaseWithPermissions]
 
 
 class RolePublic(RoleBase):
