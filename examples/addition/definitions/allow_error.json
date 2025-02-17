@@ -6,7 +6,7 @@
     {
       "id": 0,
       "type": "PROGRAMMING_TASK",
-      "question": "Implement addition",
+      "title": "Implement addition",
       "order_index": 0,
       "environment": {
         "language": "PYTHON",
