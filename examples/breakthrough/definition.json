@@ -6,7 +6,8 @@
     {
       "id": 0,
       "type": "PROGRAMMING_TASK",
-      "question": "Breakthrough Match",
+      "title": "Breakthrough Match",
+      "description": "Breakthrough is an abstract strategy board game invented by Dan Troyka in 2000 and made available as a Zillions of Games file (ZRF). It won the 2001 8x8 Game Design Competition, even though the game was originally played on a 7x7 board, as it is trivially extensible to larger board sizes.\n\nRules:\n\n1. Choose a player to go first; then play alternates, with each player moving one piece per turn.\n\n2. A piece may move one space straight or diagonally forward if the target square is empty. \n\n3. A piece may move into a square containing an opponent's piece if and only if that square is one step diagonally forward. The opponent's piece is removed and the player's piece replaces it\n\n4. The first player to reach the opponent's home row — the one farthest from the player — is the winner. If all the pieces of a player are captured, that player loses. A draw is impossible because pieces can only move ahead (or be captured), and the piece closest to the opponent's home row always has at least one forward diagonal move available.\n\nReference: https://en.wikipedia.org/wiki/Breakthrough_(board_game)",
       "order_index": 0,
       "environment": {
         "language": "PYTHON",

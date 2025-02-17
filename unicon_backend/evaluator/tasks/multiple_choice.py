@@ -14,7 +14,6 @@ class Choice(BaseModel):
 
 class MultipleChoiceTask(Task[str, RootModel[bool]]):
     type: Literal[TaskType.MULTIPLE_CHOICE]
-    question: str
     choices: list[Choice]
     expected_answer: str
 
@@ -43,7 +42,6 @@ class MultipleResponseTaskResult(BaseModel):
 
 class MultipleResponseTask(Task[set[str], MultipleResponseTaskResult]):
     type: Literal[TaskType.MULTIPLE_RESPONSE]
-    question: str
     choices: list[Choice]
     expected_answer: list[str]
 

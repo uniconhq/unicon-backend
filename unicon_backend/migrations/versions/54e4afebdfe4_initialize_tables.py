@@ -119,6 +119,8 @@ def upgrade() -> None:
             ),
             nullable=False,
         ),
+        sa.Column("title", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("description", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("autograde", sa.Boolean(), nullable=False),
         sa.Column("other_fields", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("updated_version_id", sa.Integer(), nullable=True),
