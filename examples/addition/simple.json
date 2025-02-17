@@ -19,6 +19,7 @@
       "required_inputs": [
         {
           "id": "__ADD_PY_FILE__",
+          "label": "add.py",
           "data": {
             "name": "add.py",
             "content": "def add(a, b):\n\traise NotImplememented()"

@@ -21,6 +21,7 @@
       "required_inputs": [
         {
           "id": "__AGENT_0__",
+          "label": "agent_0.py",
           "data": {
             "name": "agent_1.py",
             "content": "# Add your implementation here"
@@ -28,6 +29,7 @@
         },
         {
           "id": "__AGENT_1__",
+          "label": "agent_1.py",
           "data": {
             "name": "agent_2.py",
             "content": "# Add your implementation here"
