@@ -101,11 +101,19 @@ class TaskORM(CustomSQLModel, table=True):
     @classmethod
     def from_task(cls, task: "Task") -> "TaskORM":
         def _convert_task_to_orm(
-            id: int, type: TaskType, autograde: bool, order_index: int, **other_fields
+            id: int,
+            type: TaskType,
+            title: str,
+            description: str | None,
+            autograde: bool,
+            order_index: int,
+            **other_fields,
         ):
             return TaskORM(
                 id=id,
                 type=type,
+                title=title,
+                description=description,
                 autograde=autograde,
                 order_index=order_index,
                 other_fields=other_fields,
@@ -118,6 +126,8 @@ class TaskORM(CustomSQLModel, table=True):
             {
                 "id": self.id,
                 "type": self.type,
+                "title": self.title,
+                "description": self.description,
                 "autograde": self.autograde,
                 "order_index": self.order_index,
                 **self.other_fields,
