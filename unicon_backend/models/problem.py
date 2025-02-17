@@ -82,6 +82,9 @@ class TaskORM(CustomSQLModel, table=True):
 
     id: int = Field(primary_key=True)
 
+    title: str
+    description: str | None = Field(nullable=True)
+
     type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
     autograde: bool
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
