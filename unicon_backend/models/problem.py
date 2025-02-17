@@ -83,12 +83,12 @@ class TaskORM(CustomSQLModel, table=True):
     id: int = Field(primary_key=True)
 
     title: str
-    description: str | None = Field(nullable=True)
+    description: str | None = Field(nullable=True, default=None)
 
     type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
     autograde: bool
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
-    updated_version_id: int | None = Field(nullable=True)
+    updated_version_id: int | None = Field(nullable=True, default=None)
 
     order_index: int
     problem_id: int = Field(foreign_key="problem.id", primary_key=True)
