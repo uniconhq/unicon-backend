@@ -22,11 +22,13 @@ entity project {
     
     // assignable to roles
     relation view_problems_access @role#assignee
+    relation view_full_problem_details_access @role#assignee
     relation create_problems_access @role#assignee
     relation edit_problems_access @role#assignee
     relation delete_problems_access @role#assignee
 
     relation view_restricted_problems_access @role#assignee
+    relation view_full_restricted_problem_details_access @role#assignee // Includes test case details
     relation edit_restricted_problems_access @role#assignee
     relation delete_restricted_problems_access @role#assignee
 
@@ -47,6 +49,8 @@ entity project {
 
     action view_restricted_problems = org.view or view_restricted_problems_access
     action view_unrestricted_problems = view_restricted_problems or view_problems_access 
+    action view_full_restricted_problem_details = org.view or view_full_restricted_problem_details_access
+    action view_full_unrestricted_problem_details = view_restricted_problems or view_full_problem_details_access
     action edit_restricted_problems = org.edit or edit_restricted_problems_access
     action edit_unrestricted_problems = edit_restricted_problems or edit_problems_access
     action delete_restricted_problems = org.edit or delete_restricted_problems_access
@@ -75,14 +79,31 @@ entity problem {
     // for special problems (e.g. exam problems)
     attribute restricted boolean
 
-    action view = (project.view_restricted_problems) or (project.view_unrestricted_problems not restricted)
+    // Isoformat strings
+    attribute started_at string
+    attribute closed_at string
+
+    // Problems to show in index page. Does not include any question details.
+    action view_index = (project.view_restricted_problems) or (project.view_unrestricted_problems not restricted)
+    action view_hidden_details = (project.view_full_restricted_problem_details) or (project.view_full_unrestricted_problem_details not restricted)
+    // Problems that can be viewed in more detail. Problem must be open or user has privilege to view hidden details.
+    action view = view_index and (is_problem_open(started_at) or view_hidden_details)
+     
     action edit = (project.edit_restricted_problems) or (project.edit_unrestricted_problems not restricted)
     action delete = (project.delete_restricted_problems) or (project.delete_unrestricted_problems not restricted)
 
-    permission make_submission = view and project.make_submission
+    permission make_submission = ((view and in_submission_date_range(started_at, closed_at)) or edit) and project.make_submission 
     permission view_own_submission = view and project.view_own_submission
     permission view_others_submission = view and project.view_others_submission
     permission view_supervised_submission = view and project.view_supervised_submission
+}
+
+rule is_problem_open(started_at string) {
+    started_at <= context.data.current_date
+}
+
+rule in_submission_date_range(started_at string, closed_at string) {
+    started_at <= context.data.current_date && context.data.current_date <= closed_at
 }
 
 entity group {

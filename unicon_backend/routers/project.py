@@ -28,6 +28,7 @@ from unicon_backend.models.problem import (
 from unicon_backend.models.user import UserORM
 from unicon_backend.schemas.group import GroupCreate, GroupPublic, UserPublicWithRolesAndGroups
 from unicon_backend.schemas.organisation import (
+    ProblemBaseWithPermissions,
     ProjectPublic,
     ProjectPublicWithProblems,
     ProjectUpdate,
@@ -66,13 +67,30 @@ def get_project(
     if not permission_check(project, "view", user):
         raise HTTPException(HTTPStatus.FORBIDDEN, "Permission denied")
 
-    accessible_problem_ids = permission_lookup(ProblemORM, "view", user)
+    accessible_problem_ids = permission_lookup(ProblemORM, "view_index", user)
+
+    # whether user can access individual problem page (e.g. problem is not open = user may not be able to)
+    viewable_problem_ids = set(permission_lookup(ProblemORM, "view", user))
+    editable_problem_ids = set(permission_lookup(ProblemORM, "edit", user))
 
     permissions = permission_list_for_subject(project, user)
-    result = ProjectPublicWithProblems.model_validate(project, update=permissions)
-    result.problems = [
-        problem for problem in result.problems if problem.id in accessible_problem_ids
-    ]
+    result = ProjectPublicWithProblems.model_validate(
+        project,
+        update={
+            **permissions,
+            "problems": [
+                ProblemBaseWithPermissions.model_validate(
+                    problem,
+                    update={
+                        "view": problem.id in viewable_problem_ids,
+                        "edit": problem.id in editable_problem_ids,
+                    },
+                )
+                for problem in project.problems
+                if problem.id in accessible_problem_ids
+            ],
+        },
+    )
 
     return result
 

@@ -123,6 +123,10 @@ class Role(RoleBase, table=True):
         default=False,
         sa_column_kwargs={"server_default": "0"},
     )
+    view_full_problem_details_access: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
+    )
     create_problems_access: bool = Field(
         default=False,
         sa_column_kwargs={"server_default": "0"},
@@ -138,6 +142,10 @@ class Role(RoleBase, table=True):
 
     # Restricted problem permissions
     view_restricted_problems_access: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": "0"},
+    )
+    view_full_restricted_problem_details_access: bool = Field(
         default=False,
         sa_column_kwargs={"server_default": "0"},
     )
