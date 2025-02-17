@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
 from unicon_backend.evaluator.problem import Problem, Task
@@ -27,6 +29,9 @@ class ProblemUpdate(BaseModel):
     restricted: bool
     description: str
     task_order: list[TaskOrder]
+    started_at: datetime
+    ended_at: datetime
+    closed_at: datetime | None
 
 
 class TaskUpdate(BaseModel):

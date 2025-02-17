@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,9 @@ class ProblemBase(CustomSQLModel):
     description: str
     project_id: int
     restricted: bool
+    started_at: datetime
+    ended_at: datetime
+    closed_at: datetime
 
 
 class OrganisationCreate(OrganisationBase):
