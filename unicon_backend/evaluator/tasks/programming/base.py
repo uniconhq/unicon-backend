@@ -74,7 +74,6 @@ class Testcase(ComputeGraph):
 
 class ProgrammingTask(Task[list[RequiredInput], JobId]):
     type: Literal[TaskType.PROGRAMMING]
-    question: str
     environment: ComputeContext
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
