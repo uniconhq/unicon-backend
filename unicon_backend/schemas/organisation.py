@@ -127,11 +127,13 @@ class RolePublic(RoleBase):
     project_id: int
 
     view_problems_access: bool
+    view_full_problem_details_access: bool
     create_problems_access: bool
     edit_problems_access: bool
     delete_problems_access: bool
 
     view_restricted_problems_access: bool
+    view_full_restricted_problem_details_access: bool
     edit_restricted_problems_access: bool
     delete_restricted_problems_access: bool
 
@@ -154,11 +156,13 @@ class RoleUpdate(RoleBase):
     name: str
 
     view_problems_access: bool
+    view_full_problem_details_access: bool
     create_problems_access: bool
     edit_problems_access: bool
     delete_problems_access: bool
 
     view_restricted_problems_access: bool
+    view_full_restricted_problem_details_access: bool
     edit_restricted_problems_access: bool
     delete_restricted_problems_access: bool
 
