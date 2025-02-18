@@ -98,10 +98,13 @@ class TaskORM(CustomSQLModel, table=True):
 
     id: int = Field(primary_key=True)
 
+    title: str
+    description: str | None = Field(nullable=True, default=None)
+
     type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
     autograde: bool
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
-    updated_version_id: int | None = Field(nullable=True)
+    updated_version_id: int | None = Field(nullable=True, default=None)
 
     order_index: int
     problem_id: int = Field(foreign_key="problem.id", primary_key=True)
@@ -114,11 +117,19 @@ class TaskORM(CustomSQLModel, table=True):
     @classmethod
     def from_task(cls, task: "Task") -> "TaskORM":
         def _convert_task_to_orm(
-            id: int, type: TaskType, autograde: bool, order_index: int, **other_fields
+            id: int,
+            type: TaskType,
+            title: str,
+            description: str | None,
+            autograde: bool,
+            order_index: int,
+            **other_fields,
         ):
             return TaskORM(
                 id=id,
                 type=type,
+                title=title,
+                description=description,
                 autograde=autograde,
                 order_index=order_index,
                 other_fields=other_fields,
@@ -131,6 +142,8 @@ class TaskORM(CustomSQLModel, table=True):
             {
                 "id": self.id,
                 "type": self.type,
+                "title": self.title,
+                "description": self.description,
                 "autograde": self.autograde,
                 "order_index": self.order_index,
                 **self.other_fields,

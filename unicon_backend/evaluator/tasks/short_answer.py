@@ -7,7 +7,6 @@ from unicon_backend.evaluator.tasks.base import Task, TaskEvalResult, TaskEvalSt
 
 class ShortAnswerTask(Task[str, RootModel[bool]]):
     type: Literal[TaskType.SHORT_ANSWER]
-    question: str
     autograde: bool = False
     expected_answer: str | None = None
 

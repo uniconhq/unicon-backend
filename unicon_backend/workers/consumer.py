@@ -57,8 +57,10 @@ class TaskResultsConsumer(AsyncConsumer):
                 return
 
             task = cast(ProgrammingTask, task_result_db.task_attempt.task.to_task())
-            testcases: list[Testcase] = sorted(task.testcases, key=attrgetter("id"))
-            eval_results: list[ProgramResult] = sorted(response.results, key=attrgetter("id"))
+            testcases: list[Testcase] = sorted(task.testcases, key=attrgetter("order_index"))
+            eval_results: list[ProgramResult] = sorted(
+                response.results, key=attrgetter("order_index")
+            )
 
             testcase_results: list[TestcaseResult] = []
             for testcase, eval_result in zip(testcases, eval_results, strict=False):
