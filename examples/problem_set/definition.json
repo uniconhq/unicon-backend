@@ -2,6 +2,7 @@
   "name": "Problem Set & Lecture Training",
   "description": "Collection of titles from CS2109S problem sets and lecture trainings",
   "restricted": false,
+  "published": true,
   "tasks": [
     {
       "id": 0,

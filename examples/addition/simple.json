@@ -2,6 +2,7 @@
   "name": "Simple addition",
   "description": "Add 2 integers (display result)",
   "restricted": false,
+  "published": true,
   "tasks": [
     {
       "id": 0,

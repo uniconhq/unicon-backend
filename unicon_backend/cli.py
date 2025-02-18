@@ -146,7 +146,6 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
         problem_defn["started_at"] = datetime.now()
         problem_defn["ended_at"] = datetime.now() + timedelta(weeks=2)
         problem_defn["closed_at"] = datetime.now() + timedelta(weeks=3)
-        problem_defn["published"] = True  # TODO: correct files
 
     project = Project(
         name="Sparkles",
