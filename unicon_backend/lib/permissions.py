@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Final
 
 import permify as p
@@ -143,6 +144,7 @@ def permission_lookup(model_class: Any, permission: str, user: UserORM) -> list[
                 permission=permission,
                 subject=p.Subject(type="user", id=str(user.id)),
                 continuous_token=cont_token,
+                context=p.Context(data={"current_date": datetime.now().isoformat()}),
             ),
         )
         ids = [int(entity_id) for entity_id in resp.entity_ids or []]
@@ -174,6 +176,7 @@ def permission_list_for_subject(model: Any, user: UserORM) -> dict[str, bool]:
             metadata=metadata,
             entity=_make_entity(_model_to_type(model), str(model.id)),
             subject=_make_entity("user", str(user.id)),
+            context=p.Context(data={"current_date": datetime.now().isoformat()}),
         ),
     )
 
@@ -381,6 +384,7 @@ def permission_check(entity, permission, subject) -> bool:
             entity=_make_entity(_model_to_type(entity), str(entity.id)),
             permission=permission,
             subject=_make_entity(_model_to_type(subject), str(subject.id)),
+            context=p.Context(data={"current_date": datetime.now().isoformat()}),
         ),
     )
     return result.can == p.CheckResult.CHECK_RESULT_ALLOWED
@@ -399,6 +403,10 @@ def _make_tuple(entity, relation, subject) -> p.Tuple:
 def _get_permify_bool(bool: bool) -> p.Any:
     # I think the type error here is from a weird bug in p.Any where it collides with typing.Any (and should be fine)
     return p.Any.from_dict({"@type": "type.googleapis.com/base.v1.BooleanValue", "data": bool})  # type:ignore
+
+
+def _get_permify_str(str: str) -> p.Any:
+    return p.Any.from_dict({"@type": "type.googleapis.com/base.v1.StringValue", "data": str})  # type:ignore
 
 
 def _make_attribute(entity, attribute, value) -> p.Attribute:
@@ -461,13 +469,30 @@ def _create_problem(problem: ProblemORM) -> tuple[list[p.Tuple], list[p.Attribut
         "project",
         _make_entity("project", str(problem.project_id)),
     )
-    restricted = problem.restricted
-    attribute = _make_attribute(
-        _make_entity("problem", str(problem.id)),
-        "restricted",
-        _get_permify_bool(restricted),
-    )
-    return [problem_project_link], [attribute]
+    attributes = [
+        _make_attribute(
+            _make_entity("problem", str(problem.id)),
+            "restricted",
+            _get_permify_bool(problem.restricted),
+        ),
+        _make_attribute(
+            _make_entity("problem", str(problem.id)),
+            "published",
+            _get_permify_bool(problem.published),
+        ),
+        _make_attribute(
+            _make_entity("problem", str(problem.id)),
+            "started_at",
+            _get_permify_str(problem.started_at.isoformat()),
+        ),
+        _make_attribute(
+            _make_entity("problem", str(problem.id)),
+            "closed_at",
+            # NOTE: if closed_at is not set, it defaults to ended_at
+            _get_permify_str((problem.closed_at or problem.ended_at).isoformat()),
+        ),
+    ]
+    return [problem_project_link], attributes
 
 
 def _create_submission(submission: SubmissionORM) -> tuple[list[p.Tuple], list[p.Attribute]]:
