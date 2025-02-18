@@ -32,7 +32,7 @@ class PythonVersion(str, Enum):
 
 class ExtraOptions(BaseModel):
     version: PythonVersion | None = None
-    requirements: str | None = None
+    requirements: list[str] = []
 
 
 class ComputeContext(BaseModel):

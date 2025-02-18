@@ -13,7 +13,7 @@
         "language": "PYTHON",
         "extra_options": {
           "version": "3.12.8",
-          "requirements": "timeout_decorator"
+          "requirements": ["timeout_decorator"]
         },
         "time_limit_secs": 100,
         "memory_limit_mb": 500

@@ -12,7 +12,7 @@
           "language": "PYTHON",
           "extra_options": {
             "version": "3.12.8",
-            "requirements": "torch\nnumpy"
+            "requirements": ["torch", "numpy"]
           },
           "slurm": true,
           "slurm_options": ["--gpus=a100-80"],
