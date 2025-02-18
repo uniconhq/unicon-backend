@@ -3,7 +3,7 @@ from functools import cached_property
 from logging import getLogger
 from typing import Annotated, Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 from sqlmodel._compat import SQLModelConfig
 
 from unicon_backend.evaluator.tasks.base import TaskEvalResult
@@ -28,11 +28,12 @@ class Problem(CustomSQLModel):
 
     name: str
     restricted: bool
+    published: bool = Field(default=False)
     description: str
     tasks: list[Annotated[Task, Field(discriminator="type")]]
     started_at: datetime
     ended_at: datetime
-    closed_at: datetime | None
+    closed_at: datetime | None = Field(default=None)
 
     @cached_property
     def task_index(self) -> dict[int, Task]:
@@ -67,10 +68,3 @@ class Problem(CustomSQLModel):
             result.append(self.run_task(task.id, task_user_input.value))
 
         return result
-
-    @model_validator(mode="before")
-    @classmethod
-    def default_closed_at_to_ended_at(cls, data: Any):
-        if isinstance(data, dict) and data.get("closed_at") is None:
-            data["closed_at"] = data["ended_at"]
-        return data

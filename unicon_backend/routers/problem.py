@@ -158,10 +158,12 @@ def update_problem(
 
     existing_problem_orm.name = new_problem.name
     existing_problem_orm.description = new_problem.description
+    existing_problem_orm.published = new_problem.published
     existing_problem_orm.restricted = new_problem.restricted
     existing_problem_orm.started_at = new_problem.started_at
     existing_problem_orm.ended_at = new_problem.ended_at
-    existing_problem_orm.closed_at = new_problem.closed_at or new_problem.ended_at
+    if new_problem.closed_at:
+        existing_problem_orm.closed_at = new_problem.closed_at
 
     # Update task order
     if not set(task_order.id for task_order in new_problem.task_order) == set(

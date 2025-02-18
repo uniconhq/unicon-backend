@@ -1,9 +1,13 @@
+import json
+from datetime import datetime, timedelta
 from typing import Annotated
 
 import typer
 from rich.console import Console
 from rich.syntax import Syntax
 from rich.table import Table
+from sqlalchemy import select
+from sqlmodel import col
 
 rich_console = Console()
 
@@ -127,18 +131,29 @@ def seed(username: str, password: str, problem_defns: list[typer.FileText]):
     db_session = SessionLocal()
     hash_password = AUTH_PWD_CONTEXT.hash(password)
 
-    admin_user = UserORM(username=username, password=hash_password)
-    db_session.add(admin_user)
-    db_session.flush()
+    admin_user = db_session.scalar(select(UserORM).where(col(UserORM.username) == username))
+    if admin_user:
+        typer.confirm("User already exists. Add data to existing user?", abort=True)
+    else:
+        admin_user = UserORM(username=username, password=hash_password)
+        db_session.add(admin_user)
+        db_session.flush()
 
     organisation = Organisation(name="Unicon", description="Rainbows", owner_id=admin_user.id)
+
+    loaded_problem_defns = [json.loads(problem_defn.read()) for problem_defn in problem_defns]
+    for problem_defn in loaded_problem_defns:
+        problem_defn["started_at"] = datetime.now()
+        problem_defn["ended_at"] = datetime.now() + timedelta(weeks=2)
+        problem_defn["closed_at"] = datetime.now() + timedelta(weeks=3)
+        problem_defn["published"] = True  # TODO: correct files
 
     project = Project(
         name="Sparkles",
         organisation=organisation,
         problems=[
-            ProblemORM.from_problem(Problem.model_validate_json(problem_defn.read()))
-            for problem_defn in problem_defns
+            ProblemORM.from_problem(Problem.model_validate(problem_defn))
+            for problem_defn in loaded_problem_defns
         ],
     )
     project.roles = [

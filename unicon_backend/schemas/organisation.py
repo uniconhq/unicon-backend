@@ -22,9 +22,10 @@ class ProblemBase(CustomSQLModel):
     description: str
     project_id: int
     restricted: bool
+    published: bool
     started_at: datetime
     ended_at: datetime
-    closed_at: datetime
+    closed_at: datetime | None
 
 
 class ProblemBaseWithPermissions(ProblemBase):

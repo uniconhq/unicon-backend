@@ -60,6 +60,7 @@ def upgrade() -> None:
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("description", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("restricted", sa.Boolean(), server_default="false", nullable=False),
+        sa.Column("published", sa.Boolean(), server_default="false", nullable=False),
         sa.Column("project_id", sa.Integer(), nullable=False),
         sa.Column(
             "started_at",
@@ -76,8 +77,7 @@ def upgrade() -> None:
         sa.Column(
             "closed_at",
             postgresql.TIMESTAMP(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
+            nullable=True,
         ),
         sa.ForeignKeyConstraint(
             ["project_id"], ["project.id"], name=op.f("fk_problem_project_id_project")

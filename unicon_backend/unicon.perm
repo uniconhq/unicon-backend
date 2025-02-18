@@ -78,14 +78,16 @@ entity problem {
 
     // for special problems (e.g. exam problems)
     attribute restricted boolean
+    
+    attribute published boolean
 
     // Isoformat strings
     attribute started_at string
     attribute closed_at string
 
-    // Problems to show in index page. Does not include any question details.
-    action view_index = (project.view_restricted_problems) or (project.view_unrestricted_problems not restricted)
     action view_hidden_details = (project.view_full_restricted_problem_details) or (project.view_full_unrestricted_problem_details not restricted)
+    // Problems to show in index page. Does not include any question details.
+    action view_index = view_hidden_details or (((project.view_restricted_problems) or (project.view_unrestricted_problems not restricted)) and published)
     // Problems that can be viewed in more detail. Problem must be open or user has privilege to view hidden details.
     action view = view_index and (is_problem_open(started_at) or view_hidden_details)
      

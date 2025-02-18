@@ -27,6 +27,7 @@ class TaskOrder(BaseModel):
 class ProblemUpdate(BaseModel):
     name: str
     restricted: bool
+    published: bool
     description: str
     task_order: list[TaskOrder]
     started_at: datetime

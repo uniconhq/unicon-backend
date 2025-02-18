@@ -469,12 +469,16 @@ def _create_problem(problem: ProblemORM) -> tuple[list[p.Tuple], list[p.Attribut
         "project",
         _make_entity("project", str(problem.project_id)),
     )
-    restricted = problem.restricted
     attributes = [
         _make_attribute(
             _make_entity("problem", str(problem.id)),
             "restricted",
-            _get_permify_bool(restricted),
+            _get_permify_bool(problem.restricted),
+        ),
+        _make_attribute(
+            _make_entity("problem", str(problem.id)),
+            "published",
+            _get_permify_bool(problem.published),
         ),
         _make_attribute(
             _make_entity("problem", str(problem.id)),
@@ -484,7 +488,8 @@ def _create_problem(problem: ProblemORM) -> tuple[list[p.Tuple], list[p.Attribut
         _make_attribute(
             _make_entity("problem", str(problem.id)),
             "closed_at",
-            _get_permify_str(problem.closed_at.isoformat()),
+            # NOTE: if closed_at is not set, it defaults to ended_at
+            _get_permify_str((problem.closed_at or problem.ended_at).isoformat()),
         ),
     ]
     return [problem_project_link], attributes

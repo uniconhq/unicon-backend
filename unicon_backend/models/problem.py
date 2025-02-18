@@ -44,11 +44,13 @@ class ProblemORM(CustomSQLModel, table=True):
     description: str
     restricted: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
 
-    started_at: datetime = Field(sa_column=_timestamp_column(nullable=True, default=False))
+    started_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=False))
     # After ended at: A submission is considered late.
-    ended_at: datetime = Field(sa_column=_timestamp_column(nullable=True, default=False))
+    ended_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=False))
     # After closed at: Submissions are no longer accepted.
-    closed_at: datetime = Field(sa_column=_timestamp_column(nullable=True, default=False))
+    closed_at: datetime | None = Field(sa_column=_timestamp_column(nullable=True, default=False))
+
+    published: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
 
     project_id: int = Field(foreign_key="project.id")
 
@@ -70,6 +72,7 @@ class ProblemORM(CustomSQLModel, table=True):
             description=problem.description,
             tasks=tasks_orm,
             restricted=problem.restricted,
+            published=problem.published,
             started_at=problem.started_at,
             ended_at=problem.ended_at,
             closed_at=problem.closed_at,
@@ -85,6 +88,7 @@ class ProblemORM(CustomSQLModel, table=True):
                 "started_at": self.started_at,
                 "ended_at": self.ended_at,
                 "closed_at": self.closed_at,
+                "published": self.published,
             }
         )
 
