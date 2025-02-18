@@ -32,6 +32,7 @@ from unicon_backend.models.problem import (
     TaskORM,
 )
 from unicon_backend.models.user import UserORM
+from unicon_backend.runner import PythonVersion
 from unicon_backend.schemas.problem import (
     ParseRequest,
     ProblemPublic,
@@ -43,6 +44,11 @@ if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import TaskEvalResult
 
 router = APIRouter(prefix="/problems", tags=["problem"], dependencies=[Depends(get_current_user)])
+
+
+@router.get("/python-versions", response_model=list[str], summary="Get available Python versions")
+def get_python_versions():
+    return PythonVersion.list()
 
 
 @router.get("/{id}", summary="Get a problem definition")
@@ -165,7 +171,12 @@ def update_problem(
 
     existing_problem_orm.name = new_problem.name
     existing_problem_orm.description = new_problem.description
+    existing_problem_orm.published = new_problem.published
     existing_problem_orm.restricted = new_problem.restricted
+    existing_problem_orm.started_at = new_problem.started_at
+    existing_problem_orm.ended_at = new_problem.ended_at
+    if new_problem.closed_at:
+        existing_problem_orm.closed_at = new_problem.closed_at
 
     # Update task order
     if not set(task_order.id for task_order in new_problem.task_order) == set(

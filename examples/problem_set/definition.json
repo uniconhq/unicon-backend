@@ -1,12 +1,13 @@
 {
   "name": "Problem Set & Lecture Training",
-  "description": "Collection of questions from CS2109S problem sets and lecture trainings",
+  "description": "Collection of titles from CS2109S problem sets and lecture trainings",
   "restricted": false,
+  "published": true,
   "tasks": [
     {
       "id": 0,
       "type": "MULTIPLE_CHOICE_TASK",
-      "question": "True or False: Uniform Cost Search is a special case of A* search.",
+      "title": "True or False: Uniform Cost Search is a special case of A* search.",
       "order_index": 0,
       "choices": [
         {
@@ -25,7 +26,7 @@
     {
       "id": 1,
       "type": "MULTIPLE_RESPONSE_TASK",
-      "question": "Suppose you have a trained logistic classifier, and it outputs on a new example a prediction hw(x) = 0.4. Which of the following is/are true? Select all that apply.",
+      "title": "Suppose you have a trained logistic classifier, and it outputs on a new example a prediction hw(x) = 0.4. Which of the following is/are true? Select all that apply.",
       "order_index": 1,
       "choices": [
         {
@@ -58,18 +59,18 @@
       "id": 2,
       "type": "SHORT_ANSWER_TASK",
       "autograde": false,
-      "question": "Propose a state representation for the Missionaries & Cannibals problem if we want to formulate it as a search problem and define the corresponding actions.",
+      "title": "Propose a state representation for the Missionaries & Cannibals problem if we want to formulate it as a search problem and define the corresponding actions.",
       "order_index": 2
     },
     {
       "id": 3,
       "type": "PROGRAMMING_TASK",
-      "question": "Implement Tree Search",
+      "title": "Implement Tree Search",
       "order_index": 3,
       "environment": {
         "language": "PYTHON",
         "extra_options": {
-          "version": "3.12"
+          "version": "3.12.8"
         },
         "time_limit_secs": 10,
         "memory_limit_mb": 500
@@ -77,6 +78,7 @@
       "required_inputs": [
         {
           "id": "__TREE_SEARCH_FILE__",
+          "label": "tree_search.py",
           "data": {
             "name": "tree_search.py",
             "content": "import queue\n\ndef mnc_tree_search(m, c):\n\traise NotImplememented()"
@@ -85,7 +87,8 @@
       ],
       "testcases": [
         {
-          "id": 0,
+          "id": "__TESTCASE_1__",
+          "order_index": 0,
           "nodes": [
             {
               "id": "__USER_INPUT__",

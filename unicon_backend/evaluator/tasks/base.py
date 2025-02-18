@@ -31,6 +31,8 @@ class TaskEvalResult(BaseModel, Generic[TaskResult]):
 
 class Task(BaseModel, abc.ABC, Generic[TaskUserInput, TaskResult]):
     id: int
+    title: str
+    description: str | None = None
     type: TaskType
     autograde: bool = True
     order_index: int

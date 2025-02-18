@@ -21,6 +21,7 @@ class AsyncConsumer(abc.ABC):
         exchange_name: str,
         exchange_type: ExchangeType,
         queue_name: str,
+        connection_name: str,
         routing_key: str | None = None,
     ):
         self.exchange_name = exchange_name
@@ -29,6 +30,8 @@ class AsyncConsumer(abc.ABC):
         self.queue_name = queue_name
         # NOTE: If routing_key is not provided, it will default to the queue_name
         self.routing_key = routing_key or queue_name
+
+        self.conn_name = connection_name
 
         self._url = amqp_url
 
@@ -138,8 +141,10 @@ class AsyncConsumer(abc.ABC):
     ): ...
 
     def run(self, event_loop: AbstractEventLoop | None = None):
+        conn_params = pika.URLParameters(self._url)
+        conn_params.client_properties = {"connection_name": self.conn_name}
         self._connection = AsyncioConnection(
-            parameters=pika.URLParameters(self._url),
+            parameters=conn_params,
             on_open_callback=self.on_connection_open,
             on_open_error_callback=self.on_connection_open_error,
             on_close_callback=self.on_connection_closed,
@@ -159,6 +164,7 @@ class AsyncPublisher(abc.ABC):
         exchange_name: str,
         exchange_type: ExchangeType,
         queue_name: str,
+        connection_name: str,
         routing_key: str | None = None,
     ):
         self.exchange_name = exchange_name
@@ -167,6 +173,8 @@ class AsyncPublisher(abc.ABC):
         self.queue_name = queue_name
         # NOTE: If routing_key is not provided, it will default to the queue_name
         self.routing_key = routing_key or queue_name
+
+        self.conn_name = connection_name
 
         self._url = amqp_url
 
@@ -256,8 +264,10 @@ class AsyncPublisher(abc.ABC):
         self._nacked = 0
         self._message_number = 0
 
+        conn_params = pika.URLParameters(self._url)
+        conn_params.client_properties = {"connection_name": self.conn_name}
         self._connection = AsyncioConnection(
-            pika.URLParameters(self._url),
+            parameters=conn_params,
             on_open_callback=self.on_connection_open,
             on_open_error_callback=self.on_connection_open_error,
             on_close_callback=self.on_connection_closed,

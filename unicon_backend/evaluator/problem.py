@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import cached_property
 from logging import getLogger
 from typing import Annotated, Any
@@ -27,8 +28,12 @@ class Problem(CustomSQLModel):
 
     name: str
     restricted: bool
+    published: bool = Field(default=False)
     description: str
     tasks: list[Annotated[Task, Field(discriminator="type")]]
+    started_at: datetime
+    ended_at: datetime
+    closed_at: datetime | None = Field(default=None)
 
     @cached_property
     def task_index(self) -> dict[int, Task]:

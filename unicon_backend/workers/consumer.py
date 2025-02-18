@@ -8,7 +8,12 @@ from pika.exchange_type import ExchangeType
 from pika.spec import Basic
 from sqlmodel import func, select
 
-from unicon_backend.constants import EXCHANGE_NAME, RABBITMQ_URL, RESULT_QUEUE_NAME
+from unicon_backend.constants import (
+    AMQP_CONN_NAME,
+    AMQP_EXCHANGE_NAME,
+    AMQP_RESULT_QUEUE_NAME,
+    AMQP_URL,
+)
 from unicon_backend.database import SessionLocal
 from unicon_backend.evaluator.tasks.programming.base import (
     ProgrammingTask,
@@ -29,7 +34,13 @@ logger = logging.getLogger(__name__)
 
 class TaskResultsConsumer(AsyncConsumer):
     def __init__(self):
-        super().__init__(RABBITMQ_URL, EXCHANGE_NAME, ExchangeType.topic, RESULT_QUEUE_NAME)
+        super().__init__(
+            AMQP_URL,
+            AMQP_EXCHANGE_NAME,
+            ExchangeType.topic,
+            AMQP_RESULT_QUEUE_NAME,
+            f"{AMQP_CONN_NAME}::consumer",
+        )
 
     def message_callback(
         self, _basic_deliver: Basic.Deliver, _properties: pika.BasicProperties, body: bytes
@@ -46,13 +57,22 @@ class TaskResultsConsumer(AsyncConsumer):
                 return
 
             task = cast(ProgrammingTask, task_result_db.task_attempt.task.to_task())
-            testcases: list[Testcase] = sorted(task.testcases, key=attrgetter("id"))
-            eval_results: list[ProgramResult] = sorted(response.results, key=attrgetter("id"))
+            testcases: list[Testcase] = sorted(task.testcases, key=attrgetter("order_index"))
+            eval_results: list[ProgramResult] = sorted(
+                response.results, key=attrgetter("order_index")
+            )
 
             testcase_results: list[TestcaseResult] = []
             for testcase, eval_result in zip(testcases, eval_results, strict=False):
                 output_step: OutputStep = testcase.output_step
-                eval_value: dict[str, Any] = json.loads(eval_result.stdout)
+                eval_value: dict[str, Any] = {}
+                try:
+                    eval_value = json.loads(eval_result.stdout)
+                except json.JSONDecodeError:
+                    if len(eval_result.stdout) > 0:
+                        logger.error(
+                            f"Failed to decode stdout as JSON for task {task.id} testcase {testcase.id}: {eval_result.stdout}"
+                        )
 
                 socket_results: list[SocketResult] = []
                 for socket in output_step.data_in:

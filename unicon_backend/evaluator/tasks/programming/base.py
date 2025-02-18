@@ -1,5 +1,6 @@
 from functools import cached_property
 from logging import getLogger
+from operator import attrgetter
 from typing import Any, Literal, Self, cast
 
 from pydantic import BaseModel, RootModel, model_validator
@@ -39,9 +40,12 @@ class RequiredInput(BaseModel):
     id: str
     data: PrimitiveData | File
 
+    label: str = ""
+
 
 class Testcase(ComputeGraph):
-    id: int
+    id: str
+    order_index: int
 
     @model_validator(mode="after")
     def check_exactly_one_output_step(self) -> Self:
@@ -70,7 +74,6 @@ class Testcase(ComputeGraph):
 
 class ProgrammingTask(Task[list[RequiredInput], JobId]):
     type: Literal[TaskType.PROGRAMMING]
-    question: str
     environment: ComputeContext
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
@@ -82,7 +85,7 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
                 raise ValueError(f"Required input {required_input.id} not provided")
 
         runner_programs: list[RunnerProgram] = []
-        for testcase in self.testcases:
+        for testcase in sorted(self.testcases, key=attrgetter("order_index")):
             testcase.attach_user_inputs(user_inputs)
             assembled_program = mpi_sandbox(testcase.run())
 
@@ -97,6 +100,7 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
             runner_programs.append(
                 RunnerProgram(
                     id=testcase.id,
+                    order_index=testcase.order_index,
                     entrypoint="__entrypoint.py",
                     # TODO: instead of always passing in user_input, we can refactor in the future
                     # to let ComputeGraph derive all the files needed to run the testcase

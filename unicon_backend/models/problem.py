@@ -44,6 +44,14 @@ class ProblemORM(CustomSQLModel, table=True):
     description: str
     restricted: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
 
+    started_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=False))
+    # After ended at: A submission is considered late.
+    ended_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=False))
+    # After closed at: Submissions are no longer accepted.
+    closed_at: datetime | None = Field(sa_column=_timestamp_column(nullable=True, default=False))
+
+    published: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
+
     project_id: int = Field(foreign_key="project.id")
 
     tasks: sa_orm.Mapped[list["TaskORM"]] = Relationship(
@@ -64,6 +72,10 @@ class ProblemORM(CustomSQLModel, table=True):
             description=problem.description,
             tasks=tasks_orm,
             restricted=problem.restricted,
+            published=problem.published,
+            started_at=problem.started_at,
+            ended_at=problem.ended_at,
+            closed_at=problem.closed_at,
         )
 
     def to_problem(self) -> "Problem":
@@ -73,6 +85,10 @@ class ProblemORM(CustomSQLModel, table=True):
                 "name": self.name,
                 "description": self.description,
                 "tasks": [task_orm.to_task() for task_orm in self.tasks],
+                "started_at": self.started_at,
+                "ended_at": self.ended_at,
+                "closed_at": self.closed_at,
+                "published": self.published,
             }
         )
 
@@ -82,10 +98,13 @@ class TaskORM(CustomSQLModel, table=True):
 
     id: int = Field(primary_key=True)
 
+    title: str
+    description: str | None = Field(nullable=True, default=None)
+
     type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
     autograde: bool
     other_fields: dict = Field(default_factory=dict, sa_column=sa.Column(pg.JSONB))
-    updated_version_id: int | None = Field(nullable=True)
+    updated_version_id: int | None = Field(nullable=True, default=None)
 
     order_index: int
     problem_id: int = Field(foreign_key="problem.id", primary_key=True)
@@ -98,11 +117,19 @@ class TaskORM(CustomSQLModel, table=True):
     @classmethod
     def from_task(cls, task: "Task") -> "TaskORM":
         def _convert_task_to_orm(
-            id: int, type: TaskType, autograde: bool, order_index: int, **other_fields
+            id: int,
+            type: TaskType,
+            title: str,
+            description: str | None,
+            autograde: bool,
+            order_index: int,
+            **other_fields,
         ):
             return TaskORM(
                 id=id,
                 type=type,
+                title=title,
+                description=description,
                 autograde=autograde,
                 order_index=order_index,
                 other_fields=other_fields,
@@ -115,6 +142,8 @@ class TaskORM(CustomSQLModel, table=True):
             {
                 "id": self.id,
                 "type": self.type,
+                "title": self.title,
+                "description": self.description,
                 "autograde": self.autograde,
                 "order_index": self.order_index,
                 **self.other_fields,
@@ -183,6 +212,7 @@ class TaskAttemptORM(CustomSQLModel, table=True):
     problem_id: int
 
     submitted_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=True))
+
     task_type: TaskType = Field(sa_column=sa.Column(pg.ENUM(TaskType), nullable=False))
 
     # TODO: figure out polymorphism to stop abusing JSONB

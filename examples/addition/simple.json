@@ -2,16 +2,17 @@
   "name": "Simple addition",
   "description": "Add 2 integers (display result)",
   "restricted": false,
+  "published": true,
   "tasks": [
     {
       "id": 0,
       "type": "PROGRAMMING_TASK",
-      "question": "Implement addition",
+      "title": "Implement addition",
       "order_index": 0,
       "environment": {
         "language": "PYTHON",
         "extra_options": {
-          "version": "3.12"
+          "version": "3.12.8"
         },
         "time_limit_secs": 5,
         "memory_limit_mb": 500
@@ -19,6 +20,7 @@
       "required_inputs": [
         {
           "id": "__ADD_PY_FILE__",
+          "label": "add.py",
           "data": {
             "name": "add.py",
             "content": "def add(a, b):\n\traise NotImplememented()"
@@ -27,7 +29,8 @@
       ],
       "testcases": [
         {
-          "id": 0,
+          "id": "__TESTCASE_1__",
+          "order_index": 0,
           "nodes": [
             {
               "id": "__USER_INPUT__",

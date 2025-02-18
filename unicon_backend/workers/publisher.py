@@ -3,7 +3,12 @@ import logging
 from pika import BasicProperties, DeliveryMode
 from pika.exchange_type import ExchangeType
 
-from unicon_backend.constants import EXCHANGE_NAME, RABBITMQ_URL, TASK_QUEUE_NAME
+from unicon_backend.constants import (
+    AMQP_CONN_NAME,
+    AMQP_EXCHANGE_NAME,
+    AMQP_TASK_QUEUE_NAME,
+    AMQP_URL,
+)
 from unicon_backend.lib.amqp import AsyncPublisher
 
 logger = logging.getLogger(__name__)
@@ -11,7 +16,13 @@ logger = logging.getLogger(__name__)
 
 class TaskPublisher(AsyncPublisher):
     def __init__(self):
-        super().__init__(RABBITMQ_URL, EXCHANGE_NAME, ExchangeType.topic, TASK_QUEUE_NAME)
+        super().__init__(
+            AMQP_URL,
+            AMQP_EXCHANGE_NAME,
+            ExchangeType.topic,
+            AMQP_TASK_QUEUE_NAME,
+            f"{AMQP_CONN_NAME}::publisher",
+        )
 
     def publish(self, payload: str, content_type: str = "application/json"):
         assert self._channel is not None
