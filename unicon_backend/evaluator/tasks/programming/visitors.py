@@ -2,10 +2,15 @@ import libcst as cst
 from pydantic import BaseModel
 
 
+class Arg(BaseModel):
+    name: str
+    default: str | None
+
+
 class ParsedFunction(BaseModel):
     name: str
-    args: list[str]
-    kwargs: list[str]
+    args: list[Arg]
+    kwargs: list[Arg]
     star_args: bool
     star_kwargs: bool
 
@@ -36,11 +41,27 @@ class TypingCollector(cst.CSTVisitor):
         # Remove any past declaration of the function, since this would overwrite it
         self.results = [result for result in self.results if result.name != name]
 
+        def get_default(param: cst.Param) -> str | None:
+            return (
+                cst.Module([]).code_for_node(param.default) if param.default is not None else None
+            )
+
         self.results.append(
             ParsedFunction(
                 name=name,
-                args=[param.name.value for param in node.params.params],
-                kwargs=[param.name.value for param in node.params.kwonly_params],
+                args=[
+                    Arg.model_validate({"name": param.name.value, "default": get_default(param)})
+                    for param in node.params.params
+                ],
+                kwargs=[
+                    Arg.model_validate(
+                        {
+                            "name": param.name.value,
+                            "default": get_default(param),
+                        }
+                    )
+                    for param in node.params.kwonly_params
+                ],
                 star_args=isinstance(node.params.star_arg, cst.Param),
                 star_kwargs=node.params.star_kwarg is not None,
             )
