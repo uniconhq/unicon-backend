@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,15 @@ class ProblemBase(CustomSQLModel):
     description: str
     project_id: int
     restricted: bool
+    published: bool
+    started_at: datetime
+    ended_at: datetime
+    closed_at: datetime | None
+
+
+class ProblemBaseWithPermissions(ProblemBase):
+    view: bool
+    edit: bool
 
 
 class OrganisationCreate(OrganisationBase):
@@ -110,7 +120,7 @@ class ProjectPublic(ProjectBase):
 
 
 class ProjectPublicWithProblems(ProjectPublic):
-    problems: list[ProblemBase]
+    problems: list[ProblemBaseWithPermissions]
 
 
 class RolePublic(RoleBase):
@@ -118,11 +128,13 @@ class RolePublic(RoleBase):
     project_id: int
 
     view_problems_access: bool
+    view_full_problem_details_access: bool
     create_problems_access: bool
     edit_problems_access: bool
     delete_problems_access: bool
 
     view_restricted_problems_access: bool
+    view_full_restricted_problem_details_access: bool
     edit_restricted_problems_access: bool
     delete_restricted_problems_access: bool
 
@@ -145,11 +157,13 @@ class RoleUpdate(RoleBase):
     name: str
 
     view_problems_access: bool
+    view_full_problem_details_access: bool
     create_problems_access: bool
     edit_problems_access: bool
     delete_problems_access: bool
 
     view_restricted_problems_access: bool
+    view_full_restricted_problem_details_access: bool
     edit_restricted_problems_access: bool
     delete_restricted_problems_access: bool
 

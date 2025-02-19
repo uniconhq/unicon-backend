@@ -2,17 +2,18 @@
   "name": "Linear Regression (Sine Approximation)",
   "description": "Using PyTorch to perform linear regression with backpropagation",
   "restricted": false,
+  "published": true,
   "tasks": [
     {
       "id": 0,
       "type": "PROGRAMMING_TASK",
-      "question": "Implement Linear Regression with Backpropagation",
+      "title": "Implement Linear Regression with Backpropagation",
       "order_index": 0,
       "environment": {
         "language": "PYTHON",
         "extra_options": {
           "version": "3.12.8",
-          "requirements": "torch\nnumpy"
+          "requirements": ["torch", "numpy"]
         },
         "slurm": true,
         "slurm_options": ["--gpus=a100-80"],
@@ -22,6 +23,7 @@
       "required_inputs": [
         {
           "id": "__LR_GPU_FILE__",
+          "label": "lr code",
           "data": {
             "path": "lr_gpu.py",
             "content": "def lr_gpu(x):\n\traise NotImplememented()"
@@ -30,7 +32,8 @@
       ],
       "testcases": [
         {
-          "id": 0,
+          "id": "__TESTCASE_1__",
+          "order_index": 0,
           "nodes": [
             {
               "id": "__USER_INPUT__",
