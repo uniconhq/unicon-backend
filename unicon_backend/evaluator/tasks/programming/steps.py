@@ -422,6 +422,9 @@ class PyRunFunctionStep(Step[PyRunFunctionSocket]):
         in_vars: dict[SocketId, ProgramVariable],
         in_files: dict[SocketId, File],
     ) -> ProgramFragment:
+        def has_data(s: StepSocket) -> bool:
+            return in_vars.get(s.id, s.data) is not None
+
         def get_param_expr(s: StepSocket) -> cst.BaseExpression:
             assert not isinstance(s.data, File)  # TODO: More robust validation for data type
             if ret_expr := in_vars.get(s.id, cst_expr(s.data) if s.data else None):
@@ -437,8 +440,8 @@ class PyRunFunctionStep(Step[PyRunFunctionSocket]):
         module_name = module_file.name.split(".py")[0]
 
         func_var = cst_var(self.function_identifier)
-        args = [cst.Arg(get_param_expr(s)) for s in self.args]
-        kwargs = [cst.Arg(get_param_expr(s), keyword=cst_var(cast(str, s.kwarg_name))) for s in self.kwargs]  # fmt: skip
+        args = [cst.Arg(get_param_expr(s)) for s in self.args if has_data(s)]
+        kwargs = [cst.Arg(get_param_expr(s), keyword=cst_var(cast(str, s.kwarg_name))) for s in self.kwargs if has_data(s)]  # fmt: skip
 
         if error_s := next((s for s in self.data_out if s.handles_error), None):
             out_var = graph.get_link_var(self, next(s for s in self.data_out if s.id != error_s.id))
