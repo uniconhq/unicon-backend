@@ -38,3 +38,7 @@ class ProblemUpdate(BaseModel):
 class TaskUpdate(BaseModel):
     task: Task
     rerun: bool
+
+
+class ParseRequest(BaseModel):
+    content: str
