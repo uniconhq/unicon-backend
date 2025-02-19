@@ -12,7 +12,7 @@ from unicon_backend.lib.file import download_file, file_exists, upload_file
 router = APIRouter(prefix="/files", tags=["file"], dependencies=[Depends(get_current_user)])
 
 
-@router.post("")
+@router.post("", response_model=str)
 async def create_file(file: UploadFile):
     content_type = mimetypes.guess_type(file.filename or "")[0] or "application/octet-stream"
     ext = pathlib.Path(file.filename).suffix if file.filename else ""
