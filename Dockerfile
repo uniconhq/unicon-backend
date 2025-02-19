@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.5.2-python3.12-alpine
+FROM ghcr.io/astral-sh/uv:0.6.1-python3.12-alpine
 
 ADD . /unicon-backend
 WORKDIR /unicon-backend

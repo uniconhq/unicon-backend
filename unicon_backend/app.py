@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
-from unicon_backend.constants import FRONTEND_URLS
+from unicon_backend.constants import CORS_REGEX_WHITELIST, FRONTEND_URL
 from unicon_backend.logger import setup_rich_logger
 from unicon_backend.routers import auth, group, organisation, problem, project, role
 from unicon_backend.workers.consumer import task_results_consumer
@@ -29,13 +29,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Unicon 🦄 Backend", lifespan=lifespan, separate_input_output_schemas=False)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[*FRONTEND_URLS],
+    allow_origins=[FRONTEND_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    **({"allow_origin_regex": CORS_REGEX_WHITELIST} if CORS_REGEX_WHITELIST else {}),
 )
 
 app.include_router(auth.router)
