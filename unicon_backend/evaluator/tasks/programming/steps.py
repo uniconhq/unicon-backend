@@ -252,7 +252,7 @@ class InputStep(Step[StepSocket]):
                     value=_parse(
                         # The prepended `src/` is the directory unicon-runner would create the file in.
                         # This is necessary because the working directory is the folder containing `src/`
-                        repr("src/" + cast(File, socket.data).path),
+                        "src/" + cast(File, socket.data).path,
                     ),
                 )
             )
