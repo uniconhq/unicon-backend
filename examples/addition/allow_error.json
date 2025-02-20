@@ -22,11 +22,13 @@
           "id": "__ADD_PY_FILE__",
           "label": "add.py",
           "data": {
+            "id": "__ADD_PY_FILE__",
             "path": "add.py",
             "content": "def add(a, b):\n\traise NotImplememented()"
           }
         }
       ],
+      "files": [],
       "testcases": [
         {
           "id": "__TESTCASE_1__",

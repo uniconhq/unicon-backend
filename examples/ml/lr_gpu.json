@@ -20,11 +20,13 @@
         "time_limit_secs": 120,
         "memory_limit_mb": 30000
       },
+      "files": [],
       "required_inputs": [
         {
           "id": "__LR_GPU_FILE__",
           "label": "lr code",
           "data": {
+            "id": "__LR_GPU_FILE__",
             "path": "lr_gpu.py",
             "content": "def lr_gpu(x):\n\traise NotImplememented()"
           }

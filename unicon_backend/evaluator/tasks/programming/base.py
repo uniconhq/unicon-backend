@@ -85,6 +85,7 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
     # Required inputs are files submitted by the normal user. Template files are shown here.
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
+    files: list[File]
 
     def run(self, user_inputs: list[RequiredInput]) -> TaskEvalResult[JobId]:
         # Check if all required inputs are provided

@@ -22,11 +22,13 @@
         {
           "id": "__READER_FILE__",
           "data": {
+            "id": "__READER_FILE__",
             "path": "read.py",
             "content": "def read(file_path): -> str:\n\tfrom PIL import Image\n\tim = Image.open(filepath)\n\treturn f'{im.format}, {im.size}, {im.mode}'"
           }
         }
       ],
+      "files": [],
       "testcases": [
         {
           "id": 0,
