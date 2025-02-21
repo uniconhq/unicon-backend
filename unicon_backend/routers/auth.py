@@ -79,7 +79,7 @@ def signup(
 
 @router.get("/logout")
 def logout(response: Response):
-    response.delete_cookie(key="session")
+    response.delete_cookie(key="session", samesite="none", secure=True, httponly=True)
     return ""
 
 
