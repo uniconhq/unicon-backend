@@ -146,6 +146,8 @@ class TaskORM(CustomSQLModel, table=True):
                 "description": self.description,
                 "autograde": self.autograde,
                 "order_index": self.order_index,
+                "problem_id": self.problem_id,
+                "updated_version_id": self.updated_version_id,
                 **self.other_fields,
             }
         )

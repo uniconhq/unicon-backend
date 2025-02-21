@@ -1,22 +1,19 @@
 from pathlib import Path
-from uuid import uuid4
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, model_validator
 
 PrimitiveData = str | int | float | bool
 
 
 class File(BaseModel):
-    id: str = Field(
-        default_factory=lambda: str(uuid4())
-    )  # Used to sync files between task files and testcases files
+    id: str  # Used to sync files between task files and testcases files
     path: str
     content: str
 
-    trusted: bool = False
-
     on_minio: bool = False
     key: str | None = None
+
+    trusted: bool = False
 
     @model_validator(mode="after")
     def check_path_is_safe(v):
@@ -28,8 +25,6 @@ class File(BaseModel):
         if ".." in path.parts:
             raise ValueError(f"Path is suspicious (`..` found): {path}")
 
-        # In case path has a ./ in front of it
-        v.path = str(path)
         return v
 
     @model_validator(mode="after")

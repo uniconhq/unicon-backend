@@ -2,6 +2,7 @@ from functools import cached_property
 from logging import getLogger
 from operator import attrgetter
 from typing import Any, Literal, Self, cast
+from uuid import uuid4
 
 from pydantic import BaseModel, RootModel, model_validator
 
@@ -118,7 +119,11 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
                     files=[
                         *graph_files,
                         RunnerFile.from_file(
-                            File(path="__entrypoint.py", content=assembled_program.code)
+                            File(
+                                id=str(uuid4()),
+                                path="__entrypoint.py",
+                                content=assembled_program.code,
+                            )
                         ),
                     ],
                 )
@@ -137,8 +142,12 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
         id_to_path = {
             file.id: file.data.path for file in self.required_inputs if isinstance(file.data, File)
         }
+        id_to_file_id = {
+            file.id: file.data.id for file in self.required_inputs if isinstance(file.data, File)
+        }
         for required_input in user_input:
             if required_input["id"] in id_to_path:
                 required_input["data"]["path"] = id_to_path[required_input["id"]]
+                required_input["data"]["id"] = id_to_file_id[required_input["id"]]
 
         return RootModel[list[RequiredInput]].model_validate(user_input).root

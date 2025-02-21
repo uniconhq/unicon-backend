@@ -20,6 +20,8 @@ dependencies = [
     "sqlmodel>=0.0.22",
     "libcst>=1.5.1",
     "permify>=1.0.2",
+    "minio>=7.2.15",
+    "pathvalidate>=3.2.3",
 ]
 
 [build-system]
