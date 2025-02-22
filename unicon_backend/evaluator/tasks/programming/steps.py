@@ -21,6 +21,7 @@ from unicon_backend.lib.cst import (
     ProgramVariable,
     assemble_fragment,
     cst_expr,
+    cst_module,
     cst_str,
     cst_var,
     hoist_imports,
@@ -490,7 +491,7 @@ class PyRunFunctionStep(Step[PyRunFunctionSocket]):
             ]
             if not module_file.trusted
             else [
-                cst.ImportFrom(cst_var(module_name), [cst.ImportAlias(func_var)]),
+                cst.ImportFrom(cst_module(module_name), [cst.ImportAlias(func_var)]),
                 cst.Assign([cst.AssignTarget(out_var)], cst.Call(func_var, args + kwargs)),
             ]
         )
