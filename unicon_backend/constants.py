@@ -15,9 +15,8 @@ def _get_env_var(name: str, default: str | None = None, required: bool = True):
 
 DATABASE_URL: Final[str] = _get_env_var("DATABASE_URL")
 
-FRONTEND_URLS: Final[list[str]] = [
-    url.strip() for url in _get_env_var("FRONTEND_URLS", "http://localhost:5173").split(",")
-]
+FRONTEND_URL: Final[str] = _get_env_var("FRONTEND_URL", "http://localhost:5173")
+CORS_REGEX_WHITELIST: Final[str | None] = _get_env_var("CORS_REGEX_WHITELIST", required=False)
 
 SECRET_KEY: Final[str] = _get_env_var("SECRET_KEY", "")
 
