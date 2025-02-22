@@ -24,6 +24,13 @@ def cst_var(v: str | bool) -> cst.Name:
     return cst.Name(value=str(v))
 
 
+def cst_module(v: str) -> cst.Name | cst.Attribute:
+    expr = cst.parse_expression(v)
+    if isinstance(expr, cst.Name | cst.Attribute):
+        return expr
+    raise TypeError(f"Expected cst.Name or cst.Attribute, got {type(expr)}")
+
+
 def cst_expr(v: str | bool | int | float) -> cst.BaseExpression:
     if isinstance(v, str):
         return cst_str(v)

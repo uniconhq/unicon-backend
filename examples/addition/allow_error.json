@@ -22,9 +22,18 @@
           "id": "__ADD_PY_FILE__",
           "label": "add.py",
           "data": {
-            "name": "add.py",
+            "id": "__ADD_PY_FILE__",
+            "path": "add.py",
             "content": "def add(a, b):\n\traise NotImplememented()"
           }
+        }
+      ],
+      "files": [
+        {
+          "id": "__UTILS_MODULE__",
+          "label": "utils.py",
+          "content": "def error_string(err):\n\treturn f'Error: {err}'",
+          "trusted": true
         }
       ],
       "testcases": [
@@ -61,7 +70,7 @@
                   "id": "__UTILS_MODULE__",
                   "label": "UTILS_MODULE",
                   "data": {
-                    "name": "utils.py",
+                    "path": "utils.py",
                     "content": "def error_string(err):\n\treturn f'Error: {err}'",
                     "trusted": true
                   }
