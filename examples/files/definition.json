@@ -28,7 +28,15 @@
           }
         }
       ],
-      "files": [],
+      "files": [
+        {
+          "id": "__OHNO_PNG__",
+          "path": "folder/ohno.png",
+          "content": "",
+          "on_minio": true,
+          "key": "ohno.png"
+        }
+      ],
       "testcases": [
         {
           "id": 0,
@@ -52,6 +60,7 @@
                   "id": "__IMAGE_FILE__",
                   "label": "IMAGE_FILE",
                   "data": {
+                    "id": "__OHNO_PNG__",
                     "path": "folder/ohno.png",
                     "content": "",
                     "on_minio": true,

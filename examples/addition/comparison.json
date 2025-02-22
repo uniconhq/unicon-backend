@@ -28,7 +28,14 @@
           }
         }
       ],
-      "files": [],
+      "files": [
+        {
+          "id": "__UTILS_MODULE__",
+          "label": "utils.py",
+          "content": "def error_string(err):\n\treturn f'Error: {err}'",
+          "trusted": true
+        }
+      ],
       "testcases": [
         {
           "id": "__TESTCASE_1__",
