@@ -253,15 +253,17 @@ def migrate_file_format():
         return type(data) == dict and "name" in data
 
     corrected = 0
-    has_files = 0
+    has_files_field = 0
     has_something_looking_updated = 0
+    had_no_files = 0
     for task in tasks:
+        has_files = False
         other_fields = copy.deepcopy(task.other_fields)
         # We do a brief check on the task. If the files field isn't empty or if the required_inputs field already has "path" instead of "name",
         # we skip the task as the format seems to have already been updated.
         files = other_fields.get("files", [])
         if files:
-            has_files += 1
+            has_files_field += 1
             continue
 
         has_updated_file_format = False
@@ -272,6 +274,7 @@ def migrate_file_format():
                 and "path" in required_input["data"]
             ):
                 has_updated_file_format = True
+                has_files = True
                 has_something_looking_updated += 1
                 break
 
@@ -288,6 +291,7 @@ def migrate_file_format():
                 and type(required_input["data"]) == dict
                 and "name" in required_input["data"]
             ):
+                has_files = True
                 required_input["data"] = fix_file(required_input["data"])
 
         # For files field in tasks - populate with existing files
@@ -305,13 +309,17 @@ def migrate_file_format():
 
         other_fields["files"] = files
         rich_console.print(task)
-        corrected += 1
-        task.other_fields = other_fields
-        db_session.add(task)
+        if has_files:
+            corrected += 1
+            task.other_fields = other_fields
+            db_session.add(task)
+        else:
+            had_no_files += 1
 
     rich_console.print(f"Corrected {corrected} out of {len(tasks)} tasks")
-    rich_console.print(f"Skipped {has_files} tasks with non-empty files field.")
+    rich_console.print(f"Skipped {has_files_field} tasks with non-empty files field.")
     rich_console.print(f"Skipped {has_something_looking_updated} tasks with updated file format")
+    rich_console.print(f"Skipped {had_no_files} tasks with no files")
 
     # Query all TaskAttempts
     task_attempts = db_session.scalars(
@@ -327,7 +335,7 @@ def migrate_file_format():
 
         other_fields = copy.deepcopy(task_attempt.other_fields)
         for user_input in other_fields.get("user_input"):
-            if is_probably_file(user_input["data"]):
+            if is_probably_file(user_input["data"]) and "path" not in user_input["data"]:
                 user_input["data"] = fix_file(user_input["data"], lookup=False)
                 corrected_task_attempts += 1
                 task_attempt.other_fields = other_fields
