@@ -4,7 +4,7 @@ from operator import attrgetter
 from typing import Any, Literal, Self, cast
 from uuid import uuid4
 
-from pydantic import BaseModel, RootModel, model_validator
+from pydantic import BaseModel, Field, RootModel, model_validator
 
 from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus, TaskType
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
@@ -54,6 +54,8 @@ class RequiredInput(BaseModel):
 class Testcase(ComputeGraph):
     id: str
     order_index: int
+    is_private: bool = Field(default=False)
+    name: str = Field(default="")
 
     @model_validator(mode="after")
     def check_exactly_one_output_step(self) -> Self:
