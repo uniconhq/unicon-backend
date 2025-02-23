@@ -68,3 +68,8 @@ class Problem(CustomSQLModel):
             result.append(self.run_task(task.id, task_user_input.value))
 
         return result
+
+    def redact_private_fields(self):
+        """This is a destructive in-place action. Do not attempt to assemble code after redacting private fields."""
+        for task in self.tasks:
+            task.redact_private_fields()

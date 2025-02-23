@@ -81,6 +81,17 @@ class Testcase(ComputeGraph):
                 usr_in.data for usr_in in user_inputs if usr_in.id == user_input_socket.id
             )
 
+    def redact_private_fields(self) -> None:
+        output_nodes = cast(
+            list[OutputStep],
+            [node for node in self.nodes if node.type == StepType.OUTPUT],
+        )
+
+        self.edges = []
+        for node in output_nodes:
+            node.redact_private_fields()
+        self.nodes = output_nodes
+
 
 class ProgrammingTask(Task[list[RequiredInput], JobId]):
     type: Literal[TaskType.PROGRAMMING]
@@ -89,6 +100,12 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
     files: list[File]
+
+    def redact_private_fields(self):
+        self.testcases = [testcase for testcase in self.testcases if not testcase.is_private]
+        self.files = []
+        for testcase in self.testcases:
+            testcase.redact_private_fields()
 
     def run(self, user_inputs: list[RequiredInput]) -> TaskEvalResult[JobId]:
         # Check if all required inputs are provided

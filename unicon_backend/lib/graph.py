@@ -1,4 +1,5 @@
 from collections import Counter, defaultdict, deque
+from collections.abc import Sequence
 from functools import cached_property
 from itertools import chain
 from typing import Generic, Self, TypeVar
@@ -53,7 +54,7 @@ GraphEdgeType = TypeVar("GraphEdgeType", bound=GraphEdge[str])
 
 
 class Graph(BaseModel, Generic[GraphNodeType, GraphEdgeType]):
-    nodes: list[GraphNodeType]
+    nodes: Sequence[GraphNodeType]
     edges: list[GraphEdgeType]
 
     @cached_property

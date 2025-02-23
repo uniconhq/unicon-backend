@@ -62,7 +62,10 @@ def get_problem(
             status_code=HTTPStatus.FORBIDDEN, detail="User does not have permission to view problem"
         )
 
-    return ProblemPublic.model_validate(problem_orm.to_problem(), update=permissions)
+    problem = problem_orm.to_problem()
+    if not permissions["view_hidden_details"]:
+        problem.redact_private_fields()
+    return ProblemPublic.model_validate(problem, update=permissions)
 
 
 @router.post("/{id}/tasks", summary="Add a task to a problem")
@@ -326,6 +329,7 @@ def get_problem_task_attempt_results(
     db_session: Annotated[Session, Depends(get_db_session)],
     user: Annotated[UserORM, Depends(get_current_user)],
 ) -> list[TaskAttemptResult]:
+    # TODO: filter if no view_details
     task_attempts = db_session.scalars(
         select(TaskAttemptORM)
         .where(TaskAttemptORM.problem_id == problem_orm.id)
@@ -400,6 +404,8 @@ def get_submission(
     task_id: int | None = None,
 ) -> SubmissionPublic:
     # TODO: handle case with more than one task attempt for same task
+
+    # TODO: filter if no view_details
     query = (
         select(SubmissionORM)
         .where(SubmissionORM.id == submission_id)

@@ -335,6 +335,9 @@ class OutputStep(Step[OutputSocket]):
             ),
         ]
 
+    def redact_private_fields(self):
+        self.outputs = [socket for socket in self.outputs if socket.public]
+
 
 class StringMatchStep(Step[StepSocket]):
     required_data_io: ClassVar[tuple[Range, Range]] = ((2, 2), (1, 1))

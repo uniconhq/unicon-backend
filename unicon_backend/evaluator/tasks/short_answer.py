@@ -30,3 +30,6 @@ class ShortAnswerTask(Task[str, RootModel[bool]]):
 
     def validate_user_input(self, user_input: Any) -> str:
         return RootModel[str].model_validate(user_input).root
+
+    def redact_private_fields(self):
+        pass
