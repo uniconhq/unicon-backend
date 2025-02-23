@@ -84,7 +84,7 @@ class Testcase(ComputeGraph):
     def redact_private_fields(self) -> None:
         output_nodes = cast(
             list[OutputStep],
-            [node for node in self.nodes if node.type == StepType.OUTPUT],
+            [self.output_step],
         )
 
         self.edges = []

@@ -336,7 +336,7 @@ class OutputStep(Step[OutputSocket]):
         ]
 
     def redact_private_fields(self):
-        self.outputs = [socket for socket in self.outputs if socket.public]
+        self.inputs = [socket for socket in self.inputs if socket.public]
 
 
 class StringMatchStep(Step[StepSocket]):

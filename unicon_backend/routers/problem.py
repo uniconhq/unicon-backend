@@ -24,6 +24,7 @@ from unicon_backend.models import (
     SubmissionORM,
     TaskResultORM,
 )
+from unicon_backend.models.links import GroupMember
 from unicon_backend.models.problem import (
     SubmissionPublic,
     TaskAttemptORM,
@@ -64,6 +65,9 @@ def get_problem(
 
     problem = problem_orm.to_problem()
     if not permissions["view_hidden_details"]:
+        # NOTE: if we ever change this to be related to a database orm,
+        # we need to ensure that the redacted fields are not saved to the database.
+        # Close the db session if we ever do that.
         problem.redact_private_fields()
     return ProblemPublic.model_validate(problem, update=permissions)
 
@@ -339,6 +343,9 @@ def get_problem_task_attempt_results(
         .options(selectinload(TaskAttemptORM.task))
     ).all()
 
+    # Warning: Do not remove db_session.close().
+    # Autoflush may cause the redacted fields to be saved to the database.
+    db_session.close()
     can_view_details = permission_check(problem_orm, "view_hidden_details", user)
     if not can_view_details:
         for task_attempt in task_attempts:
@@ -417,6 +424,10 @@ def get_submission(
         .options(
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
+            selectinload(SubmissionORM.problem),
+            selectinload(SubmissionORM.user)
+            .selectinload(UserORM.group_members)
+            .selectinload(GroupMember.group),
         )
     )
 
@@ -424,7 +435,7 @@ def get_submission(
         query = query.where(TaskAttemptORM.task_id == task_id)
 
     # Execute query and handle not found case
-    submission = db_session.exec(query).first()
+    submission = db_session.scalar(query)
     if submission is None:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Submission not found")
 
@@ -434,7 +445,12 @@ def get_submission(
             detail="User does not have permission to view submission",
         )
 
-    if not permission_check(submission, "view_hidden_details", user):
+    # Warning: Do not remove db_session.close().
+    # Autoflush may cause the redacted fields to be saved to the database.
+    db_session.close()
+
+    if not permission_check(submission.problem, "view_hidden_details", user):
+        db_session.expunge(submission)
         for task_attempt in submission.task_attempts:
             task_attempt.redact_private_fields()
 
