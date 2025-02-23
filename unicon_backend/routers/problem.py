@@ -12,6 +12,7 @@ from unicon_backend.dependencies.problem import (
     parse_python_functions_from_file_content,
 )
 from unicon_backend.evaluator.problem import Problem, Task, UserInput
+from unicon_backend.evaluator.tasks.base import TaskType
 from unicon_backend.evaluator.tasks.programming.visitors import ParsedFunction
 from unicon_backend.lib.permissions import (
     permission_check,
@@ -24,6 +25,7 @@ from unicon_backend.models import (
     SubmissionORM,
     TaskResultORM,
 )
+from unicon_backend.models.links import GroupMember
 from unicon_backend.models.problem import (
     SubmissionPublic,
     TaskAttemptORM,
@@ -62,7 +64,13 @@ def get_problem(
             status_code=HTTPStatus.FORBIDDEN, detail="User does not have permission to view problem"
         )
 
-    return ProblemPublic.model_validate(problem_orm.to_problem(), update=permissions)
+    problem = problem_orm.to_problem()
+    if not permissions["view_hidden_details"]:
+        # NOTE: if we ever change this to be related to a database orm,
+        # we need to ensure that the redacted fields are not saved to the database.
+        # Set autoflush of the db_session to false if we ever do that.
+        problem.redact_private_fields()
+    return ProblemPublic.model_validate(problem, update=permissions)
 
 
 @router.post("/{id}/tasks", summary="Add a task to a problem")
@@ -332,9 +340,26 @@ def get_problem_task_attempt_results(
         .where(TaskAttemptORM.task_id == task_id)
         .where(TaskAttemptORM.user_id == user.id)
         .options(selectinload(TaskAttemptORM.task_results))
+        .options(selectinload(TaskAttemptORM.task))
     ).all()
 
-    return [TaskAttemptResult.model_validate(task_attempt) for task_attempt in task_attempts]
+    db_session.close()
+    can_view_details = permission_check(problem_orm, "view_hidden_details", user)
+    has_private_failure: list[bool] = []
+    with db_session.no_autoflush:
+        if not can_view_details:
+            for task_attempt in task_attempts:
+                has_private_failure.append(task_attempt.redact_private_fields())
+
+        return [
+            TaskAttemptResult.model_validate(
+                task_attempt,
+                update={
+                    "has_private_failure": False if can_view_details else has_private_failure[index]
+                },
+            )
+            for index, task_attempt in enumerate(task_attempts)
+        ]
 
 
 @router.post("/{id}/submit", summary="Make a problem submission", response_model=SubmissionPublic)
@@ -399,13 +424,17 @@ def get_submission(
     user: Annotated[UserORM, Depends(get_current_user)],
     task_id: int | None = None,
 ) -> SubmissionPublic:
-    # TODO: handle case with more than one task attempt for same task
     query = (
         select(SubmissionORM)
         .where(SubmissionORM.id == submission_id)
         .options(
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task_results),
             selectinload(SubmissionORM.task_attempts).selectinload(TaskAttemptORM.task),
+            selectinload(SubmissionORM.problem),
+            selectinload(SubmissionORM.user)
+            .selectinload(UserORM.group_members)
+            .selectinload(GroupMember.group),
+            selectinload(SubmissionORM.user).selectinload(UserORM.roles),
         )
     )
 
@@ -413,7 +442,7 @@ def get_submission(
         query = query.where(TaskAttemptORM.task_id == task_id)
 
     # Execute query and handle not found case
-    submission = db_session.exec(query).first()
+    submission = db_session.scalar(query)
     if submission is None:
         raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Submission not found")
 
@@ -423,7 +452,25 @@ def get_submission(
             detail="User does not have permission to view submission",
         )
 
-    return SubmissionPublic.model_validate(submission)
+    can_view_details = permission_check(submission.problem, "view_hidden_details", user)
+    if can_view_details:
+        return SubmissionPublic.model_validate(submission)
+
+    with db_session.no_autoflush:
+        has_private_failure: list[bool] = []
+        for task_attempt in submission.task_attempts:
+            has_private_failure.append(task_attempt.redact_private_fields())
+
+        # Redact the results and the task (that it derives the testcase from)
+        result = SubmissionPublic.model_validate(submission)
+        if not can_view_details:
+            for index, task_attempt_public in enumerate(result.task_attempts):
+                task_attempt_public.has_private_failure = has_private_failure[index]
+                if task_attempt_public.task_type == TaskType.PROGRAMMING:
+                    programming_task = task_attempt_public.task.to_task()
+                    programming_task.redact_private_fields()
+                    task_attempt_public.task = TaskORM.from_task(programming_task)
+        return result
 
 
 @router.post(

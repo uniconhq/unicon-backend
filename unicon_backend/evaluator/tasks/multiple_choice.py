@@ -33,6 +33,9 @@ class MultipleChoiceTask(Task[str, RootModel[bool]]):
     def validate_user_input(self, user_input: Any) -> str:
         return RootModel[str].model_validate(user_input).root
 
+    def redact_private_fields(self):
+        pass
+
 
 class MultipleResponseTaskResult(BaseModel):
     correct_choices: set[str]
@@ -79,3 +82,6 @@ class MultipleResponseTask(Task[set[str], MultipleResponseTaskResult]):
 
     def validate_user_input(self, user_input: Any) -> set[str]:
         return RootModel[set[str]].model_validate(user_input).root
+
+    def redact_private_fields(self):
+        pass

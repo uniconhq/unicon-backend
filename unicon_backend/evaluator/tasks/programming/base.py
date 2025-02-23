@@ -4,7 +4,7 @@ from operator import attrgetter
 from typing import Any, Literal, Self, cast
 from uuid import uuid4
 
-from pydantic import BaseModel, RootModel, model_validator
+from pydantic import BaseModel, Field, RootModel, model_validator
 
 from unicon_backend.evaluator.tasks import Task, TaskEvalResult, TaskEvalStatus, TaskType
 from unicon_backend.evaluator.tasks.programming.artifact import File, PrimitiveData
@@ -54,6 +54,8 @@ class RequiredInput(BaseModel):
 class Testcase(ComputeGraph):
     id: str
     order_index: int
+    is_private: bool = Field(default=False)
+    name: str = Field(default="")
 
     @model_validator(mode="after")
     def check_exactly_one_output_step(self) -> Self:
@@ -79,6 +81,17 @@ class Testcase(ComputeGraph):
                 usr_in.data for usr_in in user_inputs if usr_in.id == user_input_socket.id
             )
 
+    def redact_private_fields(self) -> None:
+        output_nodes = cast(
+            list[OutputStep],
+            [self.output_step],
+        )
+
+        self.edges = []
+        for node in output_nodes:
+            node.redact_private_fields()
+        self.nodes = output_nodes
+
 
 class ProgrammingTask(Task[list[RequiredInput], JobId]):
     type: Literal[TaskType.PROGRAMMING]
@@ -87,6 +100,12 @@ class ProgrammingTask(Task[list[RequiredInput], JobId]):
     required_inputs: list[RequiredInput]
     testcases: list[Testcase]
     files: list[File]
+
+    def redact_private_fields(self):
+        self.testcases = [testcase for testcase in self.testcases if not testcase.is_private]
+        self.files = []
+        for testcase in self.testcases:
+            testcase.redact_private_fields()
 
     def run(self, user_inputs: list[RequiredInput]) -> TaskEvalResult[JobId]:
         # Check if all required inputs are provided

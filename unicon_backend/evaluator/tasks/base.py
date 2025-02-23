@@ -44,3 +44,7 @@ class Task(BaseModel, abc.ABC, Generic[TaskUserInput, TaskResult]):
     @abc.abstractmethod
     def validate_user_input(self, user_input: Any) -> TaskUserInput:
         pass
+
+    @abc.abstractmethod
+    def redact_private_fields(self):
+        pass

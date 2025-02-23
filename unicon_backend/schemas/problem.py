@@ -17,6 +17,7 @@ class ProblemPublic(Problem):
 
     edit: bool
     make_submission: bool
+    view_hidden_details: bool
 
 
 class TaskOrder(BaseModel):
