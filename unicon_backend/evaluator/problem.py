@@ -26,6 +26,7 @@ Task = ProgrammingTask | MultipleChoiceTask | MultipleResponseTask | ShortAnswer
 class Problem(CustomSQLModel):
     model_config = SQLModelConfig(from_attributes=True)
 
+    id: int | None = None
     name: str
     restricted: bool
     published: bool = Field(default=False)
