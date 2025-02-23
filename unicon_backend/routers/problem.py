@@ -336,7 +336,13 @@ def get_problem_task_attempt_results(
         .where(TaskAttemptORM.task_id == task_id)
         .where(TaskAttemptORM.user_id == user.id)
         .options(selectinload(TaskAttemptORM.task_results))
+        .options(selectinload(TaskAttemptORM.task))
     ).all()
+
+    can_view_details = permission_check(problem_orm, "view_hidden_details", user)
+    if not can_view_details:
+        for task_attempt in task_attempts:
+            task_attempt.redact_private_fields()
 
     return [TaskAttemptResult.model_validate(task_attempt) for task_attempt in task_attempts]
 
@@ -405,7 +411,6 @@ def get_submission(
 ) -> SubmissionPublic:
     # TODO: handle case with more than one task attempt for same task
 
-    # TODO: filter if no view_details
     query = (
         select(SubmissionORM)
         .where(SubmissionORM.id == submission_id)
@@ -428,6 +433,10 @@ def get_submission(
             status_code=HTTPStatus.FORBIDDEN,
             detail="User does not have permission to view submission",
         )
+
+    if not permission_check(submission, "view_hidden_details", user):
+        for task_attempt in submission.task_attempts:
+            task_attempt.redact_private_fields()
 
     return SubmissionPublic.model_validate(submission)
 

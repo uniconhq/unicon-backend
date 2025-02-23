@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Self, cast
 
 import sqlalchemy as sa
 import sqlalchemy.dialects.postgresql as pg
@@ -10,7 +10,12 @@ from sqlmodel import Field, Relationship
 from unicon_backend.evaluator.problem import Problem
 from unicon_backend.evaluator.tasks import task_classes
 from unicon_backend.evaluator.tasks.base import TaskEvalResult, TaskEvalStatus, TaskType
-from unicon_backend.evaluator.tasks.programming.base import TestcaseResult
+from unicon_backend.evaluator.tasks.programming.base import (
+    ProgrammingTask,
+    SocketResult,
+    Testcase,
+    TestcaseResult,
+)
 from unicon_backend.lib.common import CustomSQLModel
 from unicon_backend.schemas.group import UserPublicWithRolesAndGroups
 from unicon_backend.schemas.problem import MiniProblemPublic
@@ -238,6 +243,64 @@ class TaskAttemptORM(CustomSQLModel, table=True):
             task_type=self.task_type,
             other_fields=self.other_fields,
         )
+
+    def redact_private_fields(self) -> None:
+        # We do not redact non-programming tasks for now
+        # (as without the expected answer, what would we display on the frontend?)
+        # Revisit this line if we want to hide the answer (and have plans for when to show it again after a submission.)
+        if self.task_type != TaskType.PROGRAMMING:
+            return
+
+        task = cast(ProgrammingTask, self.task.to_task())
+        testcase_id_to_testcase_map = {testcase.id: testcase for testcase in task.testcases}
+        filtered_results: list[TaskResultORM] = []
+        for result in self.task_results:
+            # if pending, there is nothing to redact.
+            if result.status == TaskEvalStatus.PENDING:
+                filtered_results.append(result)
+                continue
+
+            parsedResult = ProgrammingTaskResult.model_validate(result)
+            if not parsedResult.result:
+                filtered_results.append(result)
+                continue
+
+            # First pass: if the entire testcase is private, redact the entire result
+            parsedResult.result = [
+                testcaseResult
+                for testcaseResult in parsedResult.result
+                if not testcase_id_to_testcase_map[testcaseResult.id].is_private
+            ]
+
+            # Second pass: if the output socket is private, redact the output socket
+            def _is_private_output_socket(socket: SocketResult, testcase: Testcase) -> bool:
+                output_node = testcase.output_step
+                output_socket = next(
+                    (
+                        output_socket
+                        for output_socket in output_node.inputs
+                        if output_socket.id == socket.id
+                    ),
+                    None,
+                )
+                return not output_socket.public if output_socket else False
+
+            for testcaseResult in parsedResult.result:
+                testcase = testcase_id_to_testcase_map[testcaseResult.id]
+                if not testcaseResult.results:
+                    continue
+                testcaseResult.results = [
+                    socketResult
+                    for socketResult in testcaseResult.results
+                    if not _is_private_output_socket(socketResult, testcase)
+                ]
+
+            # Redact stdout and stderr.
+            for testcaseResult in parsedResult.result:
+                testcaseResult.stdout = ""
+                testcaseResult.stderr = ""
+
+            result.result = parsedResult.result
 
 
 class TaskResultBase(CustomSQLModel):
