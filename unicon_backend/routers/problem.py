@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, col, select
+from sqlmodel import Session, col, func, select
 
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
@@ -375,20 +375,33 @@ def make_submission(
         )
 
     submission_orm = SubmissionORM(problem_id=problem_orm.id, user_id=user.id)
-    task_attempts = db_session.scalars(
-        select(TaskAttemptORM)
-        .where(col(TaskAttemptORM.id).in_(attempt_ids))
-        .where(TaskAttemptORM.user_id == user.id)
-    ).all()
+
+    _base_query = select(TaskAttemptORM).where(
+        (TaskAttemptORM.user_id == user.id) & (TaskAttemptORM.problem_id == problem_orm.id)
+    )
+    if attempt_ids:
+        query = _base_query.where(col(TaskAttemptORM.id).in_(attempt_ids))
+    else:
+        # Subquery to get the latest attempt ID for each task
+        latest_attempts_query = (
+            select(TaskAttemptORM.task_id, func.max(TaskAttemptORM.id).label("latest_attempt_id"))
+            .where(_base_query.whereclause)  # type: ignore
+            .group_by(col(TaskAttemptORM.task_id))
+            .subquery()
+        )
+        query = _base_query.join(
+            latest_attempts_query,
+            (col(TaskAttemptORM.id) == latest_attempts_query.c.latest_attempt_id)
+            & (col(TaskAttemptORM.task_id) == latest_attempts_query.c.task_id),
+        )
+    task_attempts = db_session.exec(query).all()
 
     # Verify that (1) all task attempts are associated to the user and present in the database,
     #             (2) all task attempts are for the same problem and
     #             (3) no >1 task attempts are for the same task
-    if len(task_attempts) != len(attempt_ids):
-        raise HTTPException(
-            status_code=HTTPStatus.BAD_REQUEST,
-            detail="Invalid task attempt IDs",
-        )
+    if attempt_ids and (len(task_attempts) != len(attempt_ids)):
+        raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail="Invalid task attempt IDs")
+
     _task_ids: set[int] = set()
     for task_attempt in task_attempts:
         if task_attempt.problem_id != problem_orm.id:
