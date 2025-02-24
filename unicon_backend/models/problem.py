@@ -209,6 +209,7 @@ class TaskAttemptPublic(TaskAttemptBase):
 
 class TaskAttemptResult(TaskAttemptBase):
     task_results: list["TaskResult"]
+    has_private_failure: bool = Field(default=False)
 
 
 class TaskAttemptORM(CustomSQLModel, table=True):
