@@ -24,6 +24,7 @@
         {
           "id": "__LR_GPU_FILE__",
           "label": "lr_gpu.py",
+          "path": "lr_gpu.py",
           "content": "def lr_gpu(x):\n\traise NotImplememented()"
         }
       ],
