@@ -82,15 +82,14 @@ class Testcase(ComputeGraph):
             )
 
     def redact_private_fields(self) -> None:
-        output_nodes = cast(
-            list[OutputStep],
-            [self.output_step],
-        )
-
-        self.edges = []
-        for node in output_nodes:
-            node.redact_private_fields()
-        self.nodes = output_nodes
+        # We redact private fields and the edges pointing to them.
+        private_fields = [socket.id for socket in self.output_step.data_in if not socket.public]
+        self.edges = [
+            edge
+            for edge in self.edges
+            if not (edge.to_node_id == self.output_step.id and edge.to_socket_id in private_fields)
+        ]
+        self.output_step.redact_private_fields()
 
 
 class ProgrammingTask(Task[list[RequiredInput], JobId]):
