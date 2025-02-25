@@ -4,6 +4,7 @@ from typing import Any, Final
 import permify as p
 
 from unicon_backend.constants import PERMIFY_HOST, PERMIFY_SCHEMA_VERSION, PERMIFY_TENANT_ID
+from unicon_backend.models.file import FileORM
 from unicon_backend.models.links import GroupMember, UserRole
 from unicon_backend.models.organisation import (
     Group,
@@ -101,10 +102,10 @@ def delete_all_permission_records():
 # group_tuples [GROUP, member, SUBMISSION]
 # group_member_tuples [GROUP, member, USER]
 # group_supervisor_tuples [GROUP, supervisor, USER]
+# organisation_tuples [ORGANISATION, owner|admin|observer, USER]
 
 # NOT YET IMPLEMENTED
 # problem_group_tuples [TO DENOTE]
-# organisation_tuples [ORGANISATION, owner|admin|observer, USER]
 
 PERMISSIONS = [
     "view_problems_access",
@@ -213,7 +214,8 @@ def _get_tuples_and_attributes(model: Any) -> tuple[list[p.Tuple], list[p.Attrib
         tuples, attributes = _create_group_member(model)
     elif model_type is OrganisationMember:
         tuples, attributes = _create_organisation_member(model)
-
+    elif model_type is FileORM:
+        tuples, attributes = _create_file(model)
     else:
         raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -368,6 +370,8 @@ def _model_to_type(model: Any) -> str:
         return "user"
     if model_type is Group:
         return "group"
+    if model_type is FileORM:
+        return "file"
     raise ValueError(f"Unsupported model type: {type(model)}")
 
 
@@ -587,3 +591,12 @@ def _create_user_role(userRole: UserRole) -> tuple[list[p.Tuple], list[p.Attribu
         _make_entity("user", str(userRole.user_id)),
     )
     return [assignee_link], []
+
+
+def _create_file(file: FileORM) -> tuple[list[p.Tuple], list[p.Attribute]]:
+    file_problem_link = _make_tuple(
+        _make_entity("file", str(file.id)),
+        file.parent_type,
+        _make_entity(file.parent_type, str(file.parent_id)),
+    )
+    return [file_problem_link], []
