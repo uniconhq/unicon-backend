@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sqlmodel import Field
 
 from unicon_backend.lib.common import CustomSQLModel
+from unicon_backend.models.utils import _timestamp_column
 
 SGT = timezone(timedelta(hours=8))
 
@@ -12,7 +13,9 @@ class FileORM(CustomSQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     path: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(SGT))
+    created_at: datetime = Field(
+        sa_column=_timestamp_column(nullable=False, default=True),
+    )
 
     # File is a polymorphic model. It is expected we use this for more things in the future.
     # These fields can also be used for access control (permify).

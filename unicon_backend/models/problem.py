@@ -19,6 +19,7 @@ from unicon_backend.evaluator.tasks.programming.base import (
 )
 from unicon_backend.lib.common import CustomSQLModel
 from unicon_backend.lib.helpers import partition
+from unicon_backend.models.utils import _timestamp_column
 from unicon_backend.schemas.group import UserPublicWithRolesAndGroups
 from unicon_backend.schemas.problem import MiniProblemPublic
 
@@ -27,14 +28,6 @@ if TYPE_CHECKING:
     from unicon_backend.models.file import FileORM
     from unicon_backend.models.organisation import Project
     from unicon_backend.models.user import UserORM
-
-
-# Factory function for creating a timestamp column (with timezone)
-_timestamp_column = lambda nullable, default: sa.Column(
-    pg.TIMESTAMP(timezone=True),
-    nullable=nullable,
-    server_default=sa.func.now() if default else None,
-)
 
 
 class ProblemBase(CustomSQLModel):
