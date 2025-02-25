@@ -24,6 +24,7 @@ from unicon_backend.schemas.problem import MiniProblemPublic
 
 if TYPE_CHECKING:
     from unicon_backend.evaluator.tasks.base import Task
+    from unicon_backend.models.file import FileORM
     from unicon_backend.models.organisation import Project
     from unicon_backend.models.user import UserORM
 
@@ -65,6 +66,14 @@ class ProblemORM(CustomSQLModel, table=True):
         back_populates="problem",
         sa_relationship_kwargs={"order_by": "TaskORM.order_index"},
         cascade_delete=True,
+    )
+    supporting_files: sa_orm.Mapped[list["FileORM"]] = Relationship(
+        cascade_delete=True,
+        sa_relationship_kwargs={
+            "backref": "problem",
+            "primaryjoin": "and_(foreign(ProblemORM.id) == FileORM.parent_id, FileORM.parent_type == 'problem')",
+            "single_parent": True,
+        },
     )
     project: sa_orm.Mapped["Project"] = Relationship(back_populates="problems")
     submissions: sa_orm.Mapped[list["SubmissionORM"]] = Relationship(
