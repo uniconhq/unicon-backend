@@ -101,10 +101,10 @@ def delete_all_permission_records():
 # group_tuples [GROUP, member, SUBMISSION]
 # group_member_tuples [GROUP, member, USER]
 # group_supervisor_tuples [GROUP, supervisor, USER]
+# organisation_tuples [ORGANISATION, owner|admin|observer, USER]
 
 # NOT YET IMPLEMENTED
 # problem_group_tuples [TO DENOTE]
-# organisation_tuples [ORGANISATION, owner|admin|observer, USER]
 
 PERMISSIONS = [
     "view_problems_access",

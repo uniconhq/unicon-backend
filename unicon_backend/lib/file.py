@@ -1,9 +1,10 @@
 import io
 import mimetypes
+import uuid
 
 from minio import Minio, S3Error  # type: ignore
 
-from unicon_backend.constants import MINIO_ACCESS_KEY, MINIO_HOST, MINIO_SECRET_KEY
+from unicon_backend.constants import MINIO_ACCESS_KEY, MINIO_BUCKET, MINIO_HOST, MINIO_SECRET_KEY
 
 _client = Minio(MINIO_HOST, access_key=MINIO_ACCESS_KEY, secret_key=MINIO_SECRET_KEY, secure=False)
 
@@ -13,6 +14,13 @@ def guess_content_type(filename: str | None) -> str:
     if not filename:
         return default
     return mimetypes.guess_type(filename)[0] or default
+
+
+def get_valid_key(ext: str) -> str:
+    key = str(uuid.uuid4()) + ext
+    while file_exists(MINIO_BUCKET, key):
+        key = str(uuid.uuid4()) + ext
+    return key
 
 
 def file_exists(bucket_name: str, object_name: str) -> bool:
