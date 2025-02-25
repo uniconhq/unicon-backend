@@ -1,6 +1,10 @@
+from datetime import datetime, timedelta, timezone
+
 from sqlmodel import Field
 
 from unicon_backend.lib.common import CustomSQLModel
+
+SGT = timezone(timedelta(hours=8))
 
 
 class FileORM(CustomSQLModel, table=True):
@@ -8,6 +12,7 @@ class FileORM(CustomSQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     path: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(SGT))
 
     # File is a polymorphic model. It is expected we use this for more things in the future.
     # These fields can also be used for access control (permify).

@@ -1,8 +1,8 @@
 """add file model
 
-Revision ID: e5dba23b557e
+Revision ID: d64c66d6c754
 Revises: 04de0314e0a9
-Create Date: 2025-02-25 14:58:23.187596
+Create Date: 2025-02-25 16:46:45.700473
 
 """
 
@@ -13,7 +13,7 @@ import sqlmodel
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "e5dba23b557e"
+revision: str = "d64c66d6c754"
 down_revision: str | None = "04de0314e0a9"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -25,6 +25,7 @@ def upgrade() -> None:
         "file",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("path", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("parent_id", sa.Integer(), nullable=False),
         sa.Column("parent_type", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("on_minio", sa.Boolean(), nullable=False),
