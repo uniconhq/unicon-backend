@@ -24,7 +24,7 @@ class ProblemBase(CustomSQLModel):
     restricted: bool
     published: bool
     started_at: datetime
-    ended_at: datetime
+    ended_at: datetime | None
     closed_at: datetime | None
 
 
