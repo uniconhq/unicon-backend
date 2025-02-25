@@ -66,6 +66,7 @@ class ProblemORM(CustomSQLModel, table=True):
             "backref": "problem",
             "primaryjoin": "and_(foreign(ProblemORM.id) == FileORM.parent_id, FileORM.parent_type == 'problem')",
             "single_parent": True,
+            "uselist": True,
         },
     )
     project: sa_orm.Mapped["Project"] = Relationship(back_populates="problems")
@@ -99,6 +100,7 @@ class ProblemORM(CustomSQLModel, table=True):
                 "ended_at": self.ended_at,
                 "closed_at": self.closed_at,
                 "published": self.published,
+                "supporting_files": self.supporting_files,
             }
         )
 

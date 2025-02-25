@@ -1,7 +1,7 @@
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, func, select
 
@@ -14,6 +14,7 @@ from unicon_backend.dependencies.problem import (
 from unicon_backend.evaluator.problem import Problem, Task, UserInput
 from unicon_backend.evaluator.tasks.base import TaskType
 from unicon_backend.evaluator.tasks.programming.visitors import ParsedFunction
+from unicon_backend.lib.file import upload_fastapi_file
 from unicon_backend.lib.permissions import (
     permission_check,
     permission_create,
@@ -25,6 +26,7 @@ from unicon_backend.models import (
     SubmissionORM,
     TaskResultORM,
 )
+from unicon_backend.models.file import FileORM
 from unicon_backend.models.links import GroupMember
 from unicon_backend.models.problem import (
     SubmissionPublic,
@@ -209,6 +211,38 @@ def update_problem(
     permission_update(old_copy, existing_problem_orm)
 
     return existing_problem_orm.to_problem()
+
+
+@router.post("/{id}/files")
+async def upload_files_to_problem(
+    db_session: Annotated[Session, Depends(get_db_session)],
+    problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    files: list[UploadFile],
+    user: Annotated[UserORM, Depends(get_current_user)],
+):
+    if not permission_check(problem_orm, "edit", user):
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to upload files to problem",
+        )
+
+    file_models: list[FileORM] = []
+    for file in files:
+        key = await upload_fastapi_file(file)
+        file_models.append(
+            FileORM(
+                path=file.filename,
+                on_minio=True,
+                key=key,
+                content="",
+                parent_type="problem",
+                parent_id=problem_orm.id,
+            )
+        )
+
+    db_session.add_all(file_models)
+    db_session.commit()
+    return
 
 
 @router.delete("/{id}/tasks/{task_id}", summary="Delete a task from a problem")

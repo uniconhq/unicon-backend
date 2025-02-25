@@ -11,6 +11,7 @@ from unicon_backend.evaluator.tasks.multiple_choice import MultipleChoiceTask, M
 from unicon_backend.evaluator.tasks.programming.base import ProgrammingTask
 from unicon_backend.evaluator.tasks.short_answer import ShortAnswerTask
 from unicon_backend.lib.common import CustomSQLModel
+from unicon_backend.models.file import FileORM
 
 logger = getLogger(__name__)
 
@@ -31,6 +32,7 @@ class Problem(CustomSQLModel):
     restricted: bool
     published: bool = Field(default=False)
     description: str
+    supporting_files: list[FileORM]
     tasks: list[Annotated[Task, Field(discriminator="type")]]
     started_at: datetime
     ended_at: datetime
