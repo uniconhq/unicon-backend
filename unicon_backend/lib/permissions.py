@@ -490,8 +490,9 @@ def _create_problem(problem: ProblemORM) -> tuple[list[p.Tuple], list[p.Attribut
         _make_attribute(
             _make_entity("problem", str(problem.id)),
             "closed_at",
-            # NOTE: if closed_at is not set, it defaults to ended_at
-            _get_permify_str((problem.closed_at or problem.ended_at).isoformat()),
+            # If there is no lock date (`closed_at`), use the due date (`ended_at`)
+            # If there is no due date, use the maximum date possible
+            _get_permify_str((problem.closed_at or problem.ended_at or datetime.max).isoformat()),
         ),
     ]
     return [problem_project_link], attributes
