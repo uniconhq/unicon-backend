@@ -33,7 +33,7 @@ class Problem(CustomSQLModel):
     description: str
     tasks: list[Annotated[Task, Field(discriminator="type")]]
     started_at: datetime
-    ended_at: datetime
+    ended_at: datetime | None = Field(default=None)
     closed_at: datetime | None = Field(default=None)
 
     @cached_property
