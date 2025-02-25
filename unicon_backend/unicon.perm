@@ -100,6 +100,11 @@ entity problem {
     permission view_supervised_submission = view and project.view_supervised_submission
 }
 
+entity file {
+    relation problem @problem
+    action view = problem.view
+}
+
 rule is_problem_open(started_at string) {
     started_at <= context.data.current_date
 }

@@ -100,6 +100,7 @@ def seed_perms():
 
     from unicon_backend.database import SessionLocal
     from unicon_backend.lib.permissions import delete_all_permission_records, permission_create
+    from unicon_backend.models.file import FileORM
     from unicon_backend.models.links import UserRole
     from unicon_backend.models.organisation import Group, Organisation, Project, Role
     from unicon_backend.models.problem import ProblemORM, SubmissionORM
@@ -109,7 +110,7 @@ def seed_perms():
     delete_all_permission_records()
 
     rich_console.print("Seeding new permissions under the current schema...")
-    model_classes = [Project, Role, ProblemORM, SubmissionORM, UserRole, Organisation, Group]
+    model_classes = [Project, Role, ProblemORM, SubmissionORM, UserRole, Organisation, Group, FileORM]  # fmt: off
     with SessionLocal() as session:
         for model_class in model_classes:
             models = session.scalars(select(model_class)).all()

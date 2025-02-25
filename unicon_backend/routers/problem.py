@@ -19,6 +19,7 @@ from unicon_backend.lib.file import delete_file, upload_fastapi_file
 from unicon_backend.lib.permissions import (
     permission_check,
     permission_create,
+    permission_delete,
     permission_list_for_subject,
     permission_update,
 )
@@ -243,7 +244,8 @@ async def upload_files_to_problem(
 
     db_session.add_all(file_models)
     db_session.commit()
-    return
+    for file_model in file_models:
+        permission_create(file_model)
 
 
 @router.delete("/{id}/files/{file_id}")
@@ -265,9 +267,9 @@ def delete_file_from_problem(
 
     delete_file(MINIO_BUCKET, file.key)
 
-    # problem_orm.supporting_files.remove(file)
     db_session.delete(file)
     db_session.commit()
+    permission_delete(file)
     return
 
 

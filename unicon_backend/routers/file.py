@@ -10,7 +10,9 @@ from unicon_backend.constants import MINIO_BUCKET
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.lib.file import download_file, upload_fastapi_file
+from unicon_backend.lib.permissions import permission_check
 from unicon_backend.models.file import FileORM
+from unicon_backend.models.user import UserORM
 
 router = APIRouter(prefix="/files", tags=["file"], dependencies=[Depends(get_current_user)])
 
@@ -21,14 +23,23 @@ async def create_file(file: UploadFile):
 
 
 @router.get("/{file_id}")
-async def get_file(file_id: str, db_session: Annotated[Session, Depends(get_db_session)]):
+async def get_file(
+    file_id: str,
+    db_session: Annotated[Session, Depends(get_db_session)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+):
+    fileOrm = db_session.scalar(select(FileORM).where(col(FileORM.key) == file_id))
+
+    # NOTE: We have not added permify records for files in the node graph --> we allow all reads for those for now.
+    if fileOrm and not permission_check(fileOrm, "view", user):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
     try:
         file = download_file(MINIO_BUCKET, file_id)
     except S3Error as err:
         raise HTTPException(status_code=404, detail="File not found") from err
 
     # Files within programming tasks are currently not in the FileORM table.
-    fileOrm = db_session.scalar(select(FileORM).where(col(FileORM.key) == file_id))
     name = fileOrm.path.split("/")[-1] if fileOrm else file_id
 
     return Response(
