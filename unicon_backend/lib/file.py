@@ -11,6 +11,22 @@ from unicon_backend.constants import MINIO_ACCESS_KEY, MINIO_BUCKET, MINIO_HOST,
 _client = Minio(MINIO_HOST, access_key=MINIO_ACCESS_KEY, secret_key=MINIO_SECRET_KEY, secure=False)
 
 
+async def upload_fastapi_file(file: UploadFile) -> str:
+    """
+    Upload a file from FastAPI's UploadFile object to Minio.
+    Returns file's minio_key.
+    """
+    content_type = mimetypes.guess_type(file.filename or "")[0] or "application/octet-stream"
+    ext = pathlib.Path(file.filename).suffix if file.filename else ""
+    key = get_valid_key(ext)
+    upload_file(MINIO_BUCKET, key, await file.read(), content_type)
+    return key
+
+
+def delete_file(bucket_name: str, object_name: str):
+    _client.remove_object(bucket_name, object_name)
+
+
 def guess_content_type(filename: str | None) -> str:
     default = "application/octet-stream"
     if not filename:
@@ -22,18 +38,6 @@ def get_valid_key(ext: str) -> str:
     key = str(uuid.uuid4()) + ext
     while file_exists(MINIO_BUCKET, key):
         key = str(uuid.uuid4()) + ext
-    return key
-
-
-async def upload_fastapi_file(file: UploadFile) -> str:
-    """
-    Upload a file from FastAPI's UploadFile object to Minio.
-    Returns file's minio_key.
-    """
-    content_type = mimetypes.guess_type(file.filename or "")[0] or "application/octet-stream"
-    ext = pathlib.Path(file.filename).suffix if file.filename else ""
-    key = get_valid_key(ext)
-    upload_file(MINIO_BUCKET, key, await file.read(), content_type)
     return key
 
 

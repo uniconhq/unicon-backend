@@ -32,7 +32,7 @@ class Problem(CustomSQLModel):
     restricted: bool
     published: bool = Field(default=False)
     description: str
-    supporting_files: list[FileORM]
+    supporting_files: list[FileORM] = Field(default_factory=list)
     tasks: list[Annotated[Task, Field(discriminator="type")]]
     started_at: datetime
     ended_at: datetime

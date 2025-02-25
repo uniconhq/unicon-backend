@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, func, select
 
+from unicon_backend.constants import MINIO_BUCKET
 from unicon_backend.dependencies.auth import get_current_user
 from unicon_backend.dependencies.common import get_db_session
 from unicon_backend.dependencies.problem import (
@@ -14,7 +15,7 @@ from unicon_backend.dependencies.problem import (
 from unicon_backend.evaluator.problem import Problem, Task, UserInput
 from unicon_backend.evaluator.tasks.base import TaskType
 from unicon_backend.evaluator.tasks.programming.visitors import ParsedFunction
-from unicon_backend.lib.file import upload_fastapi_file
+from unicon_backend.lib.file import delete_file, upload_fastapi_file
 from unicon_backend.lib.permissions import (
     permission_check,
     permission_create,
@@ -241,6 +242,31 @@ async def upload_files_to_problem(
         )
 
     db_session.add_all(file_models)
+    db_session.commit()
+    return
+
+
+@router.delete("/{id}/files/{file_id}")
+def delete_file_from_problem(
+    file_id: int,
+    db_session: Annotated[Session, Depends(get_db_session)],
+    problem_orm: Annotated[ProblemORM, Depends(get_problem_by_id)],
+    user: Annotated[UserORM, Depends(get_current_user)],
+):
+    if not permission_check(problem_orm, "edit", user):
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail="User does not have permission to upload files to problem",
+        )
+
+    file = db_session.scalar(select(FileORM).where(FileORM.id == file_id))
+    if not file:
+        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="File not found")
+
+    delete_file(MINIO_BUCKET, file.key)
+
+    # problem_orm.supporting_files.remove(file)
+    db_session.delete(file)
     db_session.commit()
     return
 
