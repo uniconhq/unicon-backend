@@ -71,8 +71,7 @@ def upgrade() -> None:
         sa.Column(
             "ended_at",
             postgresql.TIMESTAMP(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
+            nullable=True,
         ),
         sa.Column(
             "closed_at",

@@ -32,7 +32,7 @@ class ProblemUpdate(BaseModel):
     description: str
     task_order: list[TaskOrder]
     started_at: datetime
-    ended_at: datetime
+    ended_at: datetime | None
     closed_at: datetime | None
 
 

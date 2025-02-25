@@ -51,9 +51,10 @@ class ProblemORM(CustomSQLModel, table=True):
     description: str
     restricted: bool = Field(default=False, sa_column_kwargs={"server_default": "false"})
 
+    # The time at which the problem is available to users.
     started_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=False))
     # After ended at: A submission is considered late.
-    ended_at: datetime = Field(sa_column=_timestamp_column(nullable=False, default=False))
+    ended_at: datetime | None = Field(sa_column=_timestamp_column(nullable=True, default=False))
     # After closed at: Submissions are no longer accepted.
     closed_at: datetime | None = Field(sa_column=_timestamp_column(nullable=True, default=False))
 
