@@ -2,15 +2,15 @@ import libcst as cst
 
 WORKER_TEMPLATE = cst.parse_module("""
 import os
-from contextlib import redirect_stdout
+import io
+from contextlib import redirect_stdout, redirect_stderr                                   
 
 def call_function_from_file(file_name, function_name, *args, **kwargs):
-    with open(os.devnull, "w") as f:
-        with redirect_stdout(f):  
-            module_name = file_name.replace(".py", "")
-            module = importlib.import_module(module_name)
-            func = getattr(module, function_name)
-            return func(*args, **kwargs)
+    with redirect_stdout(io.StringIO()) as stdout, redirect_stderr(io.StringIO()) as stderr:  
+        module_name = file_name.replace(".py", "")
+        module = importlib.import_module(module_name)
+        func = getattr(module, function_name)
+        return func(*args, **kwargs), stdout.getvalue(), stderr.getvalue()
 
 
 def worker(task_queue, result_queue):
@@ -21,8 +21,8 @@ def worker(task_queue, result_queue):
 
         file_name, function_name, args, kwargs = task
         try:
-            result = call_function_from_file(file_name, function_name, *args, **kwargs)
-            result_queue.put((result, None))
+            result, stdout, stderr = call_function_from_file(file_name, function_name, *args, **kwargs)
+            result_queue.put((result, stdout, stderr, None))
         except Exception as e:
             result_queue.put((None, e))
 """)
@@ -48,11 +48,11 @@ process.start()
 
 def call_function_safe(file_name, function_name, allow_error, *args, **kwargs):
     task_queue.put((file_name, function_name, args, kwargs))
-    result, err = result_queue.get()
+    result, stdout, stderr, err = result_queue.get()
     if not allow_error and err is not None:
         print(json.dumps({"file_name": file_name, "function_name": function_name, "error": str(err)}))
         sys.exit(1)
-    return result, err
+    return result, stdout, stderr, err
 """)
 
 
